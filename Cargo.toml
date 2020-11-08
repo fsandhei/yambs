@@ -1,5 +1,5 @@
 [package]
-name = "my_make"
+name = "mymake"
 version = "0.1.0"
 authors = ["Fredrik Sandhei <fredrik.sandhei@gmail.com>"]
 edition = "2018"

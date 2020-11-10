@@ -3,10 +3,20 @@
 
 pub mod mmk_file_reader
 {
+    use std::collections::HashMap;
     pub struct Mmk
     {
-        pub left_side: String,
-        pub right_side: Vec<String>,
+        pub data: HashMap<String, Vec<String>>,
+        // pub left_side: String,
+        // pub right_side: Vec<String>,
+    }
+
+    impl Mmk
+    {
+        pub fn new() -> Mmk
+        {
+            Mmk { data: HashMap::new() }
+        }
     }
 
     use std::fs;
@@ -25,7 +35,7 @@ pub mod mmk_file_reader
         data[keyword_index..].to_string()
      }
 
-    pub fn parse_mmk(data: &String, keyword: &str) -> Mmk
+    pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -> &'a mut Mmk
     {
         let filtered_data: String = clip_string(&data, &keyword).replace(" ", "")
                                                 // .replace("\n", "")
@@ -37,18 +47,19 @@ pub mod mmk_file_reader
 
         let mmk_right_side: Vec<String> = split_data[1].split_terminator("\\").map(|s| 
             {
-                let new_str = s.trim_matches(&['\n', '\r'][..]);
+                //let new_str = s.trim_matches(&['\n', '\r'][..]);
 
-                new_str.to_string()
+                s.trim_end_matches("MMK_DEPEND")
+                .trim_end_matches("MMK_SOURCES")
+                .trim_end_matches("MMK_HEADERS")
+                .trim_end_matches("MMK_EXECUTABLE")
+                .trim_matches(&['\n', '\r'][..])
+                .to_string()
             }
         ).collect();
 
-        let mmk: Mmk = Mmk
-        {
-            left_side: split_data[0].to_string(),
-            right_side: mmk_right_side,
-        };
-        mmk
+        mmk_container.data.insert(split_data[0].to_string(), mmk_right_side);
+        mmk_container
     }
 }
 
@@ -56,6 +67,7 @@ pub mod mmk_file_reader
 mod tests
 {
     use textwrap::dedent;
+    use super::mmk_file_reader;
     #[test]
     fn test_mmk_file_reader()
     {
@@ -68,45 +80,47 @@ mod tests
     #[test]
     fn test_parse_mmk_sources()
     {
+        let mut mmk_content = mmk_file_reader::Mmk::new();
         let content: String = String::from("MMK_SOURCES = filename.cpp \\
                                                           otherfilename.cpp\n");
-        let mmk_data = super::mmk_file_reader::parse_mmk(&content, "MMK_SOURCES");
-        assert_eq!(mmk_data.left_side, "MMK_SOURCES");
-        assert_eq!(mmk_data.right_side, ["filename.cpp", "otherfilename.cpp"]);
+
+        mmk_file_reader::parse_mmk( &mut mmk_content, &content, "MMK_SOURCES");
+        assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp", "otherfilename.cpp"]);
     }
 
     #[test]
     fn test_parse_mmk_source()
     {
+        let mut mmk_content = mmk_file_reader::Mmk::new();
         let content: String = String::from("MMK_SOURCES = filename.cpp \\");
-
-        let mmk_data = super::mmk_file_reader::parse_mmk(&content, "MMK_SOURCES");
-        assert_eq!(mmk_data.left_side, "MMK_SOURCES");
-        assert_eq!(mmk_data.right_side, ["filename.cpp"]);
+        mmk_file_reader::parse_mmk(&mut mmk_content, &content, "MMK_SOURCES");
+        assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp"]);
     }
 
     #[test]
     fn test_parse_mmk_dependencies()
     {
+        let mut mmk_content = mmk_file_reader::Mmk::new();
         let content: String = String::from("MMK_DEPEND = /some/path/to/depend/on \\
                                                          /another/path/to/depend/on\n");
-        let mmk_data = super::mmk_file_reader::parse_mmk(&content, "MMK_DEPEND");
-        assert_eq!(mmk_data.left_side, "MMK_DEPEND");
-        assert_eq!(mmk_data.right_side, ["/some/path/to/depend/on", "/another/path/to/depend/on"]);
+        mmk_file_reader::parse_mmk(&mut mmk_content, &content, "MMK_DEPEND");
+        assert_eq!(mmk_content.data["MMK_DEPEND"], ["/some/path/to/depend/on", "/another/path/to/depend/on"]);
     }
 
     #[test]
     fn test_multiple_keywords()
     {
+        let mut mmk_content = mmk_file_reader::Mmk::new();
         let content: String = String::from("MMK_SOURCES = filename.cpp \\
                                                           otherfilename.cpp\n
                                             
                                             MMK_DEPEND = /some/path/to/depend/on \\
                                                          /another/path/\n");
 
-        let mmk_data = super::mmk_file_reader::parse_mmk(&content, "MMK_SOURCES");
-        assert_eq!(mmk_data.left_side, "MMK_SOURCES");
-        assert_eq!(mmk_data.right_side, ["filename.cpp", "otherfilename.cpp"]);
+        mmk_file_reader::parse_mmk(&mut mmk_content, &content, "MMK_SOURCES");
+        assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp", "otherfilename.cpp"]);
+        mmk_file_reader::parse_mmk(&mut mmk_content, &content, "MMK_DEPEND");
+        assert_eq!(mmk_content.data["MMK_DEPEND"], ["/some/path/to/depend/on", "/another/path/"]);
     }
 }
 

@@ -8,13 +8,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mymake"
-version = "0.1.0"
-dependencies = [
- "mmk_parser",
-]
-
-[[package]]
 name = "textwrap"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

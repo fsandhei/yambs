@@ -4,6 +4,7 @@
 pub mod mmk_file_reader
 {
     use std::collections::HashMap;
+    #[derive(Debug)]
     pub struct Mmk
     {
         pub data: HashMap<String, Vec<String>>,
@@ -18,6 +19,8 @@ pub mod mmk_file_reader
             Mmk { data: HashMap::new() }
         }
     }
+
+    // Implementere Display for Mmk her!
 
     use std::fs;
     use std::io;

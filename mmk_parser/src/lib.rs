@@ -4,6 +4,7 @@
 pub mod mmk_file_reader
 {
     use std::collections::HashMap;
+    use std::vec::Vec;
     #[derive(Debug)]
     pub struct Mmk
     {
@@ -17,6 +18,17 @@ pub mod mmk_file_reader
         pub fn new() -> Mmk
         {
             Mmk { data: HashMap::new() }
+        }
+
+        pub fn to_string(&self, key: &str) -> String
+        {
+            let mut formatted_string = String::new();
+            for item in &self.data[key]
+            {                
+                formatted_string.push_str(&item[..].trim());
+                formatted_string.push_str(" ");
+            }
+            formatted_string.trim_end().to_string()
         }
     }
 
@@ -41,7 +53,6 @@ pub mod mmk_file_reader
     pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -> &'a mut Mmk
     {
         let filtered_data: String = clip_string(&data, &keyword).replace(" ", "")
-                                                // .replace("\n", "")
                                                 .to_string();
 
         let split_data: Vec<&str> = filtered_data.trim_start()
@@ -50,8 +61,6 @@ pub mod mmk_file_reader
 
         let mmk_right_side: Vec<String> = split_data[1].split_terminator("\\").map(|s| 
             {
-                //let new_str = s.trim_matches(&['\n', '\r'][..]);
-
                 s.trim_end_matches("MMK_DEPEND")
                 .trim_end_matches("MMK_SOURCES")
                 .trim_end_matches("MMK_HEADERS")

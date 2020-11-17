@@ -5,12 +5,13 @@ pub mod mmk_file_reader
 {
     use std::collections::HashMap;
     use std::vec::Vec;
+    use std::fs;
+    use std::io;
+    use std::path::Path;
     #[derive(Debug)]
     pub struct Mmk
     {
         pub data: HashMap<String, Vec<String>>,
-        // pub left_side: String,
-        // pub right_side: Vec<String>,
     }
 
     impl Mmk
@@ -31,12 +32,6 @@ pub mod mmk_file_reader
             formatted_string.trim_end().to_string()
         }
     }
-
-    // Implementere Display for Mmk her!
-
-    use std::fs;
-    use std::io;
-    use std::path::Path;
 
     pub fn read_file(file_path: &Path) -> Result<String, io::Error>
     {

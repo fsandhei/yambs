@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 mmk_parser = { path = 'mmk_parser/' }
+generator = { path = 'generator/' }
+clap = "2.33.3"

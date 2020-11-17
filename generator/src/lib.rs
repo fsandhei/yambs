@@ -5,16 +5,16 @@ pub mod mmk_generator
 {
     use std::fs::File;
     use std::io::Write;
-    use mmk_parser::mmk_file_reader;
+    use mmk_parser;
     pub struct MmkGenerator
     {
         filename: File,
-        content: mmk_file_reader::Mmk,
+        content: mmk_parser::Mmk,
     }
     
     pub trait Generator
     {
-        fn new(filename: &str, mmk_content: mmk_file_reader::Mmk ) -> Self;
+        fn new(filename: &str, mmk_content: mmk_parser::Mmk ) -> Self;
         fn generate_makefile(self: &mut Self)        -> std::io::Result<()>;
         fn generate_header(self: &mut Self)          -> std::io::Result<()>;
         fn generate_rule_executable(self: &mut Self) -> std::io::Result<()>;
@@ -23,7 +23,7 @@ pub mod mmk_generator
 
     impl Generator for MmkGenerator
     {
-        fn new(filename: &str, mmk_content: mmk_file_reader::Mmk) -> MmkGenerator
+        fn new(filename: &str, mmk_content: mmk_parser::Mmk) -> MmkGenerator
         {
             let file = File::create(filename).expect("Something went wrong");
             MmkGenerator{ filename: file, content: mmk_content}
@@ -116,7 +116,7 @@ mod tests {
     {
         let dir = TempDir::new("example")?;
         let test_file = dir.path().join("makefile");
-        let mut mmk = mmk_parser::mmk_file_reader::Mmk::new();
+        let mut mmk = mmk_parser::Mmk::new();
         mmk.data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
         mmk.data.insert("MMK_EXECUTABLE".to_string(), vec!["main".to_string()]);
         let mut gen: mmk_generator::MmkGenerator = mmk_generator::Generator::new(test_file.to_str().unwrap(), mmk);
@@ -128,7 +128,7 @@ mod tests {
     {
         let dir = TempDir::new("example")?;
         let test_file = dir.path().join("makefile");
-        let mut mmk = mmk_parser::mmk_file_reader::Mmk::new();
+        let mut mmk = mmk_parser::Mmk::new();
         mmk.data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
         mmk.data.insert("MMK_EXECUTABLE".to_string(), vec!["main".to_string()]);
         let mut gen: mmk_generator::MmkGenerator = mmk_generator::Generator::new(test_file.to_str().unwrap(), mmk);

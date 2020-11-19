@@ -77,7 +77,7 @@ mod tests
     {
         let path = std::path::Path::new("/home/fredrik/bin/mymake/mmk_parser/src/test.mmk");
         let content = read_file(&path);        
-        assert_eq!(content.unwrap(), dedent(
+        assert_eq!(content, dedent(
         "MMK_SOURCES = filename.cpp \\
               otherfilename.cpp\n"));
     }
@@ -129,6 +129,15 @@ mod tests
         assert_eq!(mmk_content.data["MMK_DEPEND"], ["/some/path/to/depend/on", "/another/path/"]);
         parse_mmk(&mut mmk_content, &content, "MMK_EXECUTABLE");
         assert_eq!(mmk_content.data["MMK_EXECUTABLE"], ["main"]);
+    }
+    #[test]
+    fn test_parse_mmk_no_keyword()
+    {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_DEPEND = /some/path/to/depend/on \\
+                                                         /another/path/to/depend/on\n");
+        parse_mmk(&mut mmk_content, &content, "MMK_DEP");
+        assert!(mmk_content.data.is_empty() == true);
     }
 }
 

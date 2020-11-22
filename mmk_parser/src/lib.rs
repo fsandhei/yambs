@@ -19,15 +19,34 @@ impl Mmk
         Mmk { data: HashMap::new() }
     }
 
-    pub fn to_string(&self, key: &str) -> String
+    pub fn parse_file(self: &mut Self, data: &String) -> &mut Mmk
+    {
+        parse_mmk(self, &data, "MMK_SOURCES");
+        parse_mmk(self, &data, "MMK_HEADERS");
+        parse_mmk(self, &data, "MMK_EXECUTABLE");
+        parse_mmk(self, &data, "MMK_DEPEND")
+    }
+
+    pub fn to_string(self: &Self, key: &str) -> String
     {
         let mut formatted_string = String::new();
-        for item in &self.data[key]
-        {                
-            formatted_string.push_str(&item[..].trim());
-            formatted_string.push_str(" ");
+        if self.data.contains_key(key)
+        {
+            for item in &self.data[key]
+            {                
+                formatted_string.push_str(&item[..].trim());
+                formatted_string.push_str(" ");
+            }            
         }
         formatted_string.trim_end().to_string()
+    }
+
+    pub fn valid_keyword(self: &Self, keyword: &str) -> bool
+    {
+        keyword    == "MMK_DEPEND"
+        || keyword == "MMK_SOURCES" 
+        || keyword == "MMK_HEADERS"
+        || keyword == "MMK_EXECUTABLE"
     }
 }
 
@@ -36,34 +55,44 @@ pub fn read_file(file_path: &Path) -> Result<String, io::Error>
     fs::read_to_string(&file_path)
 }
 
-    fn clip_string(data: &String, keyword:&str) -> String
+fn clip_string(data: &String, keyword:&str) -> String
+{
+    let keyword_index: usize = match data.find(&keyword)
     {
-    let keyword_index: usize = data.find(&keyword).expect("Word not found!");
-
+        Some(match_index) => match_index,
+        None => return String::from(""),
+    };
     data[keyword_index..].to_string()
-    }
+}  
 
 pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -> &'a mut Mmk
 {
-    let filtered_data: String = clip_string(&data, &keyword).replace(" ", "")
-                                            .to_string();
+    if mmk_container.valid_keyword(keyword)
+    {
+        let filtered_data: String = clip_string(&data, &keyword).replace(" ", "")
+                                                .to_string();
 
-    let split_data: Vec<&str> = filtered_data.trim_start()
-                                                .split_terminator("=")
-                                                .collect();
-
-    let mmk_right_side: Vec<String> = split_data[1].split_terminator("\\").map(|s| 
+        if filtered_data == ""
         {
-            s.trim_end_matches("MMK_DEPEND")
-            .trim_end_matches("MMK_SOURCES")
-            .trim_end_matches("MMK_HEADERS")
-            .trim_end_matches("MMK_EXECUTABLE")
-            .trim_matches(&['\n', '\r'][..])
-            .to_string()
+            mmk_container.data.insert(keyword.to_string(), vec![filtered_data]);
+            return mmk_container;
         }
-    ).collect();
+        let split_data: Vec<&str> = filtered_data.trim_start()
+                                                    .split_terminator("=")
+                                                    .collect();
 
-    mmk_container.data.insert(split_data[0].to_string(), mmk_right_side);
+        let mmk_right_side: Vec<String> = split_data[1].split_terminator("\\").map(|s| 
+            {
+                s.trim_end_matches("MMK_DEPEND")
+                .trim_end_matches("MMK_SOURCES")
+                .trim_end_matches("MMK_HEADERS")
+                .trim_end_matches("MMK_EXECUTABLE")
+                .trim_matches(&['\n', '\r'][..])
+                .to_string()
+            }
+        ).collect();
+        mmk_container.data.insert(split_data[0].to_string(), mmk_right_side);
+    }
     mmk_container
 }
 
@@ -77,7 +106,7 @@ mod tests
     {
         let path = std::path::Path::new("/home/fredrik/bin/mymake/mmk_parser/src/test.mmk");
         let content = read_file(&path);        
-        assert_eq!(content, dedent(
+        assert_eq!(content.unwrap(), dedent(
         "MMK_SOURCES = filename.cpp \\
               otherfilename.cpp\n"));
     }

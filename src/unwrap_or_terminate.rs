@@ -14,7 +14,7 @@ impl<T, E> MyMakeUnwrap<T> for Result<T,E> where E: std::fmt::Display
         {
             Ok(t) => t,
             Err(err) => {
-                println!("MyMake: {}", err);
+                eprintln!("MyMake: {}", err);
                 std::process::exit(1);
             }
         }
@@ -29,7 +29,7 @@ impl<T> MyMakeUnwrap<T> for Option<T>
         {
             Some(t) => t,
             None => {
-                println!("Invalid input or no input given!");
+                println!("MyMake: Invalid input or no input given!");
                 std::process::exit(1);
             }
         }

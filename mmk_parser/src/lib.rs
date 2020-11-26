@@ -21,10 +21,11 @@ impl Mmk
 
     pub fn parse_file(self: &mut Self, data: &String) -> &mut Mmk
     {
+        print!(".");
         parse_mmk(self, &data, "MMK_SOURCES");
         parse_mmk(self, &data, "MMK_HEADERS");
         parse_mmk(self, &data, "MMK_EXECUTABLE");
-        parse_mmk(self, &data, "MMK_DEPEND")
+        parse_mmk(self, &data, "MMK_DEPEND")        
     }
 
     pub fn to_string(self: &Self, key: &str) -> String

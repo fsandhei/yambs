@@ -4,8 +4,6 @@ mod unwrap_or_terminate;
 
 use clap::{Arg, App};
 use unwrap_or_terminate::MyMakeUnwrap;
-use std::io;
-use std::io::Write;
 
 /*
 TODO: 
@@ -15,46 +13,36 @@ TODO:
 struct Builder
 {
     mmk_data: std::vec::Vec<mmk_parser::Mmk>,
-    num_mmk_data: u32,
-    file_data: String,
 }
 
 impl Builder
 {
-    fn from(top: mmk_parser::Mmk, file_content: String) -> Builder
+    fn new() -> Builder
     {
         Builder 
         {
-            mmk_data: vec![top],
-            num_mmk_data: 1,
-            file_data: file_content, 
+            mmk_data: Vec::new(),
         }    
     }
 
-    fn read_mmk_files(self: &mut Self)
+    fn read_mmk_files(self: &mut Self, top_path: &std::path::Path)
     {
-        let top_mut = self.mmk_data.last_mut().unwrap();
-        print!("MyMake: Reading mmk file: {}\r", self.num_mmk_data);
-        top_mut.parse_file(&self.file_data);
+         let file_content =  mmk_parser::read_file(top_path).unwrap_or_terminate();
+         let mut top = mmk_parser::Mmk::new();
+         top.parse_file(&file_content);
 
-        for path in top_mut.data["MMK_DEPEND"].clone()
+        for path in top.data["MMK_DEPEND"].clone()
         {
             if path == ""
             {
                 break;
             }
-            self.num_mmk_data += 1;
             let mut mmk_path = path.clone();
             mmk_path.push_str("/mymakeinfo.mmk");
-            let dep_path = std::path::Path::new(&mmk_path);
-            let mut dep_mmk = mmk_parser::Mmk::new();
-
-            self.file_data = mmk_parser::read_file(dep_path).unwrap_or_terminate();            
-            dep_mmk.parse_file(&self.file_data);
-            self.mmk_data.push(dep_mmk);
-            self.read_mmk_files();
+            let dep_path = std::path::Path::new(&mmk_path);            
+            self.read_mmk_files(dep_path);
         }
-        println!();
+        self.mmk_data.push(top);
     }
 }
 
@@ -65,19 +53,22 @@ fn main() -> Result<(), std::io::Error> {
         .author("Fredrik Sandhei <fredrik.sandhei@gmail.com>")
         .about("GNU Make overlay for C / C++ projects.")
         .arg(Arg::with_name("mmk_file")
-                    .short("f")
-                    .long("file")
+                    .short("g")
+                    .long("generator")
                     .takes_value(true)
                     .help("Input file for MMK"))
         .get_matches();
         
     let myfile = std::path::Path::new(matches.value_of("mmk_file").unwrap_or_terminate());
     // let root = std::path::Path::new(myfile.parent().unwrap());
-    let file_content =  mmk_parser::read_file(myfile).unwrap_or_terminate();
-    let top = mmk_parser::Mmk::new();
+    // let file_content =  mmk_parser::read_file(myfile).unwrap_or_terminate();
+    // let top = mmk_parser::Mmk::new();
 
-    let mut builder = Builder::from(top, file_content);
-    builder.read_mmk_files();
+     let mut builder = Builder::new();
+
+    print!("MyMake: Reading mmk files");
+    builder.read_mmk_files(myfile);
+    println!();
     println!("{:?}", builder.mmk_data);
     
     // let mut generator: generator::MmkGenerator = generator::Generator::new(root, parsed_mmk);

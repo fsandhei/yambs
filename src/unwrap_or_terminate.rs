@@ -1,5 +1,4 @@
 
-
 pub trait MyMakeUnwrap<T>
 {
     fn unwrap_or_terminate(self) -> T;

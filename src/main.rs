@@ -1,51 +1,19 @@
 extern crate mmk_parser;
 extern crate generator;
+
 mod unwrap_or_terminate;
 
+
 use clap::{Arg, App};
+use builder::*;
 use unwrap_or_terminate::MyMakeUnwrap;
 
 /*
 TODO: 
+    *Builder: Generere dependency graph. Finne ut hva som skal bygges i riktig rekkefølge
     *Implementere unwrap_or_terminate() for Option / Result
     *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en /makefile.
 */
-struct Builder
-{
-    mmk_data: std::vec::Vec<mmk_parser::Mmk>,
-}
-
-impl Builder
-{
-    fn new() -> Builder
-    {
-        Builder 
-        {
-            mmk_data: Vec::new(),
-        }    
-    }
-
-    fn read_mmk_files(self: &mut Self, top_path: &std::path::Path)
-    {
-         let file_content =  mmk_parser::read_file(top_path).unwrap_or_terminate();
-         let mut top = mmk_parser::Mmk::new();
-         top.parse_file(&file_content);
-
-        for path in top.data["MMK_DEPEND"].clone()
-        {
-            if path == ""
-            {
-                break;
-            }
-            let mut mmk_path = path.clone();
-            mmk_path.push_str("/mymakeinfo.mmk");
-            let dep_path = std::path::Path::new(&mmk_path);            
-            self.read_mmk_files(dep_path);
-        }
-        self.mmk_data.push(top);
-    }
-}
-
 
 fn main() -> Result<(), std::io::Error> {
     let matches = App::new("MyMake")
@@ -60,14 +28,10 @@ fn main() -> Result<(), std::io::Error> {
         .get_matches();
         
     let myfile = std::path::Path::new(matches.value_of("mmk_file").unwrap_or_terminate());
-    // let root = std::path::Path::new(myfile.parent().unwrap());
-    // let file_content =  mmk_parser::read_file(myfile).unwrap_or_terminate();
-    // let top = mmk_parser::Mmk::new();
-
-     let mut builder = Builder::new();
+    let mut builder = Builder::new();
 
     print!("MyMake: Reading mmk files");
-    builder.read_mmk_files(myfile);
+    builder.read_mmk_files(myfile).unwrap_or_terminate();
     println!();
     println!("{:?}", builder.mmk_data);
     

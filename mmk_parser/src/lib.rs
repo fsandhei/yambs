@@ -6,7 +6,7 @@ use std::vec::Vec;
 use std::fs;
 use std::io;
 use std::path::Path;
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Mmk
 {
     pub data: HashMap<String, Vec<String>>,

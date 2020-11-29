@@ -6,6 +6,7 @@ use std::vec::Vec;
 use std::fs;
 use std::io;
 use std::path::Path;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Mmk
 {
@@ -82,7 +83,7 @@ pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -
                                                     .split_terminator("=")
                                                     .collect();
 
-        let mmk_right_side: Vec<String> = split_data[1].split_terminator("\\").map(|s| 
+        let mut mmk_right_side: Vec<String> = split_data[1].split_terminator("\\").map(|s| 
             {
                 s.trim_end_matches("MMK_DEPEND")
                 .trim_end_matches("MMK_SOURCES")
@@ -92,6 +93,7 @@ pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -
                 .to_string()
             }
         ).collect();
+        mmk_right_side.retain(|x| x.is_empty() == false);
         mmk_container.data.insert(split_data[0].to_string(), mmk_right_side);
     }
     mmk_container
@@ -127,6 +129,17 @@ mod tests
     {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES = filename.cpp \\");
+        parse_mmk(&mut mmk_content, &content, "MMK_SOURCES");
+        assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp"]);
+    }
+
+
+    #[test]
+    fn test_parse_mmk_source_newline_after_end()
+    {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_SOURCES = filename.cpp \\
+        ");
         parse_mmk(&mut mmk_content, &content, "MMK_SOURCES");
         assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp"]);
     }

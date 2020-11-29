@@ -11,6 +11,7 @@ use unwrap_or_terminate::MyMakeUnwrap;
 /*
 TODO: 
     *Builder: Generere dependency graph. Finne ut hva som skal bygges i riktig rekkefølge
+    * Første inkrement: Ha kun én dependency som trengs for å vise konsept.
     *Implementere unwrap_or_terminate() for Option / Result
     *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en /makefile.
 */

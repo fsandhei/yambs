@@ -4,18 +4,18 @@ use std::io;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Dependency {
     pub path: std::path::PathBuf,
-    pub requires: Option<Box<Dependency>>,
+    pub requires: Vec<Dependency>,
 }
 
 impl Dependency {
     pub fn from(path: &std::path::Path) -> Dependency {
         Dependency {
             path: std::path::PathBuf::from(path),
-            requires: None,
+            requires: Vec::new(),
         }
     }
-    pub fn add_dependency(self: &mut Self, dependency: Box<Dependency>) {
-        self.requires = Some(dependency);
+    pub fn add_dependency(self: &mut Self, dependency: Dependency) {
+        self.requires.push(dependency);
     }
 }
 
@@ -47,7 +47,7 @@ impl Builder {
             let dep_path = std::path::Path::new(&mmk_path);
 
             let required_dependency = Dependency::from(dep_path);
-            top_dependency.add_dependency(Box::new(required_dependency));
+            top_dependency.add_dependency(required_dependency);
             self.read_mmk_files(dep_path)?;
         }
         self.mmk_data.push(top);
@@ -60,8 +60,8 @@ impl Builder {
 mod tests {
     use super::*;
     use mmk_parser::Mmk;
-    use std::io::Write;
     use std::fs::File;
+    use std::io::Write;
     use tempdir::TempDir;
     #[test]
     fn it_works() {
@@ -210,10 +210,165 @@ mod tests {
             builder.mmk_dependencies[1],
             Dependency {
                 path: test_file,
-                requires: Some(Box::new(Dependency {
+                requires: vec![Dependency {
                     path: test_file_dep,
-                    requires: None
-                }))
+                    requires: Vec::new()
+                }]
+            }
+        );
+        // println!("{:?}", builder.mmk_dependencies);
+        Ok(())
+    }
+
+    #[test]
+    fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
+        let mut builder = Builder::new();
+        let dir = TempDir::new("example")?;
+        let test_file = dir.path().join("mymakeinfo.mmk");
+
+        let dir_dep = TempDir::new("example_dep")?;
+        let test_file_dep = dir_dep.path().join("mymakeinfo.mmk");
+
+        let second_dir_dep = TempDir::new("example_dep_second")?;
+        let second_test_file_dep = second_dir_dep.path().join("mymakeinfo.mmk");
+
+        let mut file = File::create(&test_file)?;
+        let mut file_dep = File::create(&test_file_dep)?;
+        let mut second_file_dep = File::create(&second_test_file_dep)?;
+
+        write!(
+            file,
+            "\
+        MMK_DEPEND = {} \\
+                     {} \\
+        \n
+        MMK_SOURCES = some_file.cpp \\
+                      some_other_file.cpp \\
+        \n
+        MMK_HEADERS = some_file.h \\
+                      some_other_file.h \\
+        
+        \n
+        
+        MMK_EXECUTABLE = x",
+            &dir_dep.path().to_str().unwrap().to_string(),
+            &second_dir_dep.path().to_str().unwrap().to_string()
+        )?;
+
+        write!(
+            file_dep,
+            "\
+        MMK_SOURCES = /some/some_file.cpp \\
+                      /some/other_file.cpp \\
+        \n
+        MMK_HEADERS = /some/some_file.h \\
+                      /some/some_other_file.h \\
+        
+        \n
+        
+        MMK_EXECUTABLE = x"
+        )?;
+
+        write!(
+            second_file_dep,
+            "\
+        MMK_SOURCES = /some/some_file.cpp \\
+                      /some/other_file.cpp \\
+        \n
+        MMK_HEADERS = /some/some_file.h \\
+                      /some/some_other_file.h \\
+        
+        \n
+        
+        MMK_EXECUTABLE = x"
+        )?;
+
+        builder.read_mmk_files(&test_file).unwrap();
+        let mut expected_1 = Mmk::new();
+        let mut expected_2 = Mmk::new();
+        let mut expected_3 = Mmk::new();
+
+        expected_1.data.insert(
+            String::from("MMK_DEPEND"),
+            vec![dir_dep.path().to_str().unwrap().to_string(),
+                 second_dir_dep.path().to_str().unwrap().to_string()],
+        );
+        expected_1
+            .data
+            .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
+
+        expected_1.data.insert(
+            String::from("MMK_SOURCES"),
+            vec![
+                String::from("some_file.cpp"),
+                String::from("some_other_file.cpp"),
+            ],
+        );
+        expected_1.data.insert(
+            String::from("MMK_HEADERS"),
+            vec![
+                String::from("some_file.h"),
+                String::from("some_other_file.h"),
+            ],
+        );
+
+        expected_2
+            .data
+            .insert(String::from("MMK_DEPEND"), vec![String::new()]);
+        expected_2
+            .data
+            .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
+        expected_2.data.insert(
+            String::from("MMK_SOURCES"),
+            vec![
+                String::from("/some/some_file.cpp"),
+                String::from("/some/other_file.cpp"),
+            ],
+        );
+        expected_2.data.insert(
+            String::from("MMK_HEADERS"),
+            vec![
+                String::from("/some/some_file.h"),
+                String::from("/some/some_other_file.h"),
+            ],
+        );
+
+        expected_3
+            .data
+            .insert(String::from("MMK_DEPEND"), vec![String::new()]);
+        expected_3
+            .data
+            .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
+        expected_3.data.insert(
+            String::from("MMK_SOURCES"),
+            vec![
+                String::from("/some/some_file.cpp"),
+                String::from("/some/other_file.cpp"),
+            ],
+        );
+        expected_3.data.insert(
+            String::from("MMK_HEADERS"),
+            vec![
+                String::from("/some/some_file.h"),
+                String::from("/some/some_other_file.h"),
+            ],
+        );
+
+        assert_eq!(builder.mmk_data[2], expected_1);
+        assert_eq!(builder.mmk_data[1], expected_2);
+        assert_eq!(builder.mmk_data[0], expected_3);
+        assert_eq!(
+            builder.mmk_dependencies[2],
+            Dependency {
+                path: test_file,
+                requires: vec![Dependency {
+                    path: test_file_dep,
+                    requires: Vec::new()
+                },
+                Dependency {
+                    path: second_test_file_dep,
+                    requires: Vec::new()
+                }]
             }
         );
         // println!("{:?}", builder.mmk_dependencies);

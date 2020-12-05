@@ -1,5 +1,32 @@
 use mmk_parser;
-use std::io;
+use std::fmt;
+use std::error::Error;
+#[derive(Debug)]
+pub struct MyMakeError {
+    details: String
+}
+
+impl MyMakeError {
+    #[cfg(maybe_unused)]
+    fn new(msg: &str) -> MyMakeError {
+        MyMakeError{details: msg.to_string()}
+    }
+    fn from(msg: String) -> MyMakeError {
+        MyMakeError{details: msg}
+    }
+}
+
+impl fmt::Display for MyMakeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for MyMakeError {
+    fn description(&self) -> &str {
+        &self.details 
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Dependency {
@@ -11,7 +38,7 @@ impl Dependency {
     pub fn from(path: &std::path::Path) -> Dependency {
         Dependency {
             path: std::path::PathBuf::from(path),
-            requires: Vec::new(),
+            requires: vec![],
         }
     }
     pub fn add_dependency(self: &mut Self, dependency: Dependency) {
@@ -32,9 +59,13 @@ impl Builder {
         }
     }
 
-    pub fn read_mmk_files(self: &mut Self, top_path: &std::path::Path) -> io::Result<()> {
+    pub fn read_mmk_files(self: &mut Self, top_path: &std::path::Path) -> Result<(), MyMakeError> {
         let mut top_dependency = Dependency::from(&top_path);
-        let file_content = mmk_parser::read_file(top_path)?;
+        let file_content = match mmk_parser::read_file(top_path)
+        {
+            Ok(data) => data,
+            Err(err) => return Err(MyMakeError::from(format!("Error parsing {:?}: {}", top_path, err))),
+        };
         let mut top = mmk_parser::Mmk::new();
         top.parse_file(&file_content);
 
@@ -43,6 +74,7 @@ impl Builder {
                 break;
             }
             let mut mmk_path = path.clone();
+            // let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
             mmk_path.push_str("/mymakeinfo.mmk");
             let dep_path = std::path::Path::new(&mmk_path);
 

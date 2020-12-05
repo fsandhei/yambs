@@ -1,4 +1,4 @@
-MMK_DEPEND = /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/source/ 
+MMK_DEPEND = /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/ 
 
 MMK_SOURCES = filename.cpp \
               otherfilename.cpp

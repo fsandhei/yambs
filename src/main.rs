@@ -10,7 +10,8 @@ use unwrap_or_terminate::MyMakeUnwrap;
 
 /*
 TODO: 
-    *Builder: Generere dependency graph. Finne ut hva som skal bygges i riktig rekkefølge
+    *Builder: *Generere dependency graph. Finne ut hva som skal bygges i riktig rekkefølge
+              *Refakturere testene i Builder.
     * Første inkrement: Ha kun én dependency som trengs for å vise konsept.
     *Implementere unwrap_or_terminate() for Option / Result
     *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en /makefile.
@@ -48,7 +49,7 @@ fn main() -> Result<(), std::io::Error> {
         {
             if let Some(last) = builder.mmk_dependencies.last()
             {
-                match external::dottie(last, false)
+                match external::dottie(last, false, &mut String::new())
                 {
                     Ok(()) => println!("MyMake: Dependency graph made: dependency.gv"),
                     Err(_) => println!("MyMake: Could not make dependency graph."),

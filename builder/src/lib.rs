@@ -58,6 +58,12 @@ impl Builder {
             mmk_dependencies: Vec::new(),
         }
     }
+    pub fn from(dep_path: &std::path::PathBuf) -> Builder {
+        let mut builder = Builder::new();
+        let dependency = Dependency::from(dep_path);
+        builder.mmk_dependencies.push(dependency);
+        builder
+    }
 
     pub fn read_mmk_files(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
         let mut top_dependency = Dependency::from(top_path);

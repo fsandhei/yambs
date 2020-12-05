@@ -4,34 +4,39 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::env;
 
-pub fn dottie(top: &Dependency, recursive: bool) -> std::io::Result<()>{
-        
+pub fn dottie(top: &Dependency, recursive: bool, data: &mut String) -> std::io::Result<()>{
+    // if let Some(content) = data 
+    // {
+    //     data_to_write = content.clone();
+    // }
+    // else 
+    // {
+    //     data_to_write = String::new();
+    // }
     let mut dottie_file = create_dottie_file(recursive)?;
     let top_path = &top.path;
     
     if recursive == false
     {
-        dottie_file.write(b"\
-        digraph G{\n\
-        ")?;
+        // dottie_file.write_all(b"\
+        // digraph G {\n\
+        // ")?;
+        data.push_str("\
+        digraph G {{\n\
+        ");
+        dottie(top, true, data)?;
+        data.push_str("}");
+        dottie_file.write_all(data.as_bytes())?;        
     }
     
     for requirement in &top.requires
     {
-        let data = format!("\
+        data.push_str(&format!("\
         {:?} -> {:?}\n\
         ", requirement.path
-            , top_path);
-
-        dottie_file.write(data.as_bytes())?;
-        dottie(requirement, true)?;
+            , top_path));
+        dottie(requirement, true, data)?;
     }
-
-    if recursive == false
-    {
-        dottie_file.write(b"}")?;
-    }    
-    
     Ok(())
 }
 

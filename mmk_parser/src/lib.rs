@@ -7,7 +7,7 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Mmk
 {
     pub data: HashMap<String, Vec<String>>,
@@ -22,7 +22,6 @@ impl Mmk
 
     pub fn parse_file(self: &mut Self, data: &String) -> &mut Mmk
     {
-        print!(".");
         parse_mmk(self, &data, "MMK_SOURCES");
         parse_mmk(self, &data, "MMK_HEADERS");
         parse_mmk(self, &data, "MMK_EXECUTABLE");

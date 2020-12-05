@@ -59,8 +59,8 @@ impl Builder {
         }
     }
 
-    pub fn read_mmk_files(self: &mut Self, top_path: &std::path::Path) -> Result<(), MyMakeError> {
-        let mut top_dependency = Dependency::from(&top_path);
+    pub fn read_mmk_files(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
+        let mut top_dependency = Dependency::from(top_path);
         let file_content = match mmk_parser::read_file(top_path)
         {
             Ok(data) => data,
@@ -73,14 +73,12 @@ impl Builder {
             if path == "" {
                 break;
             }
-            let mut mmk_path = path.clone();
-            // let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
-            mmk_path.push_str("/mymakeinfo.mmk");
-            let dep_path = std::path::Path::new(&mmk_path);
+            let mmk_path = path.clone();
+            let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
 
-            let required_dependency = Dependency::from(dep_path);
+            let required_dependency = Dependency::from(&dep_path);
             top_dependency.add_dependency(required_dependency);
-            self.read_mmk_files(dep_path)?;
+            self.read_mmk_files(&dep_path)?;
         }
         self.mmk_data.push(top);
         self.mmk_dependencies.push(top_dependency);

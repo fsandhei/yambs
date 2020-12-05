@@ -14,6 +14,8 @@ TODO:
     * Første inkrement: Ha kun én dependency som trengs for å vise konsept.
     *Implementere unwrap_or_terminate() for Option / Result
     *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en /makefile.
+
+    * Overall: Endre alle Error - meldinger som er relevant til å ta MyMakeError for Result.
 */
 
 fn main() -> Result<(), std::io::Error> {
@@ -32,11 +34,12 @@ fn main() -> Result<(), std::io::Error> {
                         .long("dot-dependency")
                         .help("Produce a dot graph visualization of the project dependency.")))
         .get_matches();
-    let myfile = std::path::Path::new(matches.value_of("mmk_file").unwrap_or_terminate());
+    let myfilepath = std::path::Path::new(matches.value_of("mmk_file").unwrap_or_terminate());
+    let myfile = std::path::PathBuf::from(myfilepath);
     let mut builder = Builder::new();
 
     print!("MyMake: Reading mmk files");
-    builder.read_mmk_files(myfile).unwrap_or_terminate();
+    builder.read_mmk_files(&myfile).unwrap_or_terminate();
     println!();
 
     if let Some(matches) = matches.subcommand_matches("extern")

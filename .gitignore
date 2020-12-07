@@ -4,3 +4,4 @@ generator/target
 builder/target
 external/target
 *.gv
+.vscode/

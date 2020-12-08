@@ -5,24 +5,13 @@ use std::fs::OpenOptions;
 use std::env;
 
 pub fn dottie(top: &Dependency, recursive: bool, data: &mut String) -> std::io::Result<()>{
-    // if let Some(content) = data 
-    // {
-    //     data_to_write = content.clone();
-    // }
-    // else 
-    // {
-    //     data_to_write = String::new();
-    // }
     let mut dottie_file = create_dottie_file(recursive)?;
     let top_path = &top.path;
     
     if recursive == false
     {
-        // dottie_file.write_all(b"\
-        // digraph G {\n\
-        // ")?;
         data.push_str("\
-        digraph G {{\n\
+        digraph G {\n\
         ");
         dottie(top, true, data)?;
         data.push_str("}");

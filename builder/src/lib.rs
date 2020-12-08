@@ -146,11 +146,32 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use tempdir::TempDir;
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
 
+    fn make_mmk_file(dir_name: &str) -> (std::path::PathBuf, File, Mmk) {
+        let dir = TempDir::new(&dir_name).unwrap();
+        let test_file_path = dir.path().join("mymakeinfo.mmk");
+        let mut file = File::create(&test_file_path)
+                                .expect("make_mmk_file(): Something went wrong writing to file.");
+        write!(file, 
+        "\
+        MMK_SOURCES = some_file.cpp \\
+                      some_other_file.cpp \\
+        \n
+        MMK_HEADERS = some_file.h \\
+                      some_other_file.h \\
+        
+        \n").expect("make_mmk_file(): Something went wrong writing to file.");
+        let mut mmk_data = Mmk::new();
+        mmk_data.data.insert(String::from("MMK_SOURCES"), 
+                             vec![String::from("some_file.cpp"), 
+                                  String::from("some_other_file.cpp")]);
+        
+        mmk_data.data.insert(String::from("MMK_HEADERS"), 
+                             vec![String::from("some_file.h"), 
+                                  String::from("some_other_file.h")]);
+
+        (test_file_path, file, mmk_data)
+    }
     #[test]
     fn read_mmk_files_one_file() -> std::io::Result<()> {
         let mut builder = Builder::new();
@@ -590,9 +611,9 @@ mod tests {
             ],
         );
 
-        // assert_eq!(builder.mmk_data[2], expected_1);
-        // assert_eq!(builder.mmk_data[1], expected_2);
-        // assert_eq!(builder.mmk_data[0], expected_3);
+        assert_eq!(builder.mmk_data[2], expected_1);
+        assert_eq!(builder.mmk_data[1], expected_2);
+        assert_eq!(builder.mmk_data[0], expected_3);
         assert_eq!(
             builder.mmk_dependencies[2],
             Dependency {

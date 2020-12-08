@@ -226,14 +226,14 @@ mod tests {
         assert_eq!(builder.mmk_data[1], expected_1);
         assert_eq!(builder.mmk_data[0], expected_2);
         assert_eq!(
-            builder.mmk_dependencies[1],
-            Dependency {
+            builder.mmk_dependencies.last(),
+            Some(&Dependency {
                 path: test_file_path,
                 requires: vec![Box::new(Dependency {
                     path: test_file_dep_path,
                     requires: Vec::new()
                 })]
-            }
+            })
         );
         Ok(())
     }
@@ -275,8 +275,8 @@ mod tests {
         assert_eq!(builder.mmk_data[1], expected_2);
         assert_eq!(builder.mmk_data[0], expected_3);
         assert_eq!(
-            builder.mmk_dependencies[2],
-            Dependency {
+            builder.mmk_dependencies.last(),
+            Some(&Dependency {
                 path: test_file_path,
                 requires: vec![Box::new(Dependency {
                     path: test_file_dep_path,
@@ -286,7 +286,7 @@ mod tests {
                     path: test_file_second_dep_path,
                     requires: Vec::new()
                 })]
-            }
+            })
         );
         Ok(())
     }
@@ -299,7 +299,7 @@ mod tests {
     let (dir_dep, test_file_dep_path, mut file_dep, mut expected_2) 
         = make_mmk_file("example_dep");
     let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, expected_3) 
-        = make_mmk_file("example_dep");
+        = make_mmk_file("example_dep_second");
 
         write!(
             file,
@@ -335,8 +335,8 @@ mod tests {
         assert_eq!(builder.mmk_data[1], expected_2);
         assert_eq!(builder.mmk_data[0], expected_3);
         assert_eq!(
-            builder.mmk_dependencies[2],
-            Dependency {
+            builder.mmk_dependencies.last(),
+            Some(&Dependency {
                 path: test_file_path,
                 requires: vec![Box::new(Dependency {
                     path: test_file_dep_path,
@@ -346,7 +346,77 @@ mod tests {
                             requires: vec![]
                         })]
                 })]
-            }
+            })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std::io::Result<()> {
+        let mut builder = Builder::new();
+        let (_dir, test_file_path, mut file, mut expected_1) 
+        = make_mmk_file("example");
+    let (dir_dep, test_file_dep_path, mut file_dep, mut expected_2) 
+        = make_mmk_file("example_dep");
+    let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, expected_3) 
+        = make_mmk_file("example_dep_second");
+    let (third_dir_dep, test_file_third_dep_path, _file_third_file_dep, expected_4) 
+        = make_mmk_file("example_dep_third");
+
+        write!(
+            file,
+            "\
+        MMK_DEPEND = {} \\
+                     {} \\
+        \n
+        MMK_EXECUTABLE = x",            
+            &third_dir_dep.path().to_str().unwrap().to_string(),
+            &dir_dep.path().to_str().unwrap().to_string())?;
+
+        write!(
+            file_dep,
+            "\
+        MMK_DEPEND = {} \\
+        \n
+        ",
+        &second_dir_dep.path().to_str().unwrap().to_string())?;
+
+        builder.read_mmk_files(&test_file_path).unwrap();
+
+        expected_1.data.insert(
+            String::from("MMK_DEPEND"),
+            vec![third_dir_dep.path().to_str().unwrap().to_string(),
+                 dir_dep.path().to_str().unwrap().to_string()],
+        );
+        expected_1
+            .data
+            .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
+
+        expected_2
+            .data
+            .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
+
+        assert_eq!(builder.mmk_data[3], expected_1);    
+        assert_eq!(builder.mmk_data[2], expected_2);
+        assert_eq!(builder.mmk_data[1], expected_3);
+        assert_eq!(builder.mmk_data[0], expected_4);
+        assert_eq!(
+            builder.mmk_dependencies.last(),
+            Some(&Dependency {
+                path: test_file_path,
+                requires: vec![Box::new(Dependency {
+                    path: test_file_third_dep_path,
+                    requires: vec![]
+                }),
+                Box::new(Dependency {
+                    path: test_file_dep_path,
+                    requires: vec![
+                        Box::new(Dependency {
+                            path: test_file_second_dep_path,
+                            requires: vec![]
+                        })]
+                })]
+            })
         );
         Ok(())
     }

@@ -1,32 +1,6 @@
+use error::MyMakeError;
 use mmk_parser;
-use std::fmt;
-use std::error::Error;
-#[derive(Debug)]
-pub struct MyMakeError {
-    details: String
-}
 
-impl MyMakeError {
-    #[cfg(maybe_unused)]
-    fn new(msg: &str) -> MyMakeError {
-        MyMakeError{details: msg.to_string()}
-    }
-    fn from(msg: String) -> MyMakeError {
-        MyMakeError{details: msg}
-    }
-}
-
-impl fmt::Display for MyMakeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.details)
-    }
-}
-
-impl Error for MyMakeError {
-    fn description(&self) -> &str {
-        &self.details 
-    }
-}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dependency {

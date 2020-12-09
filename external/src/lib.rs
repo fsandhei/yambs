@@ -52,8 +52,6 @@ fn create_dottie_file(first_run: bool) -> std::io::Result<File>
     {
         File::create(dot_file_path)
     }
-
-    // File::create(dot_file_path)
 }
 
 fn dottie_file_exists() -> bool
@@ -63,10 +61,3 @@ fn dottie_file_exists() -> bool
     dot_file_path.exists()
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}

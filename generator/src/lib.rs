@@ -12,10 +12,10 @@ pub struct MmkGenerator
 pub trait Generator
 {
     fn new(filename: &Path, mmk_content: mmk_parser::Mmk ) -> Self;
-    fn generate_makefile(self: &mut Self)        -> std::io::Result<()>;
-    fn generate_header(self: &mut Self)          -> std::io::Result<()>;
-    fn generate_rule_executable(self: &mut Self) -> std::io::Result<()>;
-    fn generate_rule_package(self: &mut Self)    -> std::io::Result<()>;
+    fn generate_makefile(self: &mut Self)                  -> std::io::Result<()>;
+    fn generate_header(self: &mut Self)                    -> std::io::Result<()>;
+    fn generate_rule_executable(self: &mut Self)           -> std::io::Result<()>;
+    fn generate_rule_package(self: &mut Self)              -> std::io::Result<()>;
 }
 
 impl Generator for MmkGenerator
@@ -49,7 +49,7 @@ impl Generator for MmkGenerator
         include /home/fredrik/bin/mymake/include/strict.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
-        AR       := $(AR.static) # We generate only static static libraries.\n\
+        AR       := $(AR.static)        # We generate only static static libraries.\n\
         CC       := /usr/bin/gcc -x c++ # GCC is the default compiler.\n\
         CP       := /usr/bin/cp  \n\
         CP_FORCE := -f \n\
@@ -130,7 +130,7 @@ mod tests {
         include /home/fredrik/bin/mymake/include/strict.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
-        AR       := $(AR.static) # We generate only static static libraries.\n\
+        AR       := $(AR.static)        # We generate only static static libraries.\n\
         CC       := /usr/bin/gcc -x c++ # GCC is the default compiler.\n\
         CP       := /usr/bin/cp  \n\
         CP_FORCE := -f \n\

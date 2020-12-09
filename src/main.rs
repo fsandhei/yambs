@@ -57,8 +57,5 @@ fn main() -> Result<(), std::io::Error> {
             }
         }
     }
-    
-    // let mut generator: generator::MmkGenerator = generator::Generator::new(root, parsed_mmk);
-    // generator::Generator::generate_makefile(&mut generator)?;
     Ok(())
 }

@@ -10,6 +10,13 @@ pub struct Dependency {
 }
 
 impl Dependency {
+    pub fn new() -> Dependency {
+        Dependency {
+            path: std::path::PathBuf::new(),
+            mmk_data: mmk_parser::Mmk::new(),
+            requires: Vec::new(),
+        }
+    }
     pub fn from(path: &std::path::Path) -> Dependency {
         Dependency {
             path: std::path::PathBuf::from(path),
@@ -60,27 +67,19 @@ impl Dependency {
     }
 }
 pub struct Builder {
-    pub mmk_data: std::vec::Vec<mmk_parser::Mmk>,
-    pub mmk_dependencies: std::vec::Vec<Dependency>,
+    pub top_dependency: Dependency,
 }
 
 impl Builder {
     pub fn new() -> Builder {
         Builder {
-            mmk_data: Vec::new(),
-            mmk_dependencies: Vec::new(),
+            top_dependency: Dependency::new(),
         }
-    }
-    pub fn from(dep_path: &std::path::PathBuf) -> Builder {
-        let mut builder = Builder::new();
-        let dependency = Dependency::from(dep_path);
-        builder.mmk_dependencies.push(dependency);
-        builder
     }
 
     pub fn read_mmk_files_from_path(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
         let top_dependency = Dependency::create_dependency_from_path(&top_path)?;
-        self.mmk_dependencies.push(top_dependency);        
+        self.top_dependency = top_dependency;
         Ok(())
     }
 }
@@ -138,7 +137,7 @@ mod tests {
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-        assert_eq!(builder.mmk_dependencies.last().unwrap().mmk_data, expected);
+        assert_eq!(builder.top_dependency.mmk_data, expected);
         Ok(())
     }
 
@@ -169,8 +168,8 @@ mod tests {
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
 
         assert_eq!(
-            builder.mmk_dependencies.last(),
-            Some(&Dependency {
+            builder.top_dependency,
+            Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
                 requires: vec![Rc::new(Dependency {
@@ -178,7 +177,7 @@ mod tests {
                     mmk_data: expected_2,
                     requires: Vec::new()
                 })]
-            })
+            }
         );
         Ok(())
     }
@@ -217,8 +216,8 @@ mod tests {
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
 
         assert_eq!(
-            builder.mmk_dependencies.last(),
-            Some(&Dependency {
+            builder.top_dependency,
+            Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
                 requires: vec![Rc::new(Dependency {
@@ -231,7 +230,7 @@ mod tests {
                     mmk_data: expected_3,
                     requires: Vec::new()
                 })]
-            })
+            }
         );
         Ok(())
     }
@@ -277,8 +276,8 @@ mod tests {
             .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
 
         assert_eq!(
-            builder.mmk_dependencies.last(),
-            Some(&Dependency {
+            builder.top_dependency,
+            Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
                 requires: vec![Rc::new(Dependency {
@@ -291,7 +290,7 @@ mod tests {
                             requires: vec![]
                         })]
                 })]
-            })
+            }
         );
         Ok(())
     }
@@ -342,8 +341,8 @@ mod tests {
             .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
         
         assert_eq!(
-            builder.mmk_dependencies.last(),
-            Some(&Dependency {
+            builder.top_dependency,
+            Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
                 requires: vec![Rc::new(Dependency {
@@ -361,7 +360,7 @@ mod tests {
                             requires: vec![]
                         })]
                 })]
-            })
+            }
         );
         Ok(())
     }

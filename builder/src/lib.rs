@@ -1,22 +1,37 @@
 use error::MyMakeError;
 use mmk_parser;
+use std::rc::Rc;
 
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dependency {
     pub path: std::path::PathBuf,
-    pub requires: Vec<Box<Dependency>>,
+    pub mmk_data: mmk_parser::Mmk,
+    pub requires: Vec<Rc<Dependency>>,
 }
 
 impl Dependency {
     pub fn from(path: &std::path::Path) -> Dependency {
         Dependency {
             path: std::path::PathBuf::from(path),
+            mmk_data: mmk_parser::Mmk::new(),
             requires: Vec::new(),
         }
     }
     pub fn add_dependency(self: &mut Self, dependency: Dependency) {
-        self.requires.push(Box::new(dependency));
+        self.requires.push(Rc::new(dependency));
+    }
+
+    pub fn read_and_add_mmk_data(self: &mut Self) -> Result<mmk_parser::Mmk, MyMakeError>{
+        let file_content = match mmk_parser::read_file(&self.path)
+        {
+            Ok(data) => data,
+            Err(err) => return Err(MyMakeError::from(format!("Error parsing {:?}: {}", self.path, err))),
+        };
+        let mut mmk_data = mmk_parser::Mmk::new();
+        mmk_data.parse_file(&file_content);
+        self.mmk_data = mmk_data;
+        Ok(mmk_data)
     }
 
     pub fn update(self: &mut Self) -> Result<(), MyMakeError> {
@@ -60,56 +75,55 @@ impl Builder {
         builder
     }
 
-    pub fn dependency_from_path(self: Self, path: &std::path::PathBuf) -> Option<Box<Dependency>> {
-        for dependency in self.mmk_dependencies {
-            for dep_requirement in dependency.requires {
-                if dep_requirement.path.to_str() == path.to_str() 
-                {
-                    return Some(dep_requirement)
-                }
-            }
-        }
-        None
-    }
+    // pub fn get_dependency_from_path(self: Self, path: &std::path::PathBuf) -> Option<Rc<Dependency>> {
+    //     for dependency in self.mmk_dependencies {
+    //         for dep_requirement in dependency.requires {
+    //             if dep_requirement.path.to_str() == path.to_str() 
+    //             {
+    //                 return Some(dep_requirement)
+    //             }
+    //         }
+    //     }
+    //     None
+    // }
 
-    pub fn read_mmk_files(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
-        let mut top_dependency: Dependency;
-        let mut required_dependency: Vec<Dependency> = vec![];
-        if let Some(dependency) = self.clone().dependency_from_path(top_path)
-        {
-            top_dependency = *dependency;
-        }
-        else 
-        {
-            top_dependency = Dependency::from(top_path);
-        }
-        let file_content = match mmk_parser::read_file(top_path)
-        {
-            Ok(data) => data,
-            Err(err) => return Err(MyMakeError::from(format!("Error parsing {:?}: {}", top_path, err))),
-        };
-        let mut top = mmk_parser::Mmk::new();
-        top.parse_file(&file_content);
-
-        for path in top.data["MMK_DEPEND"].clone() {
-            if path == "" {
-                break;
-            }
-            let mmk_path = path.clone();
-            let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
-
-            required_dependency.push(Dependency::from(&dep_path));
-        }
+    // pub fn read_mmk_files_from_path(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
+    //     let mut top_dependency: Dependency;
+    //     let mut required_dependency: Vec<Dependency> = vec![];
         
-        for mut dep in required_dependency {
-            self.read_mmk_files(&dep.path)?;
-            dep.update()?;
-            top_dependency.add_dependency(dep);
-        }
-        self.mmk_data.push(top);
-        self.mmk_dependencies.push(top_dependency.clone());
-        print!(".");
-        Ok(())
+    //     top_dependency = Dependency::from(top_path);
+        
+    //     let file_content = match mmk_parser::read_file(top_path)
+    //     {
+    //         Ok(data) => data,
+    //         Err(err) => return Err(MyMakeError::from(format!("Error parsing {:?}: {}", top_path, err))),
+    //     };
+    //     let mut top = mmk_parser::Mmk::new();
+    //     top.parse_file(&file_content);
+
+    //     for path in top.data["MMK_DEPEND"].clone() {
+    //         if path == "" {
+    //             break;
+    //         }
+    //         let mmk_path = path.clone();
+    //         let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
+
+    //         required_dependency.push(Dependency::from(&dep_path));
+    //     }
+        
+    //     for mut dep in required_dependency {
+    //         self.read_mmk_files_from_path(&dep.path)?;
+    //         dep.update()?;
+    //         top_dependency.add_dependency(dep);
+    //     }
+    //     top_dependency.add_mmk_data(top);
+    //     self.mmk_dependencies.push(top_dependency);
+    //     print!(".");
+    //     Ok(())
+    // }
+    pub fn create_dependency_from_path(self: Self, path: &std::path::PathBuf) -> Dependency {
+        let mut dependency = Dependency::from(path);
+        dependency.read_and_add_mmk_data();
     }
 }
 
@@ -162,7 +176,7 @@ mod tests {
             "\
         MMK_EXECUTABLE = x"
         )?;
-        builder.read_mmk_files(&test_file_path).unwrap();
+        builder.read_mmk_files_from_path(&test_file_path).unwrap();
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
@@ -186,7 +200,7 @@ mod tests {
             &dir_dep.path().to_str().unwrap().to_string()
         )?;
 
-        builder.read_mmk_files(&test_file_path).unwrap();
+        builder.read_mmk_files_from_path(&test_file_path).unwrap();
 
         expected_1.data.insert(
             String::from("MMK_DEPEND"),
@@ -234,7 +248,7 @@ mod tests {
             &second_dir_dep.path().to_str().unwrap().to_string()
         )?;
 
-        builder.read_mmk_files(&test_file_path).unwrap();
+        builder.read_mmk_files_from_path(&test_file_path).unwrap();
 
         expected_1.data.insert(
             String::from("MMK_DEPEND"),
@@ -291,7 +305,7 @@ mod tests {
         ",
         &second_dir_dep.path().to_str().unwrap().to_string())?;
 
-        builder.read_mmk_files(&test_file_path).unwrap();
+        builder.read_mmk_files_from_path(&test_file_path).unwrap();
 
         expected_1.data.insert(
             String::from("MMK_DEPEND"),
@@ -355,7 +369,7 @@ mod tests {
         ",
         &second_dir_dep.path().to_str().unwrap().to_string())?;
 
-        builder.read_mmk_files(&test_file_path).unwrap();
+        builder.read_mmk_files_from_path(&test_file_path).unwrap();
 
         expected_1.data.insert(
             String::from("MMK_DEPEND"),

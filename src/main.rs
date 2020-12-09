@@ -48,14 +48,12 @@ fn main() -> Result<(), std::io::Error> {
     {
         if matches.is_present("dot")
         {
-            if let Some(last) = builder.mmk_dependencies.last()
+            let last = builder.top_dependency;
+            match external::dottie(&last, false, &mut String::new())
             {
-                match external::dottie(last, false, &mut String::new())
-                {
-                    Ok(()) => println!("MyMake: Dependency graph made: dependency.gv"),
-                    Err(_) => println!("MyMake: Could not make dependency graph."),
-                };
-            }
+                Ok(()) => println!("MyMake: Dependency graph made: dependency.gv"),
+                Err(_) => println!("MyMake: Could not make dependency graph."),
+            };
         }
     }
     Ok(())

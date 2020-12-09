@@ -6,6 +6,7 @@ mod unwrap_or_terminate;
 use clap::{Arg, App, SubCommand};
 use builder::*;
 use external;
+
 use unwrap_or_terminate::MyMakeUnwrap;
 
 /*
@@ -40,7 +41,7 @@ fn main() -> Result<(), std::io::Error> {
     let mut builder = Builder::new();
 
     print!("MyMake: Reading mmk files");
-    builder.read_mmk_files(&myfile).unwrap_or_terminate();
+    builder.read_mmk_files_from_path(&myfile).unwrap_or_terminate();
     println!();
 
     if let Some(matches) = matches.subcommand_matches("extern")

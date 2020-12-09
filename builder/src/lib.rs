@@ -2,8 +2,7 @@ use error::MyMakeError;
 use mmk_parser;
 use std::rc::Rc;
 
-
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Dependency {
     pub path: std::path::PathBuf,
     pub mmk_data: mmk_parser::Mmk,
@@ -18,6 +17,15 @@ impl Dependency {
             requires: Vec::new(),
         }
     }
+
+    pub fn create_dependency_from_path(path: &std::path::PathBuf) -> Result<Dependency, MyMakeError>{
+        let mut dependency = Dependency::from(path);
+        dependency.read_and_add_mmk_data()?;
+        dependency.detect_and_add_dependencies()?;
+        dependency.print_ok();
+        Ok(dependency)
+    }
+
     pub fn add_dependency(self: &mut Self, dependency: Dependency) {
         self.requires.push(Rc::new(dependency));
     }
@@ -30,32 +38,27 @@ impl Dependency {
         };
         let mut mmk_data = mmk_parser::Mmk::new();
         mmk_data.parse_file(&file_content);
-        self.mmk_data = mmk_data;
+        self.mmk_data = mmk_data.clone();
         Ok(mmk_data)
     }
 
-    pub fn update(self: &mut Self) -> Result<(), MyMakeError> {
-        let file_content = match mmk_parser::read_file(&self.path)
-        {
-            Ok(data) => data,
-            Err(err) => return Err(MyMakeError::from(format!("Error parsing {:?}: {}", &self.path, err))),
-        };
-        let mut top = mmk_parser::Mmk::new();
-        top.parse_file(&file_content);
-
-        for path in top.data["MMK_DEPEND"].clone() {
+    pub fn detect_and_add_dependencies(self: &mut Self) -> Result<(), MyMakeError>{
+        for path in self.mmk_data.data["MMK_DEPEND"].clone() {
             if path == "" {
                 break;
             }
             let mmk_path = path.clone();
             let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
-
-            &self.add_dependency(Dependency::from(&dep_path));
+            let dependency = Dependency::create_dependency_from_path(&dep_path)?;
+            self.add_dependency(dependency);
         }
         Ok(())
     }
+
+    pub fn print_ok(self: &Self) {
+        print!(".");
+    }
 }
-#[derive(Clone)]
 pub struct Builder {
     pub mmk_data: std::vec::Vec<mmk_parser::Mmk>,
     pub mmk_dependencies: std::vec::Vec<Dependency>,
@@ -75,55 +78,10 @@ impl Builder {
         builder
     }
 
-    // pub fn get_dependency_from_path(self: Self, path: &std::path::PathBuf) -> Option<Rc<Dependency>> {
-    //     for dependency in self.mmk_dependencies {
-    //         for dep_requirement in dependency.requires {
-    //             if dep_requirement.path.to_str() == path.to_str() 
-    //             {
-    //                 return Some(dep_requirement)
-    //             }
-    //         }
-    //     }
-    //     None
-    // }
-
-    // pub fn read_mmk_files_from_path(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
-    //     let mut top_dependency: Dependency;
-    //     let mut required_dependency: Vec<Dependency> = vec![];
-        
-    //     top_dependency = Dependency::from(top_path);
-        
-    //     let file_content = match mmk_parser::read_file(top_path)
-    //     {
-    //         Ok(data) => data,
-    //         Err(err) => return Err(MyMakeError::from(format!("Error parsing {:?}: {}", top_path, err))),
-    //     };
-    //     let mut top = mmk_parser::Mmk::new();
-    //     top.parse_file(&file_content);
-
-    //     for path in top.data["MMK_DEPEND"].clone() {
-    //         if path == "" {
-    //             break;
-    //         }
-    //         let mmk_path = path.clone();
-    //         let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
-
-    //         required_dependency.push(Dependency::from(&dep_path));
-    //     }
-        
-    //     for mut dep in required_dependency {
-    //         self.read_mmk_files_from_path(&dep.path)?;
-    //         dep.update()?;
-    //         top_dependency.add_dependency(dep);
-    //     }
-    //     top_dependency.add_mmk_data(top);
-    //     self.mmk_dependencies.push(top_dependency);
-    //     print!(".");
-    //     Ok(())
-    // }
-    pub fn create_dependency_from_path(self: Self, path: &std::path::PathBuf) -> Dependency {
-        let mut dependency = Dependency::from(path);
-        dependency.read_and_add_mmk_data();
+    pub fn read_mmk_files_from_path(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
+        let top_dependency = Dependency::create_dependency_from_path(&top_path)?;
+        self.mmk_dependencies.push(top_dependency);        
+        Ok(())
     }
 }
 
@@ -180,7 +138,7 @@ mod tests {
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-        assert_eq!(builder.mmk_data[0], expected);
+        assert_eq!(builder.mmk_dependencies.last().unwrap().mmk_data, expected);
         Ok(())
     }
 
@@ -210,15 +168,14 @@ mod tests {
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
 
-
-        assert_eq!(builder.mmk_data[1], expected_1);
-        assert_eq!(builder.mmk_data[0], expected_2);
         assert_eq!(
             builder.mmk_dependencies.last(),
             Some(&Dependency {
                 path: test_file_path,
-                requires: vec![Box::new(Dependency {
+                mmk_data: expected_1,
+                requires: vec![Rc::new(Dependency {
                     path: test_file_dep_path,
+                    mmk_data: expected_2,
                     requires: Vec::new()
                 })]
             })
@@ -259,19 +216,19 @@ mod tests {
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
 
-        assert_eq!(builder.mmk_data[2], expected_1);
-        assert_eq!(builder.mmk_data[1], expected_2);
-        assert_eq!(builder.mmk_data[0], expected_3);
         assert_eq!(
             builder.mmk_dependencies.last(),
             Some(&Dependency {
                 path: test_file_path,
-                requires: vec![Box::new(Dependency {
+                mmk_data: expected_1,
+                requires: vec![Rc::new(Dependency {
                     path: test_file_dep_path,
+                    mmk_data: expected_2,
                     requires: Vec::new()
                 }),
-                Box::new(Dependency {
+                Rc::new(Dependency {
                     path: test_file_second_dep_path,
+                    mmk_data: expected_3,
                     requires: Vec::new()
                 })]
             })
@@ -319,18 +276,18 @@ mod tests {
             .data
             .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
 
-        assert_eq!(builder.mmk_data[2], expected_1);
-        assert_eq!(builder.mmk_data[1], expected_2);
-        assert_eq!(builder.mmk_data[0], expected_3);
         assert_eq!(
             builder.mmk_dependencies.last(),
             Some(&Dependency {
                 path: test_file_path,
-                requires: vec![Box::new(Dependency {
+                mmk_data: expected_1,
+                requires: vec![Rc::new(Dependency {
                     path: test_file_dep_path,
+                    mmk_data: expected_2,
                     requires: vec![
-                        Box::new(Dependency {
+                        Rc::new(Dependency {
                             path: test_file_second_dep_path,
+                            mmk_data: expected_3,
                             requires: vec![]
                         })]
                 })]
@@ -383,24 +340,24 @@ mod tests {
         expected_2
             .data
             .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
-
-        assert_eq!(builder.mmk_data[3], expected_1);    
-        assert_eq!(builder.mmk_data[2], expected_2);
-        assert_eq!(builder.mmk_data[1], expected_3);
-        assert_eq!(builder.mmk_data[0], expected_4);
+        
         assert_eq!(
             builder.mmk_dependencies.last(),
             Some(&Dependency {
                 path: test_file_path,
-                requires: vec![Box::new(Dependency {
+                mmk_data: expected_1,
+                requires: vec![Rc::new(Dependency {
                     path: test_file_third_dep_path,
+                    mmk_data: expected_3,
                     requires: vec![]
                 }),
-                Box::new(Dependency {
+                Rc::new(Dependency {
                     path: test_file_dep_path,
+                    mmk_data: expected_2,
                     requires: vec![
-                        Box::new(Dependency {
+                        Rc::new(Dependency {
                             path: test_file_second_dep_path,
+                            mmk_data: expected_4,
                             requires: vec![]
                         })]
                 })]

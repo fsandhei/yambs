@@ -18,13 +18,13 @@ pub fn dottie(top: &Dependency, recursive: bool, data: &mut String) -> std::io::
         dottie_file.write_all(data.as_bytes())?;        
     }
     
-    for requirement in &top.requires
+    for requirement in top.requires.borrow().iter()
     {
         data.push_str(&format!("\
         {:?} -> {:?}\n\
-        ", requirement.path
+        ", requirement.borrow().path
             , top_path));
-        dottie(requirement, true, data)?;
+        dottie(&requirement.borrow(), true, data)?;
     }
     Ok(())
 }

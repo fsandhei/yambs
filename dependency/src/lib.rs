@@ -1,12 +1,13 @@
 use error::MyMakeError;
 use mmk_parser;
-use std::rc::Rc;
+use std::cell::RefCell;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dependency {
     pub path: std::path::PathBuf,
     pub mmk_data: mmk_parser::Mmk,
-    pub requires: Vec<Rc<Dependency>>,
+    pub requires: RefCell<Vec<RefCell<Dependency>>>,
+    pub makefile_made: bool,
 }
 
 impl Dependency {
@@ -14,14 +15,16 @@ impl Dependency {
         Dependency {
             path: std::path::PathBuf::new(),
             mmk_data: mmk_parser::Mmk::new(),
-            requires: Vec::new(),
+            requires: RefCell::new(Vec::new()),
+            makefile_made: false,
         }
     }
     pub fn from(path: &std::path::Path) -> Dependency {
         Dependency {
             path: std::path::PathBuf::from(path),
             mmk_data: mmk_parser::Mmk::new(),
-            requires: Vec::new(),
+            requires: RefCell::new(Vec::new()),
+            makefile_made: false,
         }
     }
 
@@ -34,7 +37,12 @@ impl Dependency {
     }
 
     pub fn add_dependency(self: &mut Self, dependency: Dependency) {
-        self.requires.push(Rc::new(dependency));
+        self.requires.borrow_mut().push(RefCell::new(dependency));
+    }
+
+    pub fn makefile_made(self: &mut Self)
+    {
+        self.makefile_made = true;
     }
 
     pub fn read_and_add_mmk_data(self: &mut Self) -> Result<mmk_parser::Mmk, MyMakeError>{

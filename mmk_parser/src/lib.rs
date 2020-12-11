@@ -34,7 +34,15 @@ impl Mmk
         if self.data.contains_key(key)
         {
             for item in &self.data[key]
-            {                
+            {
+                if *item == String::from("")
+                {
+                    break;
+                }
+                if key == "MMK_DEPEND"
+                {
+                    formatted_string.push_str("-I");
+                }
                 formatted_string.push_str(&item[..].trim());
                 formatted_string.push_str(" ");
             }            
@@ -51,6 +59,7 @@ impl Mmk
     }
 }
 
+
 pub fn read_file(file_path: &Path) -> Result<String, io::Error>
 {
     fs::read_to_string(&file_path)
@@ -64,7 +73,7 @@ fn clip_string(data: &String, keyword:&str) -> String
         None => return String::from(""),
     };
     data[keyword_index..].to_string()
-}  
+}
 
 pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -> &'a mut Mmk
 {

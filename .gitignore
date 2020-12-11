@@ -7,3 +7,4 @@ error/target
 dependency/target
 *.gv
 .vscode/
+*.build

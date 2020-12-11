@@ -43,6 +43,9 @@ fn main() -> Result<(), std::io::Error> {
     print!("MyMake: Reading mmk files");
     builder.read_mmk_files_from_path(&myfile).unwrap_or_terminate();
     println!();
+    print!("MyMake: Generating makefiles");
+    Builder::generate_makefiles(&mut builder.top_dependency).unwrap_or_terminate();
+    println!();
 
     if let Some(matches) = matches.subcommand_matches("extern")
     {

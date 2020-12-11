@@ -18,10 +18,43 @@ impl Builder {
         self.top_dependency = top_dependency;
         Ok(())
     }
+    pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError>{
 
-    pub fn generate_makefiles(self: &Self) {
-        // let generator: generator::MmkGenerator = generator::Generator::new(&self.top_dependency.path, self.top_dependency.mmk_data);
-        unimplemented!();
+        let mut generator: generator::MmkGenerator;
+        if !&dependency.makefile_made
+        {
+            generator = match generator::MmkGenerator::new(&dependency,
+                std::path::PathBuf::from(".build")){
+                   Ok(gen) => gen,
+                   Err(err) => return Err(err),
+               };
+            &dependency.makefile_made();
+            match generator::Generator::generate_makefile(&mut generator)
+                {
+                    Ok(()) => (),
+                    Err(err) => return Err(MyMakeError::from(format!("Error making makefile: {}", err))),
+                };
+        }
+        for required_dependency in dependency.requires.borrow().iter()
+        {
+            if !required_dependency.borrow().makefile_made
+            {                   
+                required_dependency.borrow_mut().makefile_made();
+                generator = match generator::MmkGenerator::new(&required_dependency.borrow(),
+                     std::path::PathBuf::from(".build"))
+                     {
+                         Ok(gen) => gen,
+                         Err(err) => return Err(err),
+                     };
+                match generator::Generator::generate_makefile(&mut generator)
+                {
+                    Ok(()) => (),
+                    Err(err) => return Err(MyMakeError::from(format!("Error making makefile: {}", err))),
+                };
+            }
+            Builder::generate_makefiles(&mut required_dependency.borrow_mut())?;
+        }
+        Ok(())
     }
 }
 
@@ -33,6 +66,7 @@ mod tests {
     use std::io::Write;
     use tempdir::TempDir;
     use std::rc::Rc;
+    use std::cell::RefCell;
 
     fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
         let dir: TempDir = TempDir::new(&dir_name).unwrap();
@@ -114,11 +148,13 @@ mod tests {
             Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: vec![Rc::new(Dependency {
+                requires: RefCell::new(vec![RefCell::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
-                    requires: Vec::new()
-                })]
+                    requires: RefCell::new(Vec::new()),
+                    makefile_made: false,
+                })]),
+                makefile_made: false,
             }
         );
         Ok(())
@@ -162,16 +198,19 @@ mod tests {
             Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: vec![Rc::new(Dependency {
+                requires: RefCell::new(vec![RefCell::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
-                    requires: Vec::new()
+                    requires: RefCell::new(Vec::new()),
+                    makefile_made: false,
                 }),
-                Rc::new(Dependency {
+                RefCell::new(Dependency {
                     path: test_file_second_dep_path,
                     mmk_data: expected_3,
-                    requires: Vec::new()
-                })]
+                    requires: RefCell::new(Vec::new()),
+                    makefile_made: false,
+                })]),
+                makefile_made: false,
             }
         );
         Ok(())
@@ -222,16 +261,19 @@ mod tests {
             Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: vec![Rc::new(Dependency {
+                requires: RefCell::new(vec![RefCell::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
-                    requires: vec![
-                        Rc::new(Dependency {
+                    requires: RefCell::new(vec![
+                        RefCell::new(Dependency {
                             path: test_file_second_dep_path,
                             mmk_data: expected_3,
-                            requires: vec![]
-                        })]
-                })]
+                            requires: RefCell::new(vec![]),
+                            makefile_made: false,
+                        })]),
+                    makefile_made: false,
+                })]),
+                makefile_made: false,
             }
         );
         Ok(())
@@ -287,21 +329,25 @@ mod tests {
             Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: vec![Rc::new(Dependency {
+                requires: RefCell::new(vec![RefCell::new(Dependency {
                     path: test_file_third_dep_path,
                     mmk_data: expected_3,
-                    requires: vec![]
+                    requires: RefCell::new(vec![]),
+                    makefile_made: false,
                 }),
-                Rc::new(Dependency {
+                RefCell::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
-                    requires: vec![
-                        Rc::new(Dependency {
+                    requires: RefCell::new(vec![
+                        RefCell::new(Dependency {
                             path: test_file_second_dep_path,
                             mmk_data: expected_4,
-                            requires: vec![]
-                        })]
-                })]
+                            requires: RefCell::new(vec![]),
+                            makefile_made: false,
+                        })]),
+                    makefile_made: false,
+                })]),
+                makefile_made: false,
             }
         );
         Ok(())

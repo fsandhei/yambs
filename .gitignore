@@ -4,5 +4,6 @@ generator/target
 builder/target
 external/target
 error/target
+dependency/target
 *.gv
 .vscode/

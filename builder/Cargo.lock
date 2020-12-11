@@ -4,15 +4,38 @@
 name = "builder"
 version = "0.1.0"
 dependencies = [
+ "dependency",
+ "error",
+ "generator",
  "mmk_parser",
  "tempdir",
 ]
+
+[[package]]
+name = "dependency"
+version = "0.1.0"
+dependencies = [
+ "error",
+ "mmk_parser",
+]
+
+[[package]]
+name = "error"
+version = "0.1.0"
 
 [[package]]
 name = "fuchsia-cprng"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
+
+[[package]]
+name = "generator"
+version = "0.1.0"
+dependencies = [
+ "mmk_parser",
+ "tempdir",
+]
 
 [[package]]
 name = "libc"

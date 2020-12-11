@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 builder = { path = "../builder" }
+dependency = { path = "../dependency" }

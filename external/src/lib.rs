@@ -1,4 +1,4 @@
-use builder::Dependency;
+use dependency::Dependency;
 use std::io::Write;
 use std::fs::File;
 use std::fs::OpenOptions;

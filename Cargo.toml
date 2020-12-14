@@ -12,4 +12,5 @@ mmk_parser = { path = 'mmk_parser/' }
 generator = { path = 'generator/' }
 external = { path = 'external/' }
 
+colored = "2.0.0"
 clap = "2.33.3"

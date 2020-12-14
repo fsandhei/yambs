@@ -1,4 +1,3 @@
-
 use dependency::Dependency;
 use error::MyMakeError;
 
@@ -18,39 +17,24 @@ impl Builder {
         self.top_dependency = top_dependency;
         Ok(())
     }
-    pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError>{
+    pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError> {
 
         let mut generator: generator::MmkGenerator;
         if !&dependency.makefile_made
         {
-            generator = match generator::MmkGenerator::new(&dependency,
-                std::path::PathBuf::from(".build")){
-                   Ok(gen) => gen,
-                   Err(err) => return Err(err),
-               };
+            generator = generator::MmkGenerator::new(&dependency,
+                                       std::path::PathBuf::from(".build"))?;
             &dependency.makefile_made();
-            match generator::Generator::generate_makefile(&mut generator)
-                {
-                    Ok(()) => (),
-                    Err(err) => return Err(MyMakeError::from(format!("Error making makefile: {}", err))),
-                };
+            generator::Generator::generate_makefile(&mut generator)?;
         }
         for required_dependency in dependency.requires.borrow().iter()
         {
             if !required_dependency.borrow().makefile_made
             {                   
                 required_dependency.borrow_mut().makefile_made();
-                generator = match generator::MmkGenerator::new(&required_dependency.borrow(),
-                     std::path::PathBuf::from(".build"))
-                     {
-                         Ok(gen) => gen,
-                         Err(err) => return Err(err),
-                     };
-                match generator::Generator::generate_makefile(&mut generator)
-                {
-                    Ok(()) => (),
-                    Err(err) => return Err(MyMakeError::from(format!("Error making makefile: {}", err))),
-                };
+                generator = generator::MmkGenerator::new(&required_dependency.borrow(),
+                     std::path::PathBuf::from(".build"))?;
+                generator::Generator::generate_makefile(&mut generator)?;
             }
             Builder::generate_makefiles(&mut required_dependency.borrow_mut())?;
         }
@@ -65,7 +49,6 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use tempdir::TempDir;
-    use std::rc::Rc;
     use std::cell::RefCell;
 
     fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {

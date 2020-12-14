@@ -1,4 +1,4 @@
-
+use colored::Colorize;
 pub trait MyMakeUnwrap<T>
 {
     fn unwrap_or_terminate(self) -> T;
@@ -13,8 +13,8 @@ impl<T, E> MyMakeUnwrap<T> for Result<T,E> where E: std::fmt::Display
         {
             Ok(t) => t,
             Err(err) => {
-                eprintln!("\nMyMake: {}", err);
-                std::process::exit(1);
+                eprintln!("MyMake: {}", err.to_string().red());
+                std::process::exit(2);
             }
         }
     }
@@ -28,8 +28,8 @@ impl<T> MyMakeUnwrap<T> for Option<T>
         {
             Some(t) => t,
             None => {
-                println!("\nMyMake: Invalid input or no input given!");
-                std::process::exit(1);
+                println!("{}", "MyMake: Invalid input or no input given!".red());
+                std::process::exit(2);
             }
         }
     }

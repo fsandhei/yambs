@@ -57,6 +57,12 @@ impl Mmk
         || keyword == "MMK_HEADERS"
         || keyword == "MMK_EXECUTABLE"
     }
+
+    pub fn sources_to_objects(self: &Self) -> String {
+        let sources = &self.to_string("MMK_SOURCES");
+        let objects = sources.replace(".cpp", ".o");
+        objects
+    }
 }
 
 

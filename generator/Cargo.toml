@@ -11,3 +11,6 @@ error      = { path = "../error" }
 dependency = { path = "../dependency" }
 mmk_parser = { path = "../mmk_parser"}
 tempdir = "0.3.7"
+
+[dev-dependencies]
+pretty_assertions = "0.6.1"

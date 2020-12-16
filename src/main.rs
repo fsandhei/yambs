@@ -36,8 +36,7 @@ fn main() -> Result<(), std::io::Error> {
                         .long("dot-dependency")
                         .help("Produce a dot graph visualization of the project dependency.")))
         .get_matches();
-    let myfilepath = std::path::Path::new(matches.value_of("mmk_file").unwrap_or_terminate());
-    let myfile = std::path::PathBuf::from(myfilepath);
+    let myfile = mmk_parser::validate_file_path(matches.value_of("mmk_file").unwrap_or_terminate()).unwrap_or_terminate();
     let mut builder = Builder::new();
 
     print!("MyMake: Reading mmk files");

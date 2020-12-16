@@ -6,6 +6,8 @@ use std::vec::Vec;
 use std::fs;
 use std::io;
 use std::path::Path;
+use error::MyMakeError;
+use regex::Regex;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Mmk
@@ -22,10 +24,11 @@ impl Mmk
 
     pub fn parse_file(self: &mut Self, data: &String) -> &mut Mmk
     {
-        parse_mmk(self, &data, "MMK_SOURCES");
-        parse_mmk(self, &data, "MMK_HEADERS");
-        parse_mmk(self, &data, "MMK_EXECUTABLE");
-        parse_mmk(self, &data, "MMK_DEPEND")        
+        let no_comment_data = remove_comments(data);
+        parse_mmk(self, &no_comment_data, "MMK_SOURCES");
+        parse_mmk(self, &no_comment_data, "MMK_HEADERS");
+        parse_mmk(self, &no_comment_data, "MMK_EXECUTABLE");
+        parse_mmk(self, &no_comment_data, "MMK_DEPEND")        
     }
 
     pub fn to_string(self: &Self, key: &str) -> String
@@ -65,6 +68,13 @@ impl Mmk
     }
 }
 
+pub fn validate_file_path(file_path_as_str: &str) -> Result<std::path::PathBuf, MyMakeError> {
+    let file_path = std::path::PathBuf::from(file_path_as_str);
+    if !file_path.is_file() {
+        return Err(MyMakeError::from(format!("Error: {:?} is not a valid path!", &file_path)));
+    }
+    Ok(file_path)
+}
 
 pub fn read_file(file_path: &Path) -> Result<String, io::Error>
 {
@@ -79,6 +89,19 @@ fn clip_string(data: &String, keyword:&str) -> String
         None => return String::from(""),
     };
     data[keyword_index..].to_string()
+}
+
+pub fn remove_comments(data: &String) -> String {
+    let mut lines = data.lines();
+    let mut current_line = lines.next();
+    let comment_expression = Regex::new(r"#.*").unwrap();
+    let mut non_comment_data: String = data.clone();
+    
+    while current_line != None {
+        non_comment_data = comment_expression.replace(&non_comment_data, "").to_string();
+        current_line = lines.next();
+    }
+    non_comment_data
 }
 
 pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -> &'a mut Mmk
@@ -108,25 +131,51 @@ pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -
             }
         ).collect();
         mmk_right_side.retain(|x| x.is_empty() == false);
-        mmk_container.data.insert(split_data[0].to_string(), mmk_right_side);
+        mmk_container.data.insert(keyword.to_string(), mmk_right_side);
     }
     mmk_container
 }
 
+
 #[cfg(test)]
-mod tests
+pub mod tests
 {
-    use textwrap::dedent;
     use super::*;
+    use pretty_assertions::assert_eq;
     #[test]
     fn test_mmk_file_reader()
     {
         let path = std::path::Path::new("/home/fredrik/bin/mymake/mmk_parser/src/test.mmk");
         let content = read_file(&path);        
-        assert_eq!(content.unwrap(), dedent(
-        "MMK_SOURCES = filename.cpp \\
-              otherfilename.cpp\n"));
+        assert_eq!(content.unwrap(),"\
+            #This is a comment.\n\
+            MMK_DEPEND = /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/\n\
+            \n\
+            MMK_SOURCES = filename.cpp \\
+              otherfilename.cpp\n\
+            \n\
+            #This is a second comment.\n\
+            MMK_EXECUTABLE = x\n\
+            ");
     }
+
+    #[test]
+    fn test_remove_comments()
+    {
+        let path = std::path::Path::new("/home/fredrik/bin/mymake/mmk_parser/src/test.mmk");
+        let content = read_file(&path).unwrap();     
+        assert_eq!(remove_comments(&content),"\
+            \n\
+            MMK_DEPEND = /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/\n\
+            \n\
+            MMK_SOURCES = filename.cpp \\
+              otherfilename.cpp\n\
+            \n\
+            \n\
+            MMK_EXECUTABLE = x\n\
+            ");
+    }
+    
     #[test]
     fn test_parse_mmk_sources()
     {

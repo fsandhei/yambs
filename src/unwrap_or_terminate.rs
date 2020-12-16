@@ -13,8 +13,8 @@ impl<T, E> MyMakeUnwrap<T> for Result<T,E> where E: std::fmt::Display
         {
             Ok(t) => t,
             Err(err) => {
-                eprintln!("MyMake: {}", err.to_string().red());
-                std::process::exit(2);
+                eprintln!("{}", format!("MyMake: {}", err).red());
+                std::process::exit(1);
             }
         }
     }
@@ -29,7 +29,7 @@ impl<T> MyMakeUnwrap<T> for Option<T>
             Some(t) => t,
             None => {
                 println!("{}", "MyMake: Invalid input or no input given!".red());
-                std::process::exit(2);
+                std::process::exit(1);
             }
         }
     }

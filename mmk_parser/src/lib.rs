@@ -28,7 +28,8 @@ impl Mmk
         parse_mmk(self, &no_comment_data, "MMK_SOURCES");
         parse_mmk(self, &no_comment_data, "MMK_HEADERS");
         parse_mmk(self, &no_comment_data, "MMK_EXECUTABLE");
-        parse_mmk(self, &no_comment_data, "MMK_DEPEND")        
+        parse_mmk(self, &no_comment_data, "MMK_DEPEND");
+        parse_mmk(self, &no_comment_data, "MMK_LIBRARY_LABEL")
     }
 
     pub fn to_string(self: &Self, key: &str) -> String
@@ -47,6 +48,11 @@ impl Mmk
                     formatted_string.push_str("-I");
                 }
                 formatted_string.push_str(&item[..].trim());
+                if key == "MMK_LIBRARY_LABEL"
+                {
+                    formatted_string.insert_str(0, "lib");
+                    formatted_string.push_str(".a");
+                }
                 formatted_string.push_str(" ");
             }            
         }
@@ -59,6 +65,7 @@ impl Mmk
         || keyword == "MMK_SOURCES" 
         || keyword == "MMK_HEADERS"
         || keyword == "MMK_EXECUTABLE"
+        || keyword == "MMK_LIBRARY_LABEL"
     }
 
     pub fn sources_to_objects(self: &Self) -> String {
@@ -126,6 +133,7 @@ pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -
                 .trim_end_matches("MMK_SOURCES")
                 .trim_end_matches("MMK_HEADERS")
                 .trim_end_matches("MMK_EXECUTABLE")
+                .trim_end_matches("MMK_LIBRARY_LABEL")
                 .trim_matches(&['\n', '\r'][..])
                 .to_string()
             }
@@ -244,6 +252,15 @@ pub mod tests
                                                          /another/path/to/depend/on\n");
         parse_mmk(&mut mmk_content, &content, "MMK_DEP");
         assert!(mmk_content.data.is_empty() == true);
+    }
+
+    #[test]
+    fn test_parse_mmk_library_label()
+    {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_LIBRARY_LABEL = mylib");
+        parse_mmk(&mut mmk_content, &content, "MMK_LIBRARY_LABEL");
+        assert_eq!(mmk_content.data["MMK_LIBRARY_LABEL"], ["mylib"]);
     }
 }
 

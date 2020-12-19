@@ -42,21 +42,25 @@ fn main() -> Result<(), std::io::Error> {
     print!("MyMake: Reading mmk files");
     builder.read_mmk_files_from_path(&myfile).unwrap_or_terminate();
     println!();
-    print!("MyMake: Generating makefiles");
-    Builder::generate_makefiles(&mut builder.top_dependency).unwrap_or_terminate();
-    println!();
 
     if let Some(matches) = matches.subcommand_matches("extern")
     {
         if matches.is_present("dot")
         {
-            let last = builder.top_dependency;
+            let last = &builder.top_dependency;
             match external::dottie(&last, false, &mut String::new())
             {
-                Ok(()) => println!("MyMake: Dependency graph made: dependency.gv"),
+                Ok(()) => {
+                            println!("MyMake: Dependency graph made: dependency.gv");
+                            std::process::exit(1);
+                          },
                 Err(_) => println!("MyMake: Could not make dependency graph."),
             };
         }
     }
+
+    print!("MyMake: Generating makefiles");
+    Builder::generate_makefiles(&mut builder.top_dependency).unwrap_or_terminate();
+    println!();
     Ok(())
 }

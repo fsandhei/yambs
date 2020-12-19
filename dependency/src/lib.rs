@@ -8,6 +8,7 @@ pub struct Dependency {
     pub mmk_data: mmk_parser::Mmk,
     pub requires: RefCell<Vec<RefCell<Dependency>>>,
     pub makefile_made: bool,
+    pub library_name: String,
 }
 
 impl Dependency {
@@ -17,6 +18,7 @@ impl Dependency {
             mmk_data: mmk_parser::Mmk::new(),
             requires: RefCell::new(Vec::new()),
             makefile_made: false,
+            library_name: String::new(),
         }
     }
     pub fn from(path: &std::path::Path) -> Dependency {
@@ -25,12 +27,14 @@ impl Dependency {
             mmk_data: mmk_parser::Mmk::new(),
             requires: RefCell::new(Vec::new()),
             makefile_made: false,
+            library_name: String::new(),
         }
     }
 
     pub fn create_dependency_from_path(path: &std::path::PathBuf) -> Result<Dependency, MyMakeError>{
         let mut dependency = Dependency::from(path);
         dependency.read_and_add_mmk_data()?;
+        dependency.add_library_name();
         dependency.detect_and_add_dependencies()?;
         dependency.print_ok();
         Ok(dependency)
@@ -55,6 +59,10 @@ impl Dependency {
         mmk_data.parse_file(&file_content);
         self.mmk_data = mmk_data.clone();
         Ok(mmk_data)
+    }
+
+    pub fn add_library_name(self: &mut Self) {
+        self.library_name = self.mmk_data.to_string("MMK_LIBRARY_LABEL");
     }
 
     pub fn detect_and_add_dependencies(self: &mut Self) -> Result<(), MyMakeError>{

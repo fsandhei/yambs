@@ -37,34 +37,91 @@ impl MmkGenerator
         Ok(MmkGenerator{ filename: filename, dependency: dependency.clone(), output_directory: output_directory})
     }
 
-    pub fn sources_to_objects_rule(self: &Self, mmk_data: &mmk_parser::Mmk) -> String {
+    pub fn make_object_rule(self: &Self, mmk_data: &mmk_parser::Mmk) -> String {
         let mut formatted_string = String::new();
         let parent_path = &self.dependency.path.parent().unwrap();
         if mmk_data.data.contains_key("MMK_SOURCES") {
             for source in &mmk_data.data["MMK_SOURCES"] {
                 let object = source.replace(".cpp", ".o");
                 formatted_string.push_str(&object);
-                formatted_string.push_str(": ");
+                formatted_string.push_str(": \\\n");
+                formatted_string.push_str("\t");
                 formatted_string.push_str(parent_path.to_str().unwrap());
                 formatted_string.push_str("/");
                 formatted_string.push_str(source);
-                formatted_string.push_str("\n");
-                formatted_string.push_str(&format!("\t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) {dependencies} $< -c -o $@)\n"
-                                         , dependencies = mmk_data.to_string("MMK_DEPEND")));
-                formatted_string.push_str("\n");
+
+                if mmk_data.data.contains_key("MMK_HEADERS")
+                && mmk_data.data["MMK_HEADERS"].first() != Some(&"".to_string()) {
+                    formatted_string.push_str(" \\\n");
+                    for header in &mmk_data.data["MMK_HEADERS"] {                        
+                        formatted_string.push_str("\t");
+                        formatted_string.push_str(parent_path.to_str().unwrap());
+                        formatted_string.push_str("/");
+                        formatted_string.push_str(header);
+                        if Some(header) == mmk_data.data["MMK_HEADERS"].last() {
+                            formatted_string.push_str("\n");
+                        }
+                        else {
+                            formatted_string.push_str(" \\\n");
+                        }
+                    }
+                } 
+                else {
+                    formatted_string.push_str("\n");
+                }
+                formatted_string.push_str(&format!("\t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) {dependencies} -I{path_str} $< -c -o $@)\n\n"
+                , dependencies = mmk_data.to_string("MMK_DEPEND")
+                , path_str = parent_path.to_str().unwrap()));
             }
         }
         formatted_string.trim_end().to_string()
+    }
+    pub fn print_required_dependencies_libraries(self: &Self) -> String {
+        let mut formatted_string = String::new();
+        for dependency in self.dependency.requires.borrow().iter() {            
+            if dependency.borrow().library_name != "" {
+                let required_dep = dependency.borrow();
+                let parent_path = required_dep.path.parent().unwrap();
+                let build_path = parent_path.join(".build");
+                formatted_string.push_str("\t");
+                formatted_string.push_str(build_path.to_str().unwrap());
+                formatted_string.push_str("/");
+                formatted_string.push_str(&required_dep.library_name);
+            }
+        }
+        formatted_string
+    }
+
+    pub fn print_mandatory_libraries(self: &Self) -> String {
+        let mut formatted_string = String::new();
+        formatted_string.push_str("-lstdc++");
+        formatted_string
+    }
+
+    pub fn print_prerequisites(self: &Self) -> String {
+        let mut formatted_string = String::new();
+        if self.dependency.mmk_data.data.contains_key("MMK_SOURCES") {
+            formatted_string.push_str("\\\n");
+            for source in &self.dependency.mmk_data.data["MMK_SOURCES"] {
+                let object = source.replace(".cpp", ".o");
+                formatted_string.push_str("\t");
+                formatted_string.push_str(&object);
+                formatted_string.push_str(" \\\n");
+            }
+        }
+        formatted_string.push_str(&self.print_required_dependencies_libraries());
+        formatted_string.push_str("\t");
+        formatted_string.push_str(&self.print_mandatory_libraries());
+        formatted_string
     }
 }
 
 pub trait Generator
 {      
-    fn generate_makefile(self: &mut Self)              -> Result<(), MyMakeError>;
-    fn generate_header(self: &mut Self)                -> Result<(), MyMakeError>;
-    fn generate_rule_executable(self: &mut Self)       -> Result<(), MyMakeError>;
-    fn generate_rule_package(self: &mut Self)          -> Result<(), MyMakeError>;
-    fn generate_source_to_object_rule(self: &mut Self) -> Result<(), MyMakeError>;
+    fn generate_makefile(self: &mut Self)        -> Result<(), MyMakeError>;
+    fn generate_header(self: &mut Self)          -> Result<(), MyMakeError>;
+    fn generate_rule_executable(self: &mut Self) -> Result<(), MyMakeError>;
+    fn generate_rule_package(self: &mut Self)    -> Result<(), MyMakeError>;
     fn print_ok(self: &Self);    
 }
 
@@ -95,7 +152,6 @@ impl Generator for MmkGenerator
         include /home/fredrik/bin/mymake/include/strict.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
-        AR       := $(AR.static)        # We generate only static static libraries.\n\
         CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
         CP       := /usr/bin/cp  \n\
         CP_FORCE := -f \n\
@@ -118,14 +174,15 @@ impl Generator for MmkGenerator
     {
         let data = format!("\n\
         #Generated by MmkGenerator.generate_rule_package(). \n\
+        \n\
         .PHONY: {package}\n\
-        {package}: {sources}\n\
+        {package}: {prerequisites}\n\
         \t$(strip $(AR) $(ARFLAGS) $@ $?)\n\
         \n\
         {sources_to_objects}\n\
-        ", sources      = self.dependency.mmk_data.sources_to_objects()
+        ", prerequisites = self.print_prerequisites()
          , package      = self.dependency.mmk_data.to_string("MMK_LIBRARY_LABEL")
-         , sources_to_objects = self.sources_to_objects_rule(&self.dependency.mmk_data));
+         , sources_to_objects = self.make_object_rule(&self.dependency.mmk_data));
         
         match self.filename.write(data.as_bytes()) {
             Ok(_) => (),
@@ -139,31 +196,21 @@ impl Generator for MmkGenerator
     {
         let data = format!("\n\
         #Generated by MmkGenerator.generate_rule_executable(). \n\
+        \n\
         .PHONY: {executable}\n\
-        {executable}: {sources}\n\
+        {executable}: {prerequisites}\n\
         \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) {dependencies} $^ -o $@)\n\
         \n\
         {sources_to_objects}\n\
         ",
-        executable   = self.dependency.mmk_data.to_string("MMK_EXECUTABLE"),
-        sources      = self.dependency.mmk_data.sources_to_objects(),
-        dependencies = self.dependency.mmk_data.to_string("MMK_DEPEND"),
-        sources_to_objects = self.sources_to_objects_rule(&self.dependency.mmk_data));
+        executable         = self.dependency.mmk_data.to_string("MMK_EXECUTABLE"),
+        prerequisites      = self.print_prerequisites(),
+        dependencies       = self.dependency.mmk_data.to_string("MMK_DEPEND"),
+        sources_to_objects = self.make_object_rule(&self.dependency.mmk_data));
         
         match self.filename.write(data.as_bytes()) {
             Ok(_) => (),
             Err(err) => return Err(MyMakeError::from(format!("Error creating executable rule for {:?}: {}", self.filename, err))),
-        };
-        Ok(())
-    }
-
-
-    fn generate_source_to_object_rule(self: &mut Self) -> Result<(), MyMakeError> {
-        match self.filename.write_fmt(format_args!("\n\
-        {sources_to_objects}"
-        , sources_to_objects = self.sources_to_objects_rule(&self.dependency.mmk_data))) {
-            Ok(_) => (),
-            Err(err) => return Err(MyMakeError::from(format!("Error creating object rule for {:?}: {}", self.filename, err))),
         };
         Ok(())
     }
@@ -212,7 +259,6 @@ mod tests {
         include /home/fredrik/bin/mymake/include/strict.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
-        AR       := $(AR.static)        # We generate only static static libraries.\n\
         CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
         CP       := /usr/bin/cp  \n\
         CP_FORCE := -f \n\
@@ -233,6 +279,7 @@ mod tests {
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
         dependency.mmk_data.data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        dependency.mmk_data.data.insert("MMK_LIBRARY_LABEL".to_string(), vec!["pkg".to_string()]);
         dependency.mmk_data.data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
 
         let mut gen = MmkGenerator::new(&dependency, output_dir).unwrap();
@@ -240,15 +287,21 @@ mod tests {
         assert!(Generator::generate_rule_package(&mut gen).is_ok());
         assert_eq!(format!("\n\
         #Generated by MmkGenerator.generate_rule_package(). \n\
-        .PHONY: package\n\
-        package: filename.o ofilename.o\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $^ -c -o $@)\n\
         \n\
-        filename.o: {directory}/filename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
+        .PHONY: libpkg.a\n\
+        libpkg.a: \\\n\
+        \tfilename.o \\\n\
+        \tofilename.o \\\n\
+        \t-lstdc++\n\
+        \t$(strip $(AR) $(ARFLAGS) $@ $?)\n\
         \n\
-        ofilename.o: {directory}/ofilename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
+        filename.o: \\\n\
+        \t{directory}/filename.cpp\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
+        \n\
+        ofilename.o: \\\n\
+        \t{directory}/ofilename.cpp\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
         ", directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
@@ -267,15 +320,21 @@ mod tests {
         assert!(Generator::generate_rule_executable(&mut gen).is_ok());
         assert_eq!(format!("\n\
         #Generated by MmkGenerator.generate_rule_executable(). \n\
+        \n\
         .PHONY: x\n\
-        x: filename.o ofilename.o\n\
+        x: \\\n\
+        \tfilename.o \\\n\
+        \tofilename.o \\\n\
+        \t-lstdc++\n\
         \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $^ -o $@)\n\
         \n\
-        filename.o: {directory}/filename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
+        filename.o: \\\n\
+        \t{directory}/filename.cpp\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
         \n\
-        ofilename.o: {directory}/ofilename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
+        ofilename.o: \\\n\
+        \t{directory}/ofilename.cpp\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
         ", directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }

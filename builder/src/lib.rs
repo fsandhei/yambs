@@ -136,8 +136,10 @@ mod tests {
                     mmk_data: expected_2,
                     requires: RefCell::new(Vec::new()),
                     makefile_made: false,
+                    library_name: String::new(),
                 })]),
                 makefile_made: false,
+                library_name: String::new(),
             }
         );
         Ok(())
@@ -186,14 +188,17 @@ mod tests {
                     mmk_data: expected_2,
                     requires: RefCell::new(Vec::new()),
                     makefile_made: false,
+                    library_name: String::new(),
                 }),
                 RefCell::new(Dependency {
                     path: test_file_second_dep_path,
                     mmk_data: expected_3,
                     requires: RefCell::new(Vec::new()),
                     makefile_made: false,
+                    library_name: String::new(),
                 })]),
                 makefile_made: false,
+                library_name: String::new(),
             }
         );
         Ok(())
@@ -253,10 +258,13 @@ mod tests {
                             mmk_data: expected_3,
                             requires: RefCell::new(vec![]),
                             makefile_made: false,
+                            library_name: String::new(),
                         })]),
                     makefile_made: false,
+                    library_name: String::new(),
                 })]),
                 makefile_made: false,
+                library_name: String::new(),
             }
         );
         Ok(())
@@ -317,6 +325,7 @@ mod tests {
                     mmk_data: expected_3,
                     requires: RefCell::new(vec![]),
                     makefile_made: false,
+                    library_name: String::new(),
                 }),
                 RefCell::new(Dependency {
                     path: test_file_dep_path,
@@ -327,10 +336,13 @@ mod tests {
                             mmk_data: expected_4,
                             requires: RefCell::new(vec![]),
                             makefile_made: false,
+                            library_name: String::new(),
                         })]),
                     makefile_made: false,
+                    library_name: String::new(),
                 })]),
                 makefile_made: false,
+                library_name: String::new(),
             }
         );
         Ok(())

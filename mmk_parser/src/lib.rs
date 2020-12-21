@@ -22,13 +22,13 @@ impl Mmk
         Mmk { data: HashMap::new() }
     }
 
-    pub fn parse_file(self: &mut Self, data: &String) -> &mut Mmk
+    pub fn parse_file(self: &mut Self, data: &String) -> Result<&mut Mmk, MyMakeError>
     {
         let no_comment_data = remove_comments(data);
-        parse_mmk(self, &no_comment_data, "MMK_SOURCES");
-        parse_mmk(self, &no_comment_data, "MMK_HEADERS");
-        parse_mmk(self, &no_comment_data, "MMK_EXECUTABLE");
-        parse_mmk(self, &no_comment_data, "MMK_DEPEND");
+        parse_mmk(self, &no_comment_data, "MMK_SOURCES")?;
+        parse_mmk(self, &no_comment_data, "MMK_HEADERS")?;
+        parse_mmk(self, &no_comment_data, "MMK_EXECUTABLE")?;
+        parse_mmk(self, &no_comment_data, "MMK_DEPEND")?;
         parse_mmk(self, &no_comment_data, "MMK_LIBRARY_LABEL")
     }
 
@@ -54,18 +54,23 @@ impl Mmk
                     formatted_string.push_str(".a");
                 }
                 formatted_string.push_str(" ");
-            }            
+            }
         }
         formatted_string.trim_end().to_string()
     }
 
-    pub fn valid_keyword(self: &Self, keyword: &str) -> bool
+    pub fn valid_keyword(self: &Self, keyword: & str) -> Result<(), MyMakeError>
     {
-        keyword    == "MMK_DEPEND"
+        if keyword == "MMK_DEPEND"
         || keyword == "MMK_SOURCES" 
         || keyword == "MMK_HEADERS"
         || keyword == "MMK_EXECUTABLE"
-        || keyword == "MMK_LIBRARY_LABEL"
+        || keyword == "MMK_LIBRARY_LABEL" {
+            Ok(())
+        }
+        else {
+            Err(MyMakeError::from(format!("Invalid keyword {}", keyword)))
+        }
     }
 
     pub fn sources_to_objects(self: &Self) -> String {
@@ -111,9 +116,9 @@ pub fn remove_comments(data: &String) -> String {
     non_comment_data
 }
 
-pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -> &'a mut Mmk
+pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -> Result<&'a mut Mmk, MyMakeError>
 {
-    if mmk_container.valid_keyword(keyword)
+    mmk_container.valid_keyword(keyword)?;
     {
         let filtered_data: String = clip_string(&data, &keyword).replace(" ", "")
                                                 .to_string();
@@ -121,11 +126,12 @@ pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -
         if filtered_data == ""
         {
             mmk_container.data.insert(keyword.to_string(), vec![filtered_data]);
-            return mmk_container;
+            return Ok(mmk_container);
         }
         let split_data: Vec<&str> = filtered_data.trim_start()
                                                     .split_terminator("=")
                                                     .collect();
+        // mmk_container.valid_keyword(split_data[0])?;
 
         let mut mmk_right_side: Vec<String> = split_data[1].split_terminator("\\").map(|s| 
             {
@@ -141,7 +147,7 @@ pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -
         mmk_right_side.retain(|x| x.is_empty() == false);
         mmk_container.data.insert(keyword.to_string(), mmk_right_side);
     }
-    mmk_container
+    Ok(mmk_container)
 }
 
 
@@ -155,7 +161,7 @@ pub mod tests
     {
         let path = std::path::Path::new("/home/fredrik/bin/mymake/mmk_parser/src/test.mmk");
         let content = read_file(&path);        
-        assert_eq!(content.unwrap(),"\
+        assert_eq!(content.unwrap(),("\
             #This is a comment.\n\
             MMK_DEPEND = /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/\n\
             \n\
@@ -164,7 +170,7 @@ pub mod tests
             \n\
             #This is a second comment.\n\
             MMK_EXECUTABLE = x\n\
-            ");
+            "));
     }
 
     #[test]
@@ -185,48 +191,52 @@ pub mod tests
     }
     
     #[test]
-    fn test_parse_mmk_sources()
+    fn test_parse_mmk_sources() -> Result<(), MyMakeError>
     {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES = filename.cpp \\
                                                           otherfilename.cpp\n");
 
-        parse_mmk( &mut mmk_content, &content, "MMK_SOURCES");
+        parse_mmk( &mut mmk_content, &content, "MMK_SOURCES")?;
         assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp", "otherfilename.cpp"]);
+        Ok(())
     }
 
     #[test]
-    fn test_parse_mmk_source()
+    fn test_parse_mmk_source() -> Result<(), MyMakeError>
     {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES = filename.cpp \\");
-        parse_mmk(&mut mmk_content, &content, "MMK_SOURCES");
+        parse_mmk(&mut mmk_content, &content, "MMK_SOURCES")?;
         assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp"]);
+        Ok(())
     }
 
 
     #[test]
-    fn test_parse_mmk_source_newline_after_end()
+    fn test_parse_mmk_source_newline_after_end() -> Result<(), MyMakeError>
     {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES = filename.cpp \\
         ");
-        parse_mmk(&mut mmk_content, &content, "MMK_SOURCES");
+        parse_mmk(&mut mmk_content, &content, "MMK_SOURCES")?;
         assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp"]);
+        Ok(())
     }
 
     #[test]
-    fn test_parse_mmk_dependencies()
+    fn test_parse_mmk_dependencies() -> Result<(), MyMakeError>
     {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_DEPEND = /some/path/to/depend/on \\
                                                          /another/path/to/depend/on\n");
-        parse_mmk(&mut mmk_content, &content, "MMK_DEPEND");
+        parse_mmk(&mut mmk_content, &content, "MMK_DEPEND")?;
         assert_eq!(mmk_content.data["MMK_DEPEND"], ["/some/path/to/depend/on", "/another/path/to/depend/on"]);
+        Ok(())
     }
 
     #[test]
-    fn test_multiple_keywords()
+    fn test_multiple_keywords() -> Result<(), MyMakeError>
     {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES = filename.cpp \\
@@ -237,30 +247,33 @@ pub mod tests
                                                          
                                             MMK_EXECUTABLE = main");
 
-        parse_mmk(&mut mmk_content, &content, "MMK_SOURCES");
+        parse_mmk(&mut mmk_content, &content, "MMK_SOURCES")?;
         assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp", "otherfilename.cpp"]);
-        parse_mmk(&mut mmk_content, &content, "MMK_DEPEND");
+        parse_mmk(&mut mmk_content, &content, "MMK_DEPEND")?;
         assert_eq!(mmk_content.data["MMK_DEPEND"], ["/some/path/to/depend/on", "/another/path/"]);
-        parse_mmk(&mut mmk_content, &content, "MMK_EXECUTABLE");
+        parse_mmk(&mut mmk_content, &content, "MMK_EXECUTABLE")?;
         assert_eq!(mmk_content.data["MMK_EXECUTABLE"], ["main"]);
+        Ok(())
     }
     #[test]
-    fn test_parse_mmk_no_keyword()
+    fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError>
     {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_DEPEND = /some/path/to/depend/on \\
                                                          /another/path/to/depend/on\n");
-        parse_mmk(&mut mmk_content, &content, "MMK_DEP");
-        assert!(mmk_content.data.is_empty() == true);
+        let result = parse_mmk(&mut mmk_content, &content, "MMK_DEP");
+        assert!(result.is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_parse_mmk_library_label()
+    fn test_parse_mmk_library_label() -> Result<(), MyMakeError>
     {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_LIBRARY_LABEL = mylib");
-        parse_mmk(&mut mmk_content, &content, "MMK_LIBRARY_LABEL");
+        parse_mmk(&mut mmk_content, &content, "MMK_LIBRARY_LABEL")?;
         assert_eq!(mmk_content.data["MMK_LIBRARY_LABEL"], ["mylib"]);
+        Ok(())
     }
 }
 

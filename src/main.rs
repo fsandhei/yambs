@@ -39,9 +39,7 @@ fn main() -> Result<(), std::io::Error> {
     let myfile = mmk_parser::validate_file_path(matches.value_of("mmk_file").unwrap_or_terminate()).unwrap_or_terminate();
     let mut builder = Builder::new();
 
-    print!("MyMake: Reading mmk files");
     builder.read_mmk_files_from_path(&myfile).unwrap_or_terminate();
-    println!();
 
     if let Some(matches) = matches.subcommand_matches("extern")
     {

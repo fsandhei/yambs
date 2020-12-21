@@ -123,18 +123,15 @@ pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -
         let filtered_data: String = clip_string(&data, &keyword).replace(" ", "")
                                                 .to_string();
 
-        if filtered_data == ""
-        {
+        if filtered_data == "" {
             mmk_container.data.insert(keyword.to_string(), vec![filtered_data]);
             return Ok(mmk_container);
         }
         let split_data: Vec<&str> = filtered_data.trim_start()
                                                     .split_terminator("=")
                                                     .collect();
-        // mmk_container.valid_keyword(split_data[0])?;
 
-        let mut mmk_right_side: Vec<String> = split_data[1].split_terminator("\\").map(|s| 
-            {
+        let mut mmk_right_side: Vec<String> = split_data[1].split_terminator("\\").map(|s| {
                 s.trim_end_matches("MMK_DEPEND")
                 .trim_end_matches("MMK_SOURCES")
                 .trim_end_matches("MMK_HEADERS")

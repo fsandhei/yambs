@@ -35,7 +35,7 @@ impl Dependency {
         let mut dependency = Dependency::from(path);
         dependency.read_and_add_mmk_data()?;
         dependency.add_library_name();
-        dependency.detect_and_add_dependencies()?;
+        dependency.detect_and_add_dependencies()?;        
         dependency.print_ok();
         Ok(dependency)
     }
@@ -72,11 +72,24 @@ impl Dependency {
             }
             let mmk_path = path.clone();
             let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
-            let dependency = Dependency::create_dependency_from_path(&dep_path)?;
-            self.add_dependency(dependency);
+            self.detect_cycle_dependency_from_path(&dep_path)?;
+            let dependency = Dependency::create_dependency_from_path(&dep_path)?;       
+            self.add_dependency(dependency);            
         }
         Ok(())
     }
+
+    pub fn detect_cycle_dependency_from_path(self: &Self, path: &std::path::PathBuf) -> Result<(), MyMakeError> {
+        if &self.path == path {
+            return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} \ndepends on {:?},\nwhich depends on itself", 
+            path, self.path)));
+        }
+        for required_dep in self.requires.borrow().iter() {
+            let borrowed_required_dep = required_dep.borrow();            
+                borrowed_required_dep.detect_cycle_dependency_from_path(&path)?;
+            }
+            Ok(())
+        }
 
     pub fn print_ok(self: &Self) {
         print!(".");

@@ -81,6 +81,8 @@ mod tests {
                              vec![String::new()]);
         mmk_data.data.insert(String::from("MMK_EXECUTABLE"), 
                              vec![String::new()]);
+        mmk_data.data.insert(String::from("MMK_LIBRARY_LABEL"), 
+                             vec![String::new()]);
 
         (dir, test_file_path, file, mmk_data)
     }
@@ -347,6 +349,34 @@ mod tests {
                 library_name: String::new(),
             }
         );
+        Ok(())
+    }
+    #[test]
+    fn read_mmk_files_two_files_circulation() -> Result<(), MyMakeError> {
+        let mut builder = Builder::new();
+        let (dir, test_file_path, mut file, _expected_1)              = make_mmk_file("example");
+        let (dir_dep, _test_file_dep_path, mut file_dep, _expected_2) = make_mmk_file("example_dep");
+
+        write!(
+            file,
+            "\
+            MMK_DEPEND = {} \\
+        \n
+        
+        MMK_EXECUTABLE = x",
+            &dir_dep.path().to_str().unwrap().to_string()
+        ).unwrap();
+
+        write!(
+            file_dep,
+            "\
+            MMK_DEPEND = {} \\
+        \n", &dir.path().to_str().unwrap().to_string()
+        ).unwrap();
+
+        let result = builder.read_mmk_files_from_path(&test_file_path);
+
+        assert!(result.is_err());
         Ok(())
     }
 }

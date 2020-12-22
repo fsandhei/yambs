@@ -74,7 +74,7 @@ impl Dependency {
             let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
             self.detect_cycle_dependency_from_path(&dep_path)?;
             let dependency = Dependency::create_dependency_from_path(&dep_path)?;       
-            self.add_dependency(dependency);            
+            self.add_dependency(dependency);
         }
         Ok(())
     }

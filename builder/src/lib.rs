@@ -1,20 +1,24 @@
-use dependency::Dependency;
+use dependency::{Dependency, DependencyRegistry};
 use error::MyMakeError;
+use std::io::{self, Write};
 
 pub struct Builder {
     pub top_dependency: Dependency,
+    pub dep_registry: DependencyRegistry,
 }
 
 impl Builder {
     pub fn new() -> Builder {
         Builder {
             top_dependency: Dependency::new(),
+            dep_registry: DependencyRegistry::new(),
         }
     }
 
     pub fn read_mmk_files_from_path(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
         print!("MyMake: Reading mmk files");
-        let top_dependency = Dependency::create_dependency_from_path(&top_path)?;
+        io::stdout().flush().unwrap();
+        let top_dependency = Dependency::create_dependency_from_path(&top_path, &mut self.dep_registry)?;
         self.top_dependency = top_dependency;
         println!();
         Ok(())
@@ -141,9 +145,11 @@ mod tests {
                     requires: RefCell::new(Vec::new()),
                     makefile_made: false,
                     library_name: String::new(),
+                    in_process: false,
                 })]),
                 makefile_made: false,
                 library_name: String::new(),
+                in_process: false,
             }
         );
         Ok(())
@@ -193,6 +199,7 @@ mod tests {
                     requires: RefCell::new(Vec::new()),
                     makefile_made: false,
                     library_name: String::new(),
+                    in_process: false,
                 }),
                 RefCell::new(Dependency {
                     path: test_file_second_dep_path,
@@ -200,9 +207,11 @@ mod tests {
                     requires: RefCell::new(Vec::new()),
                     makefile_made: false,
                     library_name: String::new(),
+                    in_process: false,
                 })]),
                 makefile_made: false,
                 library_name: String::new(),
+                in_process: false,
             }
         );
         Ok(())
@@ -263,12 +272,15 @@ mod tests {
                             requires: RefCell::new(vec![]),
                             makefile_made: false,
                             library_name: String::new(),
+                            in_process: false,
                         })]),
                     makefile_made: false,
                     library_name: String::new(),
+                    in_process: false,
                 })]),
                 makefile_made: false,
                 library_name: String::new(),
+                in_process: false,
             }
         );
         Ok(())
@@ -330,6 +342,7 @@ mod tests {
                     requires: RefCell::new(vec![]),
                     makefile_made: false,
                     library_name: String::new(),
+                    in_process: false,
                 }),
                 RefCell::new(Dependency {
                     path: test_file_dep_path,
@@ -341,12 +354,15 @@ mod tests {
                             requires: RefCell::new(vec![]),
                             makefile_made: false,
                             library_name: String::new(),
+                            in_process: false,
                         })]),
                     makefile_made: false,
                     library_name: String::new(),
+                    in_process: false,
                 })]),
                 makefile_made: false,
                 library_name: String::new(),
+                in_process: false,
             }
         );
         Ok(())

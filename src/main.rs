@@ -17,7 +17,10 @@ TODO:
     *Implementere unwrap_or_terminate() for Option / Result
     *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en /makefile.
 
-    * Overall: Endre alle Error - meldinger som er relevant til å ta MyMakeError for Result.
+    * Overall: * Endre alle Error - meldinger som er relevant til å ta MyMakeError for Result.
+    *          * Ordne bedre feilhåndtering for mmk_parser. Feilhåndteringen der baserer seg
+    *            foreløpig på utviklerens feil og ikke brukerens feil. Feil skal oppdages fra
+    *            brukeren sin side.
 */
 
 fn main() -> Result<(), std::io::Error> {

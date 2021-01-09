@@ -2,6 +2,37 @@ use error::MyMakeError;
 use mmk_parser;
 use std::cell::RefCell;
 
+pub struct DependencyRegistry {
+    // pub registry: Vec<Rc<&'a RefCell<Dependency>>>,
+    pub registry: Vec<Dependency>,
+}
+
+impl DependencyRegistry {
+
+    pub fn new() -> DependencyRegistry {
+        DependencyRegistry {
+            registry: Vec::new(),
+        }
+    }
+
+    pub fn add_dependency(self: &mut Self, dependency: Dependency) {
+        self.registry.push(dependency);
+    }
+
+    pub fn dependency_in_registry(self: &Self, dependency: Dependency) -> bool {
+        self.registry.contains(&dependency)
+    }
+
+    pub fn dependency_from_path(self: &Self, path: &std::path::PathBuf) -> Option<Dependency> {
+        for dependency in &self.registry {
+            if &dependency.path == path {
+                return Some(dependency.clone())
+            }
+        }
+        None
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dependency {
     pub path: std::path::PathBuf,
@@ -9,6 +40,7 @@ pub struct Dependency {
     pub requires: RefCell<Vec<RefCell<Dependency>>>,
     pub makefile_made: bool,
     pub library_name: String,
+    pub in_process: bool
 }
 
 impl Dependency {
@@ -19,6 +51,7 @@ impl Dependency {
             requires: RefCell::new(Vec::new()),
             makefile_made: false,
             library_name: String::new(),
+            in_process: false
         }
     }
     pub fn from(path: &std::path::Path) -> Dependency {
@@ -28,15 +61,20 @@ impl Dependency {
             requires: RefCell::new(Vec::new()),
             makefile_made: false,
             library_name: String::new(),
+            in_process: false,
         }
     }
 
-    pub fn create_dependency_from_path(path: &std::path::PathBuf) -> Result<Dependency, MyMakeError>{
-        let mut dependency = Dependency::from(path);
+    pub fn create_dependency_from_path(path: &std::path::PathBuf,
+                                       dep_registry: &mut DependencyRegistry) -> Result<Dependency, MyMakeError>{                      
+        let mut dependency = Dependency::from(path);        
+        dependency.in_process = true;
+        dep_registry.add_dependency(dependency.clone());
         dependency.read_and_add_mmk_data()?;
         dependency.add_library_name();
-        dependency.detect_and_add_dependencies()?;        
+        dependency.detect_and_add_dependencies(dep_registry)?;
         dependency.print_ok();
+        dependency.in_process = false;
         Ok(dependency)
     }
 
@@ -65,30 +103,32 @@ impl Dependency {
         self.library_name = self.mmk_data.to_string("MMK_LIBRARY_LABEL");
     }
 
-    pub fn detect_and_add_dependencies(self: &mut Self) -> Result<(), MyMakeError>{
+    pub fn detect_and_add_dependencies(self: &mut Self, dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError>{
         for path in self.mmk_data.data["MMK_DEPEND"].clone() {
             if path == "" {
                 break;
             }
             let mmk_path = path.clone();
             let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
-            self.detect_cycle_dependency_from_path(&dep_path)?;
-            let dependency = Dependency::create_dependency_from_path(&dep_path)?;       
+
+            self.detect_cycle_dependency_from_path(&dep_path, dep_registry)?;
+            let dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;       
             self.add_dependency(dependency);
         }
         Ok(())
     }
 
-    pub fn detect_cycle_dependency_from_path(self: &Self, path: &std::path::PathBuf) -> Result<(), MyMakeError> {
-        if &self.path == path {
-            return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} \ndepends on {:?},\nwhich depends on itself", 
-            path, self.path)));
-        }
-        for required_dep in self.requires.borrow().iter() {
-            let borrowed_required_dep = required_dep.borrow();            
-                borrowed_required_dep.detect_cycle_dependency_from_path(&path)?;
+    pub fn detect_cycle_dependency_from_path(self: &Self, path: &std::path::PathBuf, 
+                                             dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError> {
+        
+        
+        if let Some(dependency) = dep_registry.dependency_from_path(path) {
+            if dependency.in_process == true {
+                return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} depends on\n{:?}, which depends on itself", 
+                                             path, self.path)));
+                }
             }
-            Ok(())
+        Ok(())
         }
 
     pub fn print_ok(self: &Self) {

@@ -13,7 +13,7 @@ impl<T, E> MyMakeUnwrap<T> for Result<T,E> where E: std::fmt::Display
         {
             Ok(t) => t,
             Err(err) => {
-                eprintln!("{}", format!("MyMake: {}", err).red());
+                eprintln!("\r{}", format!("MyMake: {}", err).red());
                 std::process::exit(1);
             }
         }

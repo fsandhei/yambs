@@ -1,11 +1,14 @@
 use dependency::{Dependency, DependencyRegistry};
 use error::MyMakeError;
 use std::io::{self, Write};
+use std::process::Command;
+use colored::Colorize;
 
 pub struct Builder {
     pub top_dependency: Dependency,
     pub dep_registry: DependencyRegistry,
 }
+
 
 impl Builder {
     pub fn new() -> Builder {
@@ -15,6 +18,19 @@ impl Builder {
         }
     }
 
+
+    pub fn create_log_file(&self) -> Result<std::fs::File, MyMakeError> {
+        if self.top_dependency.makefile_made {
+            let log_file_name = self.top_dependency.get_build_directory().join("mymake_log.txt");
+            match std::fs::File::create(&log_file_name) {
+                Ok(file) => file,
+                Err(err) => return Err(MyMakeError::from(format!("Error creating {:?}: {}", log_file_name, err))),
+            };
+        }
+        return Err(MyMakeError::from(format!("Error: Can't create log file because top dependency does not have a makefile!")));
+    }
+
+
     pub fn read_mmk_files_from_path(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
         print!("MyMake: Reading mmk files");
         io::stdout().flush().unwrap();
@@ -23,6 +39,8 @@ impl Builder {
         println!();
         Ok(())
     }
+
+    // TBD: Flytte funksjon til generator?
     pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError> {
 
         let mut generator: generator::MmkGenerator;
@@ -45,6 +63,69 @@ impl Builder {
             Builder::generate_makefiles(&mut required_dependency.borrow_mut())?;
         }
         Ok(())
+    }
+
+
+    pub fn build_project(self: &Self, verbosity: bool) -> Result<(), MyMakeError> {
+        println!("MyMake: Building...");
+        let stdout = self.create_log_file()?;
+        let stderr = stdout.try_clone().unwrap();
+        let output = self.build_dependency(&self.top_dependency, verbosity, &stdout, &stderr)?;
+        if output.status.success() {
+            println!("{}", "Build SUCCESS".green());
+        }
+        else {
+            println!("{}", "Build FAILED".red());
+        }
+        Ok(())
+    }
+
+
+    pub fn build_dependency(&self, dependency: &Dependency, 
+                            verbosity: bool, 
+                            stdout: &std::fs::File,
+                            stderr: &std::fs::File) -> Result<std::process::Output, MyMakeError> {
+        for required_dependency in dependency.requires.borrow().iter() {
+            let dep_output = self.build_dependency(&required_dependency.borrow(), 
+                                                         verbosity,
+                                                         stdout,
+                                                         stderr)?;
+            if !dep_output.status.success() {
+                return Ok(dep_output);
+            }
+        }
+        let build_directory = dependency.get_build_directory();
+        self.change_directory(build_directory, verbosity);
+        Builder::construct_build_message(dependency);
+        let output = Command::new("/usr/bin/make").output().expect("Failed...");
+        
+        Ok(output)
+    }
+
+
+    pub fn construct_build_message(dependency: &Dependency) {
+        let dep_type: &str;
+        let dep_type_name: &String;
+        
+        if dependency.library_name == "" {
+            dep_type = "executable";
+            dep_type_name = &dependency.mmk_data.data["MMK_EXECUTABLE"][0];
+        }
+        else {
+            dep_type = "library";
+            dep_type_name = &dependency.mmk_data.data["MMK_LIBRARY_LABEL"][0];
+        }
+        println!("Building {} {:?}", dep_type, dep_type_name);
+    }
+
+
+    pub fn change_directory(&self, directory: std::path::PathBuf, verbose: bool) {
+        let message = format!("Entering directory {:?}", directory);
+        if verbose {
+            println!("{}", message);
+        }
+
+        std::env::set_current_dir(directory).unwrap()
     }
 }
 

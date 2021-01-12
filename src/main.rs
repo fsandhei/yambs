@@ -63,5 +63,6 @@ fn main() -> Result<(), std::io::Error> {
     print!("MyMake: Generating makefiles");
     Builder::generate_makefiles(&mut builder.top_dependency).unwrap_or_terminate();
     println!();
+    builder.build_project(false).unwrap_or_terminate();
     Ok(())
 }

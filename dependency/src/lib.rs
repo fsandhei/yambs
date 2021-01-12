@@ -1,9 +1,9 @@
 use error::MyMakeError;
 use mmk_parser;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct DependencyRegistry {
-    // pub registry: Vec<Rc<&'a RefCell<Dependency>>>,
     pub registry: Vec<Dependency>,
 }
 
@@ -16,17 +16,18 @@ impl DependencyRegistry {
     }
 
     pub fn add_dependency(self: &mut Self, dependency: Dependency) {
+        // let rc_dependency = Rc::new(dependency);
         self.registry.push(dependency);
     }
 
     pub fn dependency_in_registry(self: &Self, dependency: Dependency) -> bool {
-        self.registry.contains(&dependency)
+        self.registry.contains(&Rc::new(dependency))
     }
 
-    pub fn dependency_from_path(self: &Self, path: &std::path::PathBuf) -> Option<Dependency> {
+    pub fn dependency_from_path(self: &Self, path: &std::path::PathBuf) -> Option<&Dependency> {
         for dependency in &self.registry {
             if &dependency.path == path {
-                return Some(dependency.clone())
+                return Some(dependency)
             }
         }
         None
@@ -54,6 +55,8 @@ impl Dependency {
             in_process: false
         }
     }
+
+
     pub fn from(path: &std::path::Path) -> Dependency {
         Dependency {
             path: std::path::PathBuf::from(path),
@@ -65,11 +68,12 @@ impl Dependency {
         }
     }
 
+
     pub fn create_dependency_from_path(path: &std::path::PathBuf,
                                        dep_registry: &mut DependencyRegistry) -> Result<Dependency, MyMakeError>{                      
         let mut dependency = Dependency::from(path);        
         dependency.in_process = true;
-        dep_registry.add_dependency(dependency.clone());
+        dep_registry.add_dependency(dependency.to_owned());
         dependency.read_and_add_mmk_data()?;
         dependency.add_library_name();
         dependency.detect_and_add_dependencies(dep_registry)?;
@@ -78,14 +82,24 @@ impl Dependency {
         Ok(dependency)
     }
 
+
     pub fn add_dependency(self: &mut Self, dependency: Dependency) {
         self.requires.borrow_mut().push(RefCell::new(dependency));
     }
+
 
     pub fn makefile_made(self: &mut Self)
     {
         self.makefile_made = true;
     }
+
+
+    pub fn get_build_directory(self: &Self) -> std::path::PathBuf {
+        let parent = self.path.parent().unwrap();
+        let build_directory_name = std::path::PathBuf::from(".build");
+        parent.join(build_directory_name)
+    }
+
 
     pub fn read_and_add_mmk_data(self: &mut Self) -> Result<mmk_parser::Mmk, MyMakeError>{
         let file_content = match mmk_parser::read_file(&self.path)
@@ -99,9 +113,11 @@ impl Dependency {
         Ok(mmk_data)
     }
 
+
     pub fn add_library_name(self: &mut Self) {
         self.library_name = self.mmk_data.to_string("MMK_LIBRARY_LABEL");
     }
+
 
     pub fn detect_and_add_dependencies(self: &mut Self, dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError>{
         for path in self.mmk_data.data["MMK_DEPEND"].clone() {
@@ -118,10 +134,9 @@ impl Dependency {
         Ok(())
     }
 
+    
     pub fn detect_cycle_dependency_from_path(self: &Self, path: &std::path::PathBuf, 
                                              dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError> {
-        
-        
         if let Some(dependency) = dep_registry.dependency_from_path(path) {
             if dependency.in_process == true {
                 return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} depends on\n{:?}, which depends on itself", 

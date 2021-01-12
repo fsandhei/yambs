@@ -78,7 +78,7 @@ impl MmkGenerator
     }
     pub fn print_required_dependencies_libraries(self: &Self) -> String {
         let mut formatted_string = String::new();
-        for dependency in self.dependency.requires.borrow().iter() {            
+        for dependency in  self.dependency.requires.borrow().iter() {            
             if dependency.borrow().library_name != "" {
                 let required_dep = dependency.borrow();
                 let parent_path = required_dep.path.parent().unwrap();
@@ -87,6 +87,7 @@ impl MmkGenerator
                 formatted_string.push_str(build_path.to_str().unwrap());
                 formatted_string.push_str("/");
                 formatted_string.push_str(&required_dep.library_name);
+                formatted_string.push_str(" \\\n");            
             }
         }
         formatted_string

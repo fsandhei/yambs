@@ -68,10 +68,10 @@ impl Builder {
 
     pub fn build_project(self: &Self, verbosity: bool) -> Result<(), MyMakeError> {
         println!("MyMake: Building...");
-        let stdout = self.create_log_file()?;
-        let stderr = stdout.try_clone().unwrap();
-        let output = self.build_dependency(&self.top_dependency, verbosity, &stdout, &stderr)?;
-        if output.status.success() {
+        // let stdout = self.create_log_file()?;
+        // let stderr = stdout.try_clone().unwrap();
+        let output = self.build_dependency(&self.top_dependency, verbosity);
+        if output.is_ok() &&  output.unwrap().status.success() {
             println!("{}", "Build SUCCESS".green());
         }
         else {
@@ -82,14 +82,10 @@ impl Builder {
 
 
     pub fn build_dependency(&self, dependency: &Dependency, 
-                            verbosity: bool, 
-                            stdout: &std::fs::File,
-                            stderr: &std::fs::File) -> Result<std::process::Output, MyMakeError> {
+                            verbosity: bool) -> Result<std::process::Output, std::io::Error> {
         for required_dependency in dependency.requires.borrow().iter() {
             let dep_output = self.build_dependency(&required_dependency.borrow(), 
-                                                         verbosity,
-                                                         stdout,
-                                                         stderr)?;
+                                                         verbosity)?;
             if !dep_output.status.success() {
                 return Ok(dep_output);
             }
@@ -97,9 +93,13 @@ impl Builder {
         let build_directory = dependency.get_build_directory();
         self.change_directory(build_directory, verbosity);
         Builder::construct_build_message(dependency);
-        let output = Command::new("/usr/bin/make").output().expect("Failed...");
+        // let output = Command::new("/usr/bin/make").stdout(std::process::Stdio::from(stdout))
+        //                                                         .stderr(std::process::Stdio::from(stderr))
+        //                                                         .spawn()?
+        //                                                         .wait_with_output()
+        //                                                         .expect("Failed...");
         
-        Ok(output)
+        Command::new("/usr/bin/make").output()
     }
 
 
@@ -115,7 +115,9 @@ impl Builder {
             dep_type = "library";
             dep_type_name = &dependency.mmk_data.data["MMK_LIBRARY_LABEL"][0];
         }
-        println!("Building {} {:?}", dep_type, dep_type_name);
+        let green_building = format!("{}", "Building".green());
+        let target = format!("{} {:?}", dep_type, dep_type_name);
+        println!("{} {}", green_building, target);
     }
 
 

@@ -7,6 +7,7 @@ use colored::Colorize;
 pub struct Builder {
     pub top_dependency: Dependency,
     pub dep_registry: DependencyRegistry,
+    pub log_file: Option<std::fs::File>,
 }
 
 
@@ -15,15 +16,16 @@ impl Builder {
         Builder {
             top_dependency: Dependency::new(),
             dep_registry: DependencyRegistry::new(),
+            log_file: None,
         }
     }
 
 
-    pub fn create_log_file(&self) -> Result<std::fs::File, MyMakeError> {
+    pub fn create_log_file(&self) -> Result<Option<std::fs::File>, MyMakeError> {
         if self.top_dependency.makefile_made {
             let log_file_name = self.top_dependency.get_build_directory().join("mymake_log.txt");
             match std::fs::File::create(&log_file_name) {
-                Ok(file) => file,
+                Ok(file) =>  return Ok(Some(file)),
                 Err(err) => return Err(MyMakeError::from(format!("Error creating {:?}: {}", log_file_name, err))),
             };
         }
@@ -54,7 +56,7 @@ impl Builder {
         for required_dependency in dependency.requires.borrow().iter()
         {
             if !required_dependency.borrow().makefile_made
-            {                   
+            {
                 required_dependency.borrow_mut().makefile_made();
                 generator = generator::MmkGenerator::new(&required_dependency.borrow(),
                      std::path::PathBuf::from(".build"))?;
@@ -66,23 +68,25 @@ impl Builder {
     }
 
 
-    pub fn build_project(self: &Self, verbosity: bool) -> Result<(), MyMakeError> {
+    pub fn build_project(&mut self, verbosity: bool) -> Result<(), MyMakeError> {
         println!("MyMake: Building...");
-        // let stdout = self.create_log_file()?;
-        // let stderr = stdout.try_clone().unwrap();
+        self.log_file = self.create_log_file()?;
+        
         let output = self.build_dependency(&self.top_dependency, verbosity);
-        if output.is_ok() &&  output.unwrap().status.success() {
-            println!("{}", "Build SUCCESS".green());
+        if output.is_ok() && output.unwrap().status.success() {
+            println!("MyMake: {}", "Build SUCCESS".green());
         }
         else {
-            println!("{}", "Build FAILED".red());
+            println!("MyMake: {}", "Build FAILED".red());
         }
+        // let log_path = self.top_dependency.get_build_directory().join("mymake_log.txt");
+        // println!("Build log available at {:?}", log_path);
         Ok(())
     }
 
 
     pub fn build_dependency(&self, dependency: &Dependency, 
-                            verbosity: bool) -> Result<std::process::Output, std::io::Error> {
+                            verbosity: bool) -> Result<std::process::Output, MyMakeError> {
         for required_dependency in dependency.requires.borrow().iter() {
             let dep_output = self.build_dependency(&required_dependency.borrow(), 
                                                          verbosity)?;
@@ -90,16 +94,28 @@ impl Builder {
                 return Ok(dep_output);
             }
         }
+
         let build_directory = dependency.get_build_directory();
         self.change_directory(build_directory, verbosity);
         Builder::construct_build_message(dependency);
-        // let output = Command::new("/usr/bin/make").stdout(std::process::Stdio::from(stdout))
-        //                                                         .stderr(std::process::Stdio::from(stderr))
-        //                                                         .spawn()?
-        //                                                         .wait_with_output()
-        //                                                         .expect("Failed...");
+        let output = Command::new("/usr/bin/make")
+                                                            .stdout(std::process::Stdio::piped())
+                                                            // .stderr(std::process::Stdio::piped())
+                                                            .spawn()?
+                                                            .wait_with_output()?;
+
+        let stderr = String::from_utf8(output.stderr.clone()).unwrap();
+        let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+        self.log_file.as_ref().unwrap().write(stderr.as_bytes())?;
+        self.log_file.as_ref().unwrap().write(stdout.as_bytes())?;
+        // let output = match child_output {
+        //     Ok(child) => Ok(child),
+        //     Err(err) => return Err(MyMakeError::from(format!("Error when invoking make: {}", err))),
+        // };
         
-        Command::new("/usr/bin/make").output()
+        // let output = child_output.wait_with_output().expect("Failed to wait on child process");
+
+        Ok(output)
     }
 
 
@@ -126,7 +142,8 @@ impl Builder {
         if verbose {
             println!("{}", message);
         }
-
+        // let mut log_file = self.create_log_file().unwrap();
+        // log_file.write(message.as_bytes()).unwrap();
         std::env::set_current_dir(directory).unwrap()
     }
 }

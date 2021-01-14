@@ -28,3 +28,9 @@ impl Error for MyMakeError {
     }
 }
 
+impl std::convert::From<std::io::Error> for MyMakeError {
+    fn from(error: std::io::Error) -> Self {
+        MyMakeError::from(format!("{}", error))
+    }
+}
+

@@ -98,16 +98,22 @@ impl Builder {
         let build_directory = dependency.get_build_directory();
         self.change_directory(build_directory, verbosity);
         Builder::construct_build_message(dependency);
-        let output = Command::new("/usr/bin/make")
+        let child = Command::new("/usr/bin/make")
                                                             .stdout(std::process::Stdio::piped())
-                                                            // .stderr(std::process::Stdio::piped())
-                                                            .spawn()?
-                                                            .wait_with_output()?;
+                                                            .stderr(std::process::Stdio::piped())
+                                                            .spawn()?;
 
+        let output = child.wait_with_output()?;
         let stderr = String::from_utf8(output.stderr.clone()).unwrap();
         let stdout = String::from_utf8(output.stdout.clone()).unwrap();
-        self.log_file.as_ref().unwrap().write(stderr.as_bytes())?;
+
+        if stderr != String::from("") {
+            
+        }
+        
         self.log_file.as_ref().unwrap().write(stdout.as_bytes())?;
+        self.log_file.as_ref().unwrap().write(stderr.as_bytes())?;
+        
         // let output = match child_output {
         //     Ok(child) => Ok(child),
         //     Err(err) => return Err(MyMakeError::from(format!("Error when invoking make: {}", err))),

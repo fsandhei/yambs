@@ -21,6 +21,7 @@ TODO:
     *          * Ordne bedre feilhåndtering for mmk_parser. Feilhåndteringen der baserer seg
     *            foreløpig på utviklerens feil og ikke brukerens feil. Feil skal oppdages fra
     *            brukeren sin side.
+    *         * Dekke case der tre dependencies eksisterer: A avhenger av B, og C avhenger av B. Får alle samme B?
 */
 
 fn main() -> Result<(), std::io::Error> {

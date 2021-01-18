@@ -4,6 +4,8 @@ use std::io::{self, Write};
 use std::process::Command;
 use colored::Colorize;
 
+mod filter;
+
 pub struct Builder {
     pub top_dependency: Dependency,
     pub dep_registry: DependencyRegistry,
@@ -106,9 +108,10 @@ impl Builder {
         let output = child.wait_with_output()?;
         let stderr = String::from_utf8(output.stderr.clone()).unwrap();
         let stdout = String::from_utf8(output.stdout.clone()).unwrap();
-
-        if stderr != String::from("") {
-            
+        
+        let stderr_filtered = filter::filter_string(&stderr);
+        if stderr_filtered != String::from("") {
+            println!("{}", stderr_filtered);
         }
         
         self.log_file.as_ref().unwrap().write(stdout.as_bytes())?;

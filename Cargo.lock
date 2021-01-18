@@ -44,6 +44,7 @@ dependencies = [
  "error",
  "generator",
  "mmk_parser",
+ "regex",
  "tempdir",
 ]
 

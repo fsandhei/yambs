@@ -13,3 +13,4 @@ error      = { path = "../error" }
 generator  = { path = "../generator" }
 mmk_parser = { path = "../mmk_parser" }
 tempdir = "0.3.7"
+regex = "1.3.3"

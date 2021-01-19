@@ -111,7 +111,8 @@ impl Builder {
         
         let stderr_filtered = filter::filter_string(&stderr);
         if stderr_filtered != String::from("") {
-            println!("{}", stderr_filtered);
+            // println!("{}", stderr_filtered);
+            filter::println_colored(&stderr_filtered);
         }
         
         self.log_file.as_ref().unwrap().write(stdout.as_bytes())?;

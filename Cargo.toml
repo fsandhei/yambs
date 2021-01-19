@@ -11,6 +11,7 @@ builder = {path = 'builder/'}
 mmk_parser = { path = 'mmk_parser/' }
 generator = { path = 'generator/' }
 external = { path = 'external/' }
+error    = { path = 'error/' }
 
 colored = "2.0.0"
 clap = "2.33.3"

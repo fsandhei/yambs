@@ -6,6 +6,7 @@ mod unwrap_or_terminate;
 use clap::{Arg, App, SubCommand};
 use builder::*;
 use external;
+use error::MyMakeError;
 
 use unwrap_or_terminate::MyMakeUnwrap;
 
@@ -24,16 +25,21 @@ TODO:
     *         * Dekke case der tre dependencies eksisterer: A avhenger av B, og C avhenger av B. Får alle samme B?
 */
 
-fn main() -> Result<(), std::io::Error> {
-    let matches = App::new("MyMake")
+fn main() -> Result<(), MyMakeError> {
+    let matches = App::new("MyMake Makefile Build System")
         .version("0.1.0")
-        .author("Fredrik Sandhei <fredrik.sandhei@gmail.com>")
-        .about("GNU Make overlay for C / C++ projects.")
+        .about("\
+        GNU Make build system overlay for C++ projects. MyMake generates makefiles and builds the project with the \n\
+        specifications written in the respective MyMake files.")
+        .author("Written and maintained by Fredrik Sandhei <fredrik.sandhei@gmail.com>")        
         .arg(Arg::with_name("mmk_file")
                     .short("g")
                     .long("generator")
                     .takes_value(true)
                     .help("Input file for MMK."))
+        .arg(Arg::with_name("clean")
+                    .long("clean")
+                    .help("Removes .build directories, cleaning the project."))
         .subcommand(SubCommand::with_name("extern")
                     .about("Run external programs from MyMake.")
                     .arg(Arg::with_name("dot")
@@ -45,7 +51,7 @@ fn main() -> Result<(), std::io::Error> {
 
     builder.read_mmk_files_from_path(&myfile).unwrap_or_terminate();
 
-    if let Some(matches) = matches.subcommand_matches("extern")
+    if let Some(ref matches) = matches.subcommand_matches("extern")
     {
         if matches.is_present("dot")
         {
@@ -54,16 +60,23 @@ fn main() -> Result<(), std::io::Error> {
             {
                 Ok(()) => {
                             println!("MyMake: Dependency graph made: dependency.gv");
-                            std::process::exit(1);
+                            std::process::exit(0);
                           },
                 Err(_) => println!("MyMake: Could not make dependency graph."),
             };
         }
     }
+    
+    if matches.is_present("clean") {
+        builder.clean().unwrap_or_terminate();
+    }
 
-    print!("MyMake: Generating makefiles");
-    Builder::generate_makefiles(&mut builder.top_dependency).unwrap_or_terminate();
-    println!();
-    builder.build_project(false).unwrap_or_terminate();
+    else {
+        print!("MyMake: Generating makefiles");
+        Builder::generate_makefiles(&mut builder.top_dependency).unwrap_or_terminate();
+        println!();
+        builder.build_project(false).unwrap_or_terminate();
+    }
+    
     Ok(())
 }

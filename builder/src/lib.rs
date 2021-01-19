@@ -5,6 +5,7 @@ use std::process::Command;
 use colored::Colorize;
 
 mod filter;
+mod clean;
 
 pub struct Builder {
     pub top_dependency: Dependency,
@@ -81,8 +82,8 @@ impl Builder {
         else {
             println!("MyMake: {}", "Build FAILED".red());
         }
-        // let log_path = self.top_dependency.get_build_directory().join("mymake_log.txt");
-        // println!("Build log available at {:?}", log_path);
+        let log_path = self.top_dependency.get_build_directory().join("mymake_log.txt");
+        println!("Build log available at {:?}", log_path);
         Ok(())
     }
 
@@ -111,20 +112,12 @@ impl Builder {
         
         let stderr_filtered = filter::filter_string(&stderr);
         if stderr_filtered != String::from("") {
-            // println!("{}", stderr_filtered);
             filter::println_colored(&stderr_filtered);
         }
         
         self.log_file.as_ref().unwrap().write(stdout.as_bytes())?;
         self.log_file.as_ref().unwrap().write(stderr.as_bytes())?;
-        
-        // let output = match child_output {
-        //     Ok(child) => Ok(child),
-        //     Err(err) => return Err(MyMakeError::from(format!("Error when invoking make: {}", err))),
-        // };
-        
-        // let output = child_output.wait_with_output().expect("Failed to wait on child process");
-
+    
         Ok(output)
     }
 
@@ -155,6 +148,11 @@ impl Builder {
         // let mut log_file = self.create_log_file().unwrap();
         // log_file.write(message.as_bytes()).unwrap();
         std::env::set_current_dir(directory).unwrap()
+    }
+
+    pub fn clean(&self) -> Result<(), MyMakeError> {
+        clean::clean(&self.top_dependency)?;
+        Ok(())
     }
 }
 

@@ -153,6 +153,7 @@ dependencies = [
  "builder",
  "clap",
  "colored",
+ "error",
  "external",
  "generator",
  "mmk_parser",

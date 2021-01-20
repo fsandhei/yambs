@@ -37,7 +37,7 @@ impl Builder {
 
 
     pub fn read_mmk_files_from_path(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
-        print!("MyMake: Reading mmk files");
+        print!("MyMake: Reading MyMake files");
         io::stdout().flush().unwrap();
         let top_dependency = Dependency::create_dependency_from_path(&top_path, &mut self.dep_registry)?;
         self.top_dependency = top_dependency;
@@ -141,7 +141,7 @@ impl Builder {
 
 
     pub fn change_directory(&self, directory: std::path::PathBuf, verbose: bool) {
-        let message = format!("Entering directory {:?}", directory);
+        let message = format!("Entering directory {:?}\n", directory);
         if verbose {
             println!("{}", message);
         }

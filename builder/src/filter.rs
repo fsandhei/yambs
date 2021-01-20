@@ -23,10 +23,19 @@ pub fn is_warning_message(input: &str) -> bool{
     warning_pattern_gcc.is_match(input)
 }
 
+#[allow(dead_code)]
+pub fn is_error_message(input: &str) -> bool{
+    let error_pattern_gcc = Regex::new(r".* error:.*").unwrap();
+    error_pattern_gcc.is_match(input)
+}
+
 pub fn println_colored(input: &String) {
     input.lines().for_each(|line| { if is_warning_message(&line) {
                                             println!("{}", format!("{}", line).yellow());
                                        }
+                                        else if is_error_message(&line) {
+                                            println!("{}", format!("{}", line).red())
+                                        }
                                         else {
                                             println!("{}", line);
                                         }                                        
@@ -54,5 +63,13 @@ mod tests {
         assert!(is_warning_message(&input) == true);
         assert!(is_warning_message(&input_narrowing) == true);
         assert!(is_warning_message(&input_uninitialized) == true);
+    }
+
+    #[test]
+    fn is_error_message_test() {
+        let input = "\
+        /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/PlanGeneratorTest.cpp:32:13: error: ‘dfasdf’ 
+        was not declared in this scope";
+        assert!(is_error_message(&input) == true);
     }
 }

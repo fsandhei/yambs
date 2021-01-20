@@ -145,8 +145,7 @@ impl Builder {
         if verbose {
             println!("{}", message);
         }
-        // let mut log_file = self.create_log_file().unwrap();
-        // log_file.write(message.as_bytes()).unwrap();
+        self.log_file.as_ref().unwrap().write(message.as_bytes()).unwrap();
         std::env::set_current_dir(directory).unwrap()
     }
 

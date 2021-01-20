@@ -68,7 +68,7 @@ mod tests {
     #[test]
     fn is_error_message_test() {
         let input = "\
-        /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/PlanGeneratorTest.cpp:32:13: error: ‘dfasdf’ 
+        /home/user/Documents/Tests/AStarPathFinder/PlanGenerator/test/PlanGeneratorTest.cpp:32:13: error: ‘dfasdf’
         was not declared in this scope";
         assert!(is_error_message(&input) == true);
     }

@@ -133,8 +133,12 @@ impl Dependency {
         self.library_name.push_str(".a");
     }
 
-    pub fn mmk_data(&self) -> mmk_parser::Mmk {
-        self.mmk_data.clone()
+    pub fn mmk_data(&self) -> &mmk_parser::Mmk {
+        &self.mmk_data
+    }
+
+    pub fn mmk_data_mut(&mut self) -> &mut mmk_parser::Mmk {
+        &mut self.mmk_data
     }
 
     pub fn library_name(&self) -> String{
@@ -237,9 +241,10 @@ mod tests {
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-        assert_eq!(top_dependency.mmk_data(), expected);
+        assert_eq!(top_dependency.mmk_data(), &expected);
         Ok(())
     }
+
 
     #[test]
     fn read_mmk_files_two_files() -> std::io::Result<()> {
@@ -294,6 +299,7 @@ mod tests {
         dependency.add_library_name();
         assert_eq!(dependency.library_name(), String::from("libdirectory.a"));
     }
+
 
     #[test]
     fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
@@ -356,6 +362,7 @@ mod tests {
         );
         Ok(())
     }
+
 
     #[test]
     fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
@@ -425,6 +432,7 @@ mod tests {
         );
         Ok(())
     }
+
 
     #[test]
     fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std::io::Result<()> {
@@ -507,6 +515,8 @@ mod tests {
         );
         Ok(())
     }
+
+
     #[test]
     fn read_mmk_files_two_files_circulation() -> Result<(), MyMakeError> {
         let (dir, test_file_path, mut file, _expected_1)              = make_mmk_file("example");

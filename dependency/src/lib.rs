@@ -1,6 +1,6 @@
 use error::MyMakeError;
 use mmk_parser;
-use std::cell::RefCell;
+use std::{cell::RefCell, path};
 use std::rc::Rc;
 
 pub struct DependencyRegistry {
@@ -36,12 +36,12 @@ impl DependencyRegistry {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dependency {
-    pub path: std::path::PathBuf,
-    pub mmk_data: mmk_parser::Mmk,
-    pub requires: RefCell<Vec<RefCell<Dependency>>>,
-    pub makefile_made: bool,
-    pub library_name: String,
-    pub in_process: bool
+     path: std::path::PathBuf,
+     mmk_data: mmk_parser::Mmk,
+     requires: RefCell<Vec<RefCell<Dependency>>>,
+     makefile_made: bool,
+     library_name: String,
+     in_process: bool
 }
 
 impl Dependency {
@@ -87,6 +87,9 @@ impl Dependency {
         self.requires.borrow_mut().push(RefCell::new(dependency));
     }
 
+    pub fn is_makefile_made(self) -> bool {
+        self.makefile_made
+    }
 
     pub fn makefile_made(self: &mut Self)
     {
@@ -115,9 +118,30 @@ impl Dependency {
 
 
     pub fn add_library_name(self: &mut Self) {
-        self.library_name = self.mmk_data.to_string("MMK_LIBRARY_LABEL");
+        let root_path = self.path.parent().unwrap().parent().unwrap();
+        let prefix = root_path.parent().unwrap();
+        let library_name = root_path.strip_prefix(prefix).unwrap().to_str().unwrap();
+        self.library_name.push_str("lib");
+        self.library_name.push_str(library_name);
+        self.library_name.push_str(".a");
     }
 
+    pub fn mmk_data(&self) -> &mmk_parser::Mmk {
+        &self.mmk_data
+    }
+
+    pub fn library_name(&self) -> &String{
+        &self.library_name
+    }
+
+    pub fn requires(&self) -> &RefCell<Vec<RefCell<Dependency>>> {
+        &self.requires
+    }
+
+    pub fn path(&self) -> &path::PathBuf {
+        &self.path
+    }
+ 
 
     pub fn detect_and_add_dependencies(self: &mut Self, dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError>{
         for path in self.mmk_data.data["MMK_DEPEND"].clone() {
@@ -145,6 +169,7 @@ impl Dependency {
             }
         Ok(())
         }
+
 
     pub fn print_ok(self: &Self) {
         print!(".");

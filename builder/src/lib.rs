@@ -25,7 +25,7 @@ impl Builder {
 
 
     pub fn create_log_file(&self) -> Result<Option<std::fs::File>, MyMakeError> {
-        if self.top_dependency.makefile_made {
+        if self.top_dependency.is_makefile_made() {
             let log_file_name = self.top_dependency.get_build_directory().join("mymake_log.txt");
             match std::fs::File::create(&log_file_name) {
                 Ok(file) =>  return Ok(Some(file)),
@@ -49,16 +49,16 @@ impl Builder {
     pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError> {
 
         let mut generator: generator::MmkGenerator;
-        if !&dependency.makefile_made
+        if !&dependency.is_makefile_made()
         {
             generator = generator::MmkGenerator::new(&dependency,
                                        std::path::PathBuf::from(".build"))?;
             &dependency.makefile_made();
             generator::Generator::generate_makefile(&mut generator)?;
         }
-        for required_dependency in dependency.requires.borrow().iter()
+        for required_dependency in dependency.requires().borrow().iter()
         {
-            if !required_dependency.borrow().makefile_made
+            if !required_dependency.borrow().is_makefile_made()
             {
                 required_dependency.borrow_mut().makefile_made();
                 generator = generator::MmkGenerator::new(&required_dependency.borrow(),
@@ -90,7 +90,7 @@ impl Builder {
 
     pub fn build_dependency(&self, dependency: &Dependency, 
                             verbosity: bool) -> Result<std::process::Output, MyMakeError> {
-        for required_dependency in dependency.requires.borrow().iter() {
+        for required_dependency in dependency.requires().borrow().iter() {
             let dep_output = self.build_dependency(&required_dependency.borrow(), 
                                                          verbosity)?;
             if !dep_output.status.success() {
@@ -126,13 +126,13 @@ impl Builder {
         let dep_type: &str;
         let dep_type_name: &String;
         
-        if dependency.library_name == "" {
+        if dependency.library_name() == "" {
             dep_type = "executable";
-            dep_type_name = &dependency.mmk_data.data["MMK_EXECUTABLE"][0];
+            dep_type_name = &dependency.mmk_data().data["MMK_EXECUTABLE"][0];
         }
         else {
             dep_type = "library";
-            dep_type_name = &dependency.mmk_data.data["MMK_LIBRARY_LABEL"][0];
+            dep_type_name = &dependency.mmk_data().data["MMK_LIBRARY_LABEL"][0];
         }
         let green_building = format!("{}", "Building".green());
         let target = format!("{} {:?}", dep_type, dep_type_name);

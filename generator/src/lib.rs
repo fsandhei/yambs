@@ -16,7 +16,7 @@ impl MmkGenerator
 {
     pub fn new(dependency: &Dependency, build_directory: std::path::PathBuf) -> Result<MmkGenerator, MyMakeError>
     {
-        let output_directory = dependency.path.parent().unwrap().join(&build_directory);
+        let output_directory = dependency.path().parent().unwrap().join(&build_directory);
         if !output_directory.is_dir() {
             match std::fs::create_dir(&output_directory) {
                 Ok(()) => (),
@@ -39,7 +39,7 @@ impl MmkGenerator
 
     pub fn make_object_rule(self: &Self, mmk_data: &mmk_parser::Mmk) -> String {
         let mut formatted_string = String::new();
-        let parent_path = &self.dependency.path.parent().unwrap();
+        let parent_path = &self.dependency.path().parent().unwrap();
         if mmk_data.data.contains_key("MMK_SOURCES") {
             for source in &mmk_data.data["MMK_SOURCES"] {
                 let object = source.replace(".cpp", ".o");
@@ -78,15 +78,15 @@ impl MmkGenerator
     }
     pub fn print_required_dependencies_libraries(self: &Self) -> String {
         let mut formatted_string = String::new();
-        for dependency in  self.dependency.requires.borrow().iter() {            
-            if dependency.borrow().library_name != "" {
+        for dependency in  self.dependency.requires().borrow().iter() {            
+            if dependency.borrow().library_name() != "" {
                 let required_dep = dependency.borrow();
-                let parent_path = required_dep.path.parent().unwrap();
+                let parent_path = required_dep.path().parent().unwrap();
                 let build_path = parent_path.join(".build");
                 formatted_string.push_str("\t");
                 formatted_string.push_str(build_path.to_str().unwrap());
                 formatted_string.push_str("/");
-                formatted_string.push_str(&required_dep.library_name);
+                formatted_string.push_str(&required_dep.library_name());
                 formatted_string.push_str(" \\\n");            
             }
         }
@@ -101,9 +101,9 @@ impl MmkGenerator
 
     pub fn print_prerequisites(self: &Self) -> String {
         let mut formatted_string = String::new();
-        if self.dependency.mmk_data.data.contains_key("MMK_SOURCES") {
+        if self.dependency.mmk_data().data.contains_key("MMK_SOURCES") {
             formatted_string.push_str("\\\n");
-            for source in &self.dependency.mmk_data.data["MMK_SOURCES"] {
+            for source in &self.dependency.mmk_data().data["MMK_SOURCES"] {
                 let object = source.replace(".cpp", ".o");
                 formatted_string.push_str("\t");
                 formatted_string.push_str(&object);
@@ -131,8 +131,8 @@ impl Generator for MmkGenerator
     fn generate_makefile(self: &mut Self) -> Result<(), MyMakeError>
     {
         self.generate_header()?;
-        if self.dependency.mmk_data.data.contains_key("MMK_EXECUTABLE") && 
-           self.dependency.mmk_data.data["MMK_EXECUTABLE"] != {[""]}
+        if self.dependency.mmk_data().data.contains_key("MMK_EXECUTABLE") && 
+           self.dependency.mmk_data().data["MMK_EXECUTABLE"] != {[""]}
         {
             self.generate_rule_executable()?;
         }
@@ -182,8 +182,8 @@ impl Generator for MmkGenerator
         \n\
         {sources_to_objects}\n\
         ", prerequisites = self.print_prerequisites()
-         , package      = self.dependency.mmk_data.to_string("MMK_LIBRARY_LABEL")
-         , sources_to_objects = self.make_object_rule(&self.dependency.mmk_data));
+         , package      = self.dependency.mmk_data().to_string("MMK_LIBRARY_LABEL")
+         , sources_to_objects = self.make_object_rule(&self.dependency.mmk_data()));
         
         match self.filename.write(data.as_bytes()) {
             Ok(_) => (),
@@ -204,10 +204,10 @@ impl Generator for MmkGenerator
         \n\
         {sources_to_objects}\n\
         ",
-        executable         = self.dependency.mmk_data.to_string("MMK_EXECUTABLE"),
+        executable         = self.dependency.mmk_data().to_string("MMK_EXECUTABLE"),
         prerequisites      = self.print_prerequisites(),
-        dependencies       = self.dependency.mmk_data.to_string("MMK_DEPEND"),
-        sources_to_objects = self.make_object_rule(&self.dependency.mmk_data));
+        dependencies       = self.dependency.mmk_data().to_string("MMK_DEPEND"),
+        sources_to_objects = self.make_object_rule(&self.dependency.mmk_data()));
         
         match self.filename.write(data.as_bytes()) {
             Ok(_) => (),

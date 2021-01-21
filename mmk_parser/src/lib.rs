@@ -46,6 +46,7 @@ impl Mmk
                 {
                     formatted_string.push_str("-I");
                 }
+                formatted_string.push_str(item);
                 formatted_string.push_str(" ");
             }
         }
@@ -128,7 +129,6 @@ pub fn parse_mmk<'a>(mmk_container: &'a mut Mmk, data: &String, keyword: &str) -
                 .trim_end_matches("MMK_SOURCES")
                 .trim_end_matches("MMK_HEADERS")
                 .trim_end_matches("MMK_EXECUTABLE")
-                .trim_end_matches("MMK_LIBRARY_LABEL")
                 .trim_matches(&['\n', '\r'][..])
                 .to_string()
             }

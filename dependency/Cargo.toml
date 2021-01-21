@@ -9,3 +9,6 @@ edition = "2018"
 [dependencies]
 error      = { path = "../error" }
 mmk_parser = { path = "../mmk_parser" }
+
+[dev-dependencies]
+tempdir = "0.3.7"

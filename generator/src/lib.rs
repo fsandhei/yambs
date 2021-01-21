@@ -231,25 +231,25 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn test_generate_makefile() -> std::io::Result<()>
+    fn generate_makefile_test() -> std::io::Result<()>
     {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
-        dependency.mmk_data.data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
-        dependency.mmk_data.data.insert("MMK_EXECUTABLE".to_string(), vec!["main".to_string()]);
+        dependency.mmk_data().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        dependency.mmk_data().data.insert("MMK_EXECUTABLE".to_string(), vec!["main".to_string()]);
         let mut gen = MmkGenerator::new(&dependency, output_dir).unwrap();
         assert!(Generator::generate_makefile(&mut gen).is_ok());
         Ok(())
     }
     #[test]
-    fn test_generate_header() -> std::io::Result<()>
+    fn generate_header_test() -> std::io::Result<()>
     {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
-        dependency.mmk_data.data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
-        dependency.mmk_data.data.insert("MMK_EXECUTABLE".to_string(), vec!["main".to_string()]);
+        dependency.mmk_data().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        dependency.mmk_data().data.insert("MMK_EXECUTABLE".to_string(), vec!["main".to_string()]);
         let mut gen = MmkGenerator::new(&dependency, output_dir).unwrap();
         let test_file = gen.output_directory.join("makefile");
         assert!(Generator::generate_header(&mut gen).is_ok());
@@ -274,14 +274,14 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_generate_package() -> std::io::Result<()>
+    fn generate_package_test() -> std::io::Result<()>
     {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
-        dependency.mmk_data.data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        dependency.mmk_data().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
         dependency.add_library_name();
-        dependency.mmk_data.data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
+        dependency.mmk_data().data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
 
         let mut gen = MmkGenerator::new(&dependency, output_dir).unwrap();
         let test_file = gen.output_directory.join("makefile");
@@ -308,14 +308,14 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_executable() -> std::io::Result<()>
+    fn generate_executable_test() -> std::io::Result<()>
     {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
-        dependency.mmk_data.data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
-        dependency.mmk_data.data.insert("MMK_EXECUTABLE".to_string(), vec!["x".to_string()]);
-        dependency.mmk_data.data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
+        dependency.mmk_data().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        dependency.mmk_data().data.insert("MMK_EXECUTABLE".to_string(), vec!["x".to_string()]);
+        dependency.mmk_data().data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
         let mut gen = MmkGenerator::new(&dependency, output_dir).unwrap();
         let test_file = gen.output_directory.join("makefile");
         assert!(Generator::generate_rule_executable(&mut gen).is_ok());

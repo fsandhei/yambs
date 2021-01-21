@@ -124,15 +124,15 @@ impl Builder {
 
     pub fn construct_build_message(dependency: &Dependency) {
         let dep_type: &str;
-        let dep_type_name: &String;
+        let dep_type_name: String;
         
-        if dependency.library_name() == "" {
+        if dependency.is_executable() {
             dep_type = "executable";
-            dep_type_name = &dependency.mmk_data().data["MMK_EXECUTABLE"][0];
+            dep_type_name = dependency.mmk_data().data["MMK_EXECUTABLE"][0].clone();
         }
         else {
             dep_type = "library";
-            dep_type_name = &dependency.mmk_data().data["MMK_LIBRARY_LABEL"][0];
+            dep_type_name = dependency.library_name();
         }
         let green_building = format!("{}", "Building".green());
         let target = format!("{} {:?}", dep_type, dep_type_name);
@@ -211,7 +211,7 @@ mod tests {
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-        assert_eq!(builder.top_dependency.mmk_data, expected);
+        assert_eq!(builder.top_dependency.mmk_data(), expected);
         Ok(())
     }
 

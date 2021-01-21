@@ -4,7 +4,7 @@ use error::MyMakeError;
 use std::fs;
 
 pub fn clean(dependency: &Dependency) -> Result<(), MyMakeError> {
-    for required_dependency in dependency.requires.borrow().iter() {
+    for required_dependency in dependency.requires().borrow().iter() {
         let dep_build_directory = required_dependency.borrow().get_build_directory();
         match remove_dir(dep_build_directory) {
             Ok(_) => (),

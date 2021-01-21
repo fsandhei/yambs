@@ -6,7 +6,7 @@ use std::env;
 
 pub fn dottie(top: &Dependency, recursive: bool, data: &mut String) -> std::io::Result<()>{
     let mut dottie_file = create_dottie_file(recursive)?;
-    let top_path = &top.path;
+    let top_path = &top.path();
     
     if recursive == false
     {
@@ -18,11 +18,11 @@ pub fn dottie(top: &Dependency, recursive: bool, data: &mut String) -> std::io::
         dottie_file.write_all(data.as_bytes())?;        
     }
     
-    for requirement in top.requires.borrow().iter()
+    for requirement in top.requires().borrow().iter()
     {
         data.push_str(&format!("\
         {:?} -> {:?}\n\
-        ", requirement.borrow().path
+        ", requirement.borrow().path()
             , top_path));
         dottie(&requirement.borrow(), true, data)?;
     }

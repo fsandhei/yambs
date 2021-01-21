@@ -87,9 +87,16 @@ impl Dependency {
         self.requires.borrow_mut().push(RefCell::new(dependency));
     }
 
-    pub fn is_makefile_made(self) -> bool {
+
+    pub fn is_makefile_made(&self) -> bool {
         self.makefile_made
     }
+
+
+    pub fn is_executable(&self) -> bool {
+        &self.mmk_data().data["MMK_EXECUTABLE"][0] != ""
+    }
+
 
     pub fn makefile_made(self: &mut Self)
     {
@@ -126,12 +133,12 @@ impl Dependency {
         self.library_name.push_str(".a");
     }
 
-    pub fn mmk_data(&self) -> &mmk_parser::Mmk {
-        &self.mmk_data
+    pub fn mmk_data(&self) -> mmk_parser::Mmk {
+        self.mmk_data.clone()
     }
 
-    pub fn library_name(&self) -> &String{
-        &self.library_name
+    pub fn library_name(&self) -> String{
+        self.library_name.clone()
     }
 
     pub fn requires(&self) -> &RefCell<Vec<RefCell<Dependency>>> {

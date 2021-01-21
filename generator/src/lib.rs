@@ -182,7 +182,7 @@ impl Generator for MmkGenerator
         \n\
         {sources_to_objects}\n\
         ", prerequisites = self.print_prerequisites()
-         , package      = self.dependency.mmk_data().to_string("MMK_LIBRARY_LABEL")
+         , package      = self.dependency.library_name()
          , sources_to_objects = self.make_object_rule(&self.dependency.mmk_data()));
         
         match self.filename.write(data.as_bytes()) {
@@ -280,7 +280,7 @@ mod tests {
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
         dependency.mmk_data.data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
-        dependency.mmk_data.data.insert("MMK_LIBRARY_LABEL".to_string(), vec!["pkg".to_string()]);
+        dependency.add_library_name();
         dependency.mmk_data.data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
 
         let mut gen = MmkGenerator::new(&dependency, output_dir).unwrap();

@@ -37,7 +37,7 @@ impl DependencyRegistry {
 pub struct Dependency {
      path: std::path::PathBuf,
      mmk_data: mmk_parser::Mmk,
-     requires: RefCell<Vec<RefCell<Dependency>>>,
+     requires: RefCell<Vec<Rc<Dependency>>>,
      makefile_made: bool,
      library_name: String,
      in_process: bool
@@ -70,7 +70,7 @@ impl Dependency {
 
     pub fn create_dependency_from_path(path: &std::path::PathBuf,
                                        dep_registry: &mut DependencyRegistry) -> Result<Dependency, MyMakeError>{                      
-        let mut dependency = Dependency::from(path);        
+        let mut dependency = Dependency::from(path);
         dependency.in_process = true;
         dep_registry.add_dependency(dependency.to_owned());
         dependency.read_and_add_mmk_data()?;
@@ -83,7 +83,7 @@ impl Dependency {
 
 
     pub fn add_dependency(self: &mut Self, dependency: Dependency) {
-        self.requires.borrow_mut().push(RefCell::new(dependency));
+        self.requires.borrow_mut().push(Rc::new(dependency));
     }
 
 
@@ -144,7 +144,7 @@ impl Dependency {
         self.library_name.clone()
     }
 
-    pub fn requires(&self) -> &RefCell<Vec<RefCell<Dependency>>> {
+    pub fn requires(&self) -> &RefCell<Vec<Rc<Dependency>>> {
         &self.requires
     }
 
@@ -276,7 +276,7 @@ mod tests {
             Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
+                requires: RefCell::new(vec![Rc::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(Vec::new()),
@@ -338,7 +338,7 @@ mod tests {
             Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
+                requires: RefCell::new(vec![Rc::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(Vec::new()),
@@ -346,7 +346,7 @@ mod tests {
                     library_name: String::from("libtmp.a"),
                     in_process: false,
                 }),
-                RefCell::new(Dependency {
+                Rc::new(Dependency {
                     path: test_file_second_dep_path,
                     mmk_data: expected_3,
                     requires: RefCell::new(Vec::new()),
@@ -408,11 +408,11 @@ mod tests {
             Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
+                requires: RefCell::new(vec![Rc::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(vec![
-                        RefCell::new(Dependency {
+                        Rc::new(Dependency {
                             path: test_file_second_dep_path,
                             mmk_data: expected_3,
                             requires: RefCell::new(vec![]),
@@ -483,7 +483,7 @@ mod tests {
             Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
+                requires: RefCell::new(vec![Rc::new(Dependency {
                     path: test_file_third_dep_path,
                     mmk_data: expected_3,
                     requires: RefCell::new(vec![]),
@@ -491,11 +491,11 @@ mod tests {
                     library_name: String::from("libtmp.a"),
                     in_process: false,
                 }),
-                RefCell::new(Dependency {
+                Rc::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(vec![
-                        RefCell::new(Dependency {
+                        Rc::new(Dependency {
                             path: test_file_second_dep_path,
                             mmk_data: expected_4,
                             requires: RefCell::new(vec![]),

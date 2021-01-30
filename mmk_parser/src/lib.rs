@@ -71,6 +71,30 @@ impl Mmk
         let objects = sources.replace(".cpp", ".o");
         objects
     }
+
+
+    fn parse_line(&self, line: &str) -> Result<(), MyMakeError> {
+        if line != "" {
+            let mmk_rule = Regex::new(r"MMK\_\w.*\s*=\s*.*\n$").unwrap();
+            if let Some(captured) = mmk_rule.captures(line) {
+                let mmk_keyword = captured.get(0).unwrap().as_str();
+                self.valid_keyword(mmk_keyword)?;
+            }
+        }
+        Ok(())
+    }
+
+
+    pub fn parse(&mut self, data: &String) -> Result<(), MyMakeError> {
+        let no_comment_data = remove_comments(data);
+        let mut lines = no_comment_data.lines();
+        let mut current_line = lines.next();
+        while current_line != None {
+            self.parse_line(current_line.unwrap())?;
+            current_line = lines.next();
+        }
+        Ok(())
+    }
 }
 
 pub fn validate_file_path(file_path_as_str: &str) -> Result<std::path::PathBuf, MyMakeError> {

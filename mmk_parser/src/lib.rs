@@ -73,12 +73,15 @@ impl Mmk
     }
 
 
-    fn parse_line(&self, line: &str) -> Result<(), MyMakeError> {
+    fn parse_line(&mut self, line: &str) -> Result<(), MyMakeError> {
         if line != "" {
-            let mmk_rule = Regex::new(r"MMK\_\w.*\s*=\s*.*\n$").unwrap();
+            let mmk_rule = Regex::new(r"(MMK_\w+)\s*=\s*(.*)$").unwrap();
             if let Some(captured) = mmk_rule.captures(line) {
-                let mmk_keyword = captured.get(0).unwrap().as_str();
+                let mmk_keyword = captured.get(1).unwrap().as_str();
+                let args = captured.get(2).unwrap().as_str();
+                let args_vec: Vec<String> = args.split_whitespace().map(|s| s.to_string()).collect();
                 self.valid_keyword(mmk_keyword)?;
+                self.data.insert(String::from(mmk_keyword), args_vec);    
             }
         }
         Ok(())
@@ -207,10 +210,10 @@ pub mod tests
     fn test_parse_mmk_sources() -> Result<(), MyMakeError>
     {
         let mut mmk_content = Mmk::new();
-        let content: String = String::from("MMK_SOURCES = filename.cpp \\
+        let content: String = String::from("MMK_SOURCES = filename.cpp \
                                                           otherfilename.cpp\n");
 
-        parse_mmk( &mut mmk_content, &content, "MMK_SOURCES")?;
+        mmk_content.parse( &content)?;
         assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp", "otherfilename.cpp"]);
         Ok(())
     }

@@ -7,7 +7,6 @@ pub struct DependencyRegistry {
 }
 
 impl DependencyRegistry {
-
     pub fn new() -> DependencyRegistry {
         DependencyRegistry {
             registry: Vec::new(),

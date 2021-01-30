@@ -49,10 +49,11 @@ impl Builder {
     pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError> {
 
         let mut generator: generator::MmkGenerator;
+        let build_directory = std::path::PathBuf::from(".build");
         if !&dependency.is_makefile_made()
         {
             generator = generator::MmkGenerator::new(&dependency,
-                                       std::path::PathBuf::from(".build"))?;
+                                                     &build_directory)?;
             &dependency.makefile_made();
             generator::Generator::generate_makefile(&mut generator)?;
         }
@@ -62,7 +63,7 @@ impl Builder {
             {
                 required_dependency.borrow_mut().makefile_made();
                 generator = generator::MmkGenerator::new(&required_dependency.borrow(),
-                     std::path::PathBuf::from(".build"))?;
+                                                         &build_directory)?;
                 generator::Generator::generate_makefile(&mut generator)?;
             }
             Builder::generate_makefiles(&mut required_dependency.borrow_mut())?;

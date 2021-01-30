@@ -209,7 +209,7 @@ mod tests {
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-        assert_eq!(builder.top_dependency.mmk_data(), expected);
+        assert_eq!(builder.top_dependency.mmk_data(), &expected);
         Ok(())
     }
 

@@ -16,7 +16,10 @@ TODO:
               *Refakturere testene i Builder.
     * Første inkrement: Ha kun én dependency som trengs for å vise konsept.
     *Implementere unwrap_or_terminate() for Option / Result
-    *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en /makefile.
+    *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en makefile.
+    *           Toolchain: Utrede hvordan MyMake skal finne informasjon om toolchain til sluttbruker.
+    *                      En liste med predefinerte pather blir søkt gjennom av MyMake til å finne de ulike nødvendige programmene
+    *                      (gcc, clang, AR...).
 
     * Overall: * Endre alle Error - meldinger som er relevant til å ta MyMakeError for Result.
     *          * Ordne bedre feilhåndtering for mmk_parser. Feilhåndteringen der baserer seg

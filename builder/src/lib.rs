@@ -25,7 +25,7 @@ impl Builder {
 
 
     pub fn create_log_file(&self) -> Result<Option<std::fs::File>, MyMakeError> {
-        if self.top_dependency.makefile_made {
+        if self.top_dependency.is_makefile_made() {
             let log_file_name = self.top_dependency.get_build_directory().join("mymake_log.txt");
             match std::fs::File::create(&log_file_name) {
                 Ok(file) =>  return Ok(Some(file)),
@@ -49,20 +49,21 @@ impl Builder {
     pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError> {
 
         let mut generator: generator::MmkGenerator;
-        if !&dependency.makefile_made
+        let build_directory = std::path::PathBuf::from(".build");
+        if !&dependency.is_makefile_made()
         {
             generator = generator::MmkGenerator::new(&dependency,
-                                       std::path::PathBuf::from(".build"))?;
+                                                     &build_directory)?;
             &dependency.makefile_made();
             generator::Generator::generate_makefile(&mut generator)?;
         }
-        for required_dependency in dependency.requires.borrow().iter()
+        for required_dependency in dependency.requires().borrow().iter()
         {
-            if !required_dependency.borrow().makefile_made
+            if !required_dependency.borrow().is_makefile_made()
             {
                 required_dependency.borrow_mut().makefile_made();
                 generator = generator::MmkGenerator::new(&required_dependency.borrow(),
-                     std::path::PathBuf::from(".build"))?;
+                                                         &build_directory)?;
                 generator::Generator::generate_makefile(&mut generator)?;
             }
             Builder::generate_makefiles(&mut required_dependency.borrow_mut())?;
@@ -90,7 +91,7 @@ impl Builder {
 
     pub fn build_dependency(&self, dependency: &Dependency, 
                             verbosity: bool) -> Result<std::process::Output, MyMakeError> {
-        for required_dependency in dependency.requires.borrow().iter() {
+        for required_dependency in dependency.requires().borrow().iter() {
             let dep_output = self.build_dependency(&required_dependency.borrow(), 
                                                          verbosity)?;
             if !dep_output.status.success() {
@@ -124,15 +125,15 @@ impl Builder {
 
     pub fn construct_build_message(dependency: &Dependency) {
         let dep_type: &str;
-        let dep_type_name: &String;
+        let dep_type_name: String;
         
-        if dependency.library_name == "" {
+        if dependency.is_executable() {
             dep_type = "executable";
-            dep_type_name = &dependency.mmk_data.data["MMK_EXECUTABLE"][0];
+            dep_type_name = dependency.mmk_data().data["MMK_EXECUTABLE"][0].clone();
         }
         else {
             dep_type = "library";
-            dep_type_name = &dependency.mmk_data.data["MMK_LIBRARY_LABEL"][0];
+            dep_type_name = dependency.library_name();
         }
         let green_building = format!("{}", "Building".green());
         let target = format!("{} {:?}", dep_type, dep_type_name);
@@ -155,6 +156,7 @@ impl Builder {
     }
 }
 
+//TODO: Skriv om testene for Builder slik at det stemmer med funksjonalitet.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,7 +164,6 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use tempdir::TempDir;
-    use std::cell::RefCell;
 
     fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
         let dir: TempDir = TempDir::new(&dir_name).unwrap();
@@ -192,8 +193,6 @@ mod tests {
                              vec![String::new()]);
         mmk_data.data.insert(String::from("MMK_EXECUTABLE"), 
                              vec![String::new()]);
-        mmk_data.data.insert(String::from("MMK_LIBRARY_LABEL"), 
-                             vec![String::new()]);
 
         (dir, test_file_path, file, mmk_data)
     }
@@ -207,11 +206,11 @@ mod tests {
             "\
         MMK_EXECUTABLE = x"
         )?;
-        builder.read_mmk_files_from_path(&test_file_path).unwrap();
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-        assert_eq!(builder.top_dependency.mmk_data, expected);
+        assert_eq!(builder.top_dependency.mmk_data(), &expected);
         Ok(())
     }
 
@@ -219,7 +218,7 @@ mod tests {
     fn read_mmk_files_two_files() -> std::io::Result<()> {
         let mut builder = Builder::new();
         let (_dir, test_file_path, mut file, mut expected_1)     = make_mmk_file("example");
-        let (dir_dep, test_file_dep_path, _file_dep, expected_2) = make_mmk_file("example_dep");
+        let (dir_dep, _, _file_dep, _) = make_mmk_file("example_dep");
 
         write!(
             file,
@@ -231,8 +230,6 @@ mod tests {
             &dir_dep.path().to_str().unwrap().to_string()
         )?;
 
-        builder.read_mmk_files_from_path(&test_file_path).unwrap();
-
         expected_1.data.insert(
             String::from("MMK_DEPEND"),
             vec![dir_dep.path().to_str().unwrap().to_string()],
@@ -241,24 +238,7 @@ mod tests {
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
 
-        assert_eq!(
-            builder.top_dependency,
-            Dependency {
-                path: test_file_path,
-                mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
-                    path: test_file_dep_path,
-                    mmk_data: expected_2,
-                    requires: RefCell::new(Vec::new()),
-                    makefile_made: false,
-                    library_name: String::new(),
-                    in_process: false,
-                })]),
-                makefile_made: false,
-                library_name: String::new(),
-                in_process: false,
-            }
-        );
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
         Ok(())
     }
 
@@ -267,9 +247,9 @@ mod tests {
         let mut builder = Builder::new();
         let (_dir, test_file_path, mut file, mut expected_1) 
             = make_mmk_file("example");
-        let (dir_dep, test_file_dep_path, _file_dep, expected_2) 
+        let (dir_dep, _, _file_dep, _) 
             = make_mmk_file("example_dep");
-        let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, expected_3) 
+        let (second_dir_dep, _, _file_second_file_dep, _) 
             = make_mmk_file("example_dep");
 
         write!(
@@ -284,8 +264,6 @@ mod tests {
             &second_dir_dep.path().to_str().unwrap().to_string()
         )?;
 
-        builder.read_mmk_files_from_path(&test_file_path).unwrap();
-
         expected_1.data.insert(
             String::from("MMK_DEPEND"),
             vec![dir_dep.path().to_str().unwrap().to_string(),
@@ -295,32 +273,7 @@ mod tests {
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
 
-        assert_eq!(
-            builder.top_dependency,
-            Dependency {
-                path: test_file_path,
-                mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
-                    path: test_file_dep_path,
-                    mmk_data: expected_2,
-                    requires: RefCell::new(Vec::new()),
-                    makefile_made: false,
-                    library_name: String::new(),
-                    in_process: false,
-                }),
-                RefCell::new(Dependency {
-                    path: test_file_second_dep_path,
-                    mmk_data: expected_3,
-                    requires: RefCell::new(Vec::new()),
-                    makefile_made: false,
-                    library_name: String::new(),
-                    in_process: false,
-                })]),
-                makefile_made: false,
-                library_name: String::new(),
-                in_process: false,
-            }
-        );
+        assert!((builder.read_mmk_files_from_path(&test_file_path)).is_ok());
         Ok(())
     }
 
@@ -329,9 +282,9 @@ mod tests {
         let mut builder = Builder::new();
         let (_dir, test_file_path, mut file, mut expected_1) 
         = make_mmk_file("example");
-    let (dir_dep, test_file_dep_path, mut file_dep, mut expected_2) 
+    let (dir_dep, _, mut file_dep, mut expected_2) 
         = make_mmk_file("example_dep");
-    let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, expected_3) 
+    let (second_dir_dep, _, _file_second_file_dep, _) 
         = make_mmk_file("example_dep_second");
 
         write!(
@@ -350,8 +303,6 @@ mod tests {
         ",
         &second_dir_dep.path().to_str().unwrap().to_string())?;
 
-        builder.read_mmk_files_from_path(&test_file_path).unwrap();
-
         expected_1.data.insert(
             String::from("MMK_DEPEND"),
             vec![dir_dep.path().to_str().unwrap().to_string()],
@@ -364,32 +315,7 @@ mod tests {
             .data
             .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
 
-        assert_eq!(
-            builder.top_dependency,
-            Dependency {
-                path: test_file_path,
-                mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
-                    path: test_file_dep_path,
-                    mmk_data: expected_2,
-                    requires: RefCell::new(vec![
-                        RefCell::new(Dependency {
-                            path: test_file_second_dep_path,
-                            mmk_data: expected_3,
-                            requires: RefCell::new(vec![]),
-                            makefile_made: false,
-                            library_name: String::new(),
-                            in_process: false,
-                        })]),
-                    makefile_made: false,
-                    library_name: String::new(),
-                    in_process: false,
-                })]),
-                makefile_made: false,
-                library_name: String::new(),
-                in_process: false,
-            }
-        );
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
         Ok(())
     }
 
@@ -398,11 +324,11 @@ mod tests {
         let mut builder = Builder::new();
         let (_dir, test_file_path, mut file, mut expected_1) 
         = make_mmk_file("example");
-    let (dir_dep, test_file_dep_path, mut file_dep, mut expected_2) 
+    let (dir_dep, _, mut file_dep, mut expected_2) 
         = make_mmk_file("example_dep");
-    let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, expected_3) 
+    let (second_dir_dep, _, _file_second_file_dep, _) 
         = make_mmk_file("example_dep_second");
-    let (third_dir_dep, test_file_third_dep_path, _file_third_file_dep, expected_4) 
+    let (third_dir_dep, _, _file_third_file_dep, _) 
         = make_mmk_file("example_dep_third");
 
         write!(
@@ -423,7 +349,7 @@ mod tests {
         ",
         &second_dir_dep.path().to_str().unwrap().to_string())?;
 
-        builder.read_mmk_files_from_path(&test_file_path).unwrap();
+        
 
         expected_1.data.insert(
             String::from("MMK_DEPEND"),
@@ -438,40 +364,7 @@ mod tests {
             .data
             .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
         
-        assert_eq!(
-            builder.top_dependency,
-            Dependency {
-                path: test_file_path,
-                mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
-                    path: test_file_third_dep_path,
-                    mmk_data: expected_3,
-                    requires: RefCell::new(vec![]),
-                    makefile_made: false,
-                    library_name: String::new(),
-                    in_process: false,
-                }),
-                RefCell::new(Dependency {
-                    path: test_file_dep_path,
-                    mmk_data: expected_2,
-                    requires: RefCell::new(vec![
-                        RefCell::new(Dependency {
-                            path: test_file_second_dep_path,
-                            mmk_data: expected_4,
-                            requires: RefCell::new(vec![]),
-                            makefile_made: false,
-                            library_name: String::new(),
-                            in_process: false,
-                        })]),
-                    makefile_made: false,
-                    library_name: String::new(),
-                    in_process: false,
-                })]),
-                makefile_made: false,
-                library_name: String::new(),
-                in_process: false,
-            }
-        );
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
         Ok(())
     }
     #[test]

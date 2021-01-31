@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt;
 
 #[derive(Debug)]
@@ -14,6 +13,10 @@ impl MyMakeError {
     pub fn from(msg: String) -> MyMakeError {
         MyMakeError{details: msg}
     }
+
+    pub fn to_string(&self) -> &String {
+        &self.details
+    }
 }
 
 impl fmt::Display for MyMakeError {
@@ -22,11 +25,6 @@ impl fmt::Display for MyMakeError {
     }
 }
 
-impl Error for MyMakeError {
-    fn description(&self) -> &str {
-        &self.details 
-    }
-}
 
 impl std::convert::From<std::io::Error> for MyMakeError {
     fn from(error: std::io::Error) -> Self {

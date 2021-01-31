@@ -112,7 +112,7 @@ impl Dependency {
             Err(err) => return Err(MyMakeError::from(format!("Error parsing {:?}: {}", self.path, err))),
         };
         let mut mmk_data = mmk_parser::Mmk::new();
-        mmk_data.parse_file(&file_content)?;
+        mmk_data.parse(&file_content)?;
         self.mmk_data = mmk_data.clone();
         Ok(mmk_data)
     }

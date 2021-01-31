@@ -28,7 +28,7 @@ impl<T> MyMakeUnwrap<T> for Option<T>
         {
             Some(t) => t,
             None => {
-                println!("{}", "MyMake: Invalid input or no input given!".red());
+                eprintln!("{}", "MyMake: Invalid input or no input given!".red());
                 std::process::exit(1);
             }
         }

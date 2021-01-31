@@ -171,12 +171,11 @@ mod tests {
         let mut file = File::create(&test_file_path)
                                 .expect("make_mmk_file(): Something went wrong writing to file.");
         write!(file, 
-        "\
-        MMK_SOURCES = some_file.cpp \\
-                      some_other_file.cpp \\
+        "MMK_SOURCES = some_file.cpp \
+                      some_other_file.cpp\n
         \n
-        MMK_HEADERS = some_file.h \\
-                      some_other_file.h \\
+        MMK_HEADERS = some_file.h \
+                      some_other_file.h\n
         
         \n").expect("make_mmk_file(): Something went wrong writing to file.");
 
@@ -188,11 +187,6 @@ mod tests {
         mmk_data.data.insert(String::from("MMK_HEADERS"), 
                              vec![String::from("some_file.h"), 
                                   String::from("some_other_file.h")]);
-        
-        mmk_data.data.insert(String::from("MMK_DEPEND"), 
-                             vec![String::new()]);
-        mmk_data.data.insert(String::from("MMK_EXECUTABLE"), 
-                             vec![String::new()]);
 
         (dir, test_file_path, file, mmk_data)
     }
@@ -223,7 +217,7 @@ mod tests {
         write!(
             file,
             "\
-            MMK_DEPEND = {} \\
+            MMK_DEPEND = {}
         \n
         
         MMK_EXECUTABLE = x",
@@ -255,8 +249,8 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND = {} \\
-                     {} \\
+        MMK_DEPEND = {} \
+                     {}
         
         \n
         MMK_EXECUTABLE = x",
@@ -290,7 +284,7 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND = {} \\
+        MMK_DEPEND = {}
         \n
         MMK_EXECUTABLE = x",
             &dir_dep.path().to_str().unwrap().to_string())?;
@@ -298,7 +292,7 @@ mod tests {
         write!(
             file_dep,
             "\
-        MMK_DEPEND = {} \\
+        MMK_DEPEND = {}
         \n
         ",
         &second_dir_dep.path().to_str().unwrap().to_string())?;
@@ -334,8 +328,8 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND = {} \\
-                     {} \\
+        MMK_DEPEND = {} \
+                     {}
         \n
         MMK_EXECUTABLE = x",            
             &third_dir_dep.path().to_str().unwrap().to_string(),
@@ -344,7 +338,7 @@ mod tests {
         write!(
             file_dep,
             "\
-        MMK_DEPEND = {} \\
+        MMK_DEPEND = {}
         \n
         ",
         &second_dir_dep.path().to_str().unwrap().to_string())?;
@@ -376,7 +370,7 @@ mod tests {
         write!(
             file,
             "\
-            MMK_DEPEND = {} \\
+            MMK_DEPEND = {}
         \n
         
         MMK_EXECUTABLE = x",
@@ -386,7 +380,7 @@ mod tests {
         write!(
             file_dep,
             "\
-            MMK_DEPEND = {} \\
+            MMK_DEPEND = {}
         \n", &dir.path().to_str().unwrap().to_string()
         ).unwrap();
 

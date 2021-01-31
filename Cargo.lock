@@ -45,7 +45,6 @@ dependencies = [
  "generator",
  "mmk_parser",
  "regex",
- "tempdir",
 ]
 
 [[package]]

@@ -1,10 +1,25 @@
+# General ignores
 *target/*
-mmk_parser/target
-generator/target
-builder/target
-external/target
-error/target
-dependency/target
 *.gv
 .vscode/
 *.build
+*.lock
+
+# Dependency related ignores
+mmk_parser/target
+mmk_parser/Cargo.lock
+
+generator/target
+generator/Cargo.lock
+
+builder/target
+builder/Cargo.lock
+
+external/target
+external/Cargo.lock
+
+error/target
+error/Cargo.lock
+dependency/target
+dependency/Cargo.lock
+

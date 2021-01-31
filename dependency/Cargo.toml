@@ -12,3 +12,4 @@ mmk_parser = { path = "../mmk_parser" }
 
 [dev-dependencies]
 tempdir = "0.3.7"
+pretty_assertions = "0.6.1"

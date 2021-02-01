@@ -50,8 +50,7 @@ impl MmkGenerator
                 formatted_string.push_str("/");
                 formatted_string.push_str(source);
 
-                if mmk_data.data.contains_key("MMK_HEADERS")
-                && mmk_data.data["MMK_HEADERS"].first() != Some(&"".to_string()) {
+                if mmk_data.data.contains_key("MMK_HEADERS") {
                     formatted_string.push_str(" \\\n");
                     for header in &mmk_data.data["MMK_HEADERS"] {                        
                         formatted_string.push_str("\t");

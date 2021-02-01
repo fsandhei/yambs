@@ -88,7 +88,7 @@ impl Dependency {
 
 
     pub fn is_executable(&self) -> bool {
-        &self.mmk_data().data["MMK_EXECUTABLE"][0] != ""
+        self.mmk_data().data.contains_key("MMK_EXECUTABLE")
     }
 
 

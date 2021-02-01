@@ -47,9 +47,10 @@ impl Mmk
     pub fn valid_keyword(self: &Self, keyword: & str) -> Result<(), MyMakeError>
     {
         if keyword == "MMK_DEPEND"
-        || keyword == "MMK_SOURCES" 
+        || keyword == "MMK_SOURCES"
         || keyword == "MMK_HEADERS"
-        || keyword == "MMK_EXECUTABLE" {
+        || keyword == "MMK_EXECUTABLE"
+        || keyword == "MMK_SYS_INCLUDE" {
             Ok(())
         }
         else {

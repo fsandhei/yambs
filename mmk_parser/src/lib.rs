@@ -65,20 +65,24 @@ impl Mmk
     }
 
 
-    // fn parse_line(&mut self, line: &str) -> Result<(), MyMakeError> {
-    //     if line != "" {
-    //         let mmk_rule = Regex::new(r"(MMK_\w+)\s*=\s*(.*)$").unwrap();
-    //         if let Some(captured) = mmk_rule.captures(line) {
-    //             let mmk_keyword = captured.get(1).unwrap().as_str();
-    //             self.valid_keyword(mmk_keyword)?;
-    //             let args = captured.get(2).unwrap().as_str();
-    //             let args_vec: Vec<String> = args.split_whitespace().map(|s| s.to_string()).collect();
-    //             self.valid_keyword(mmk_keyword)?;
-    //             self.data.insert(String::from(mmk_keyword), args_vec);
-    //         }
-    //     }
-    //     Ok(())
-    // }
+    fn parse_mmk_expression(&mut self, mmk_keyword: &str, data_iter: &mut std::str::Lines) -> Result<(), MyMakeError> {
+        self.valid_keyword(mmk_keyword)?;
+        let mut arg_vec: Vec<String> = Vec::new();
+        let mut current_line = data_iter.next();
+        while current_line != None {
+            let line = current_line.unwrap().trim();
+            if line != "" {
+                let arg = current_line.unwrap().trim().to_string();
+                arg_vec.push(arg);                
+            }
+            else {
+                break;
+            }
+            current_line = data_iter.next();
+        }
+        self.data.insert(String::from(mmk_keyword), arg_vec);
+        Ok(())
+    }
 
 
     pub fn parse(&mut self, data: &String) -> Result<(), MyMakeError> {
@@ -90,14 +94,8 @@ impl Mmk
             if let Some(captured) = mmk_rule.captures(current_line.unwrap()) {
                 let mmk_keyword = captured.get(1).unwrap().as_str();
                 self.valid_keyword(mmk_keyword)?;
-                let mut arg_vec: Vec<String> = Vec::new();
+                self.parse_mmk_expression(mmk_keyword, &mut lines)?;
                 current_line = lines.next();
-                while current_line != None && current_line.unwrap().trim() != "" {                    
-                    let arg = current_line.unwrap().trim().to_string();
-                    arg_vec.push(arg);
-                    current_line = lines.next();       
-                }
-                self.data.insert(String::from(mmk_keyword), arg_vec);
             }
             else {
                 current_line = lines.next();
@@ -114,6 +112,7 @@ pub fn validate_file_path(file_path_as_str: &str) -> Result<std::path::PathBuf, 
     }
     Ok(file_path)
 }
+
 
 pub fn read_file(file_path: &Path) -> Result<String, io::Error>
 {

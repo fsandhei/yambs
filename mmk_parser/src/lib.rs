@@ -201,17 +201,6 @@ MMK_EXECUTABLE:
     }
 
 
-    // #[test]
-    // fn test_parse_mmk_source_newline_after_end() -> Result<(), MyMakeError>
-    // {
-    //     let mut mmk_content = Mmk::new();
-    //     let content: String = String::from("MMK_SOURCES: filename.cpp\n
-    //     ");
-    //     mmk_content.parse(&content)?;
-    //     assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp"]);
-    //     Ok(())
-    // }
-
     #[test]
     fn test_parse_mmk_dependencies() -> Result<(), MyMakeError>
     {

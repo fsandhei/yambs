@@ -199,11 +199,13 @@ mod tests {
         let mut file = File::create(&test_file_path)
                                 .expect("make_mmk_file(): Something went wrong writing to file.");
         write!(file, 
-        "MMK_SOURCES = some_file.cpp \
-                      some_other_file.cpp
+        "MMK_SOURCES:
+            some_file.cpp
+            some_other_file.cpp
         \n
-        MMK_HEADERS = some_file.h \
-                      some_other_file.h
+        MMK_HEADERS:
+            some_file.h
+            some_other_file.h
         
         \n").expect("make_mmk_file(): Something went wrong writing to file.");
 
@@ -224,8 +226,8 @@ mod tests {
         
         write!(
             file,
-            "\
-        MMK_EXECUTABLE = x"
+            "MMK_EXECUTABLE:
+                x"
         )?;
         let mut dep_registry = DependencyRegistry::new();
         let top_dependency = Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry).unwrap();
@@ -245,10 +247,12 @@ mod tests {
         write!(
             file,
             "\
-            MMK_DEPEND = {}
+            MMK_DEPEND:
+                {}
         \n
         
-        MMK_EXECUTABLE = x",
+        MMK_EXECUTABLE:
+            x",
             &dir_dep.path().to_str().unwrap().to_string()
         )?;
 
@@ -304,11 +308,13 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND = {} \
-                     {}
+        MMK_DEPEND:
+            {}
+            {}
         
         \n
-        MMK_EXECUTABLE = x",
+        MMK_EXECUTABLE:
+            x",
             &dir_dep.path().to_str().unwrap().to_string(),
             &second_dir_dep.path().to_str().unwrap().to_string()
         )?;
@@ -367,15 +373,18 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND = {}
+        MMK_DEPEND:
+            {}
         \n
-        MMK_EXECUTABLE = x",
+        MMK_EXECUTABLE:
+            x",
             &dir_dep.path().to_str().unwrap().to_string())?;
 
         write!(
             file_dep,
             "\
-        MMK_DEPEND = {}
+        MMK_DEPEND:
+            {}
         \n
         ",
         &second_dir_dep.path().to_str().unwrap().to_string())?;
@@ -439,17 +448,20 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND = {} \
-                     {}
+        MMK_DEPEND:
+            {}
+            {}
         \n
-        MMK_EXECUTABLE = x",            
+        MMK_EXECUTABLE:
+            x",            
             &third_dir_dep.path().to_str().unwrap().to_string(),
             &dir_dep.path().to_str().unwrap().to_string())?;
 
         write!(
             file_dep,
             "\
-        MMK_DEPEND = {}
+        MMK_DEPEND:
+            {}
         \n
         ",
         &second_dir_dep.path().to_str().unwrap().to_string())?;
@@ -516,17 +528,20 @@ mod tests {
         write!(
             file,
             "\
-            MMK_DEPEND = {}
+            MMK_DEPEND:
+                {}
         \n
         
-        MMK_EXECUTABLE = x",
+        MMK_EXECUTABLE:
+            x",
             &dir_dep.path().to_str().unwrap().to_string()
         ).unwrap();
 
         write!(
             file_dep,
             "\
-            MMK_DEPEND = {}
+            MMK_DEPEND:
+                {}
         \n", &dir.path().to_str().unwrap().to_string()
         ).unwrap();
 
@@ -549,15 +564,18 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND = {}
+        MMK_DEPEND:
+            {}
         \n
-        MMK_EXECUTABLE = x",            
+        MMK_EXECUTABLE:
+            x",            
             &dir_dep.path().to_str().unwrap().to_string())?;
 
         write!(
             file_dep,
             "\
-        MMK_DEPEND = {}
+        MMK_DEPEND:
+            {}
         \n
         ",
         &second_dir_dep.path().to_str().unwrap().to_string())?;
@@ -565,7 +583,8 @@ mod tests {
         write!(
             file_second_file_dep,
             "\
-        MMK_DEPEND = {}
+        MMK_DEPEND:
+            {}
         \n
         ",
         &dir.path().to_str().unwrap().to_string())?;

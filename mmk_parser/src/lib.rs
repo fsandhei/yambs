@@ -50,7 +50,9 @@ impl Mmk
         || keyword == "MMK_SOURCES"
         || keyword == "MMK_HEADERS"
         || keyword == "MMK_EXECUTABLE"
-        || keyword == "MMK_SYS_INCLUDE" {
+        || keyword == "MMK_SYS_INCLUDE" 
+        || keyword == "MMK_CXXFLAGS_APPEND" 
+        || keyword == "MMK_CPPFLAGS_APPEND" {
             Ok(())
         }
         else {

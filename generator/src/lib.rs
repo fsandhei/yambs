@@ -122,6 +122,7 @@ pub trait Generator
     fn generate_header(self: &mut Self)          -> Result<(), MyMakeError>;
     fn generate_rule_executable(self: &mut Self) -> Result<(), MyMakeError>;
     fn generate_rule_package(self: &mut Self)    -> Result<(), MyMakeError>;
+    fn generate_appending_flags(&mut self)       -> Result<(), MyMakeError>;
     fn print_ok(self: &Self);    
 }
 
@@ -216,6 +217,29 @@ impl Generator for MmkGenerator
     }
 
 
+    fn generate_appending_flags(&mut self) -> Result<(), MyMakeError> {
+        let mut data = String::new();
+
+        if self.dependency.mmk_data().data.contains_key("MMK_CXXFLAGS_APPEND") {
+            data.push_str(&format!("CXXFLAGS += {cxxflags}\n", 
+            cxxflags = self.dependency.mmk_data().to_string("MMK_CXXFLAGS_APPEND")).to_owned());
+        }
+
+        if self.dependency.mmk_data().data.contains_key("MMK_CPPFLAGS_APPEND") {
+            data.push_str(&format!("CPPFLAGS += {cppflags}\n", 
+            cppflags = self.dependency.mmk_data().to_string("MMK_CPPFLAGS_APPEND")).to_owned());
+        }
+
+        if !data.is_empty() {
+            match self.filename.write(data.as_bytes()) {
+                Ok(_) => (),
+                Err(err) => return Err(MyMakeError::from(format!("Error creating executable rule for {:?}: {}", self.filename, err))),
+            };
+        }
+        Ok(())
+    }
+
+
     fn print_ok(self: &Self) -> ()
     {
         print!(".");
@@ -230,8 +254,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn generate_makefile_test() -> std::io::Result<()>
-    {
+    fn generate_makefile_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
@@ -241,9 +264,10 @@ mod tests {
         assert!(Generator::generate_makefile(&mut gen).is_ok());
         Ok(())
     }
+
+
     #[test]
-    fn generate_header_test() -> std::io::Result<()>
-    {
+    fn generate_header_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
@@ -272,9 +296,10 @@ mod tests {
         .PHONY: clean\n", fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
+
+
     #[test]
-    fn generate_package_test() -> std::io::Result<()>
-    {
+    fn generate_package_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
@@ -306,9 +331,9 @@ mod tests {
         Ok(())
     }
 
+
     #[test]
-    fn generate_executable_test() -> std::io::Result<()>
-    {
+    fn generate_executable_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
@@ -336,6 +361,57 @@ mod tests {
         \t{directory}/ofilename.cpp\n\
         \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
         ", directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        Ok(())
+    }
+
+
+    #[test]
+    fn generate_appending_flags_test_cxxflags() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = std::path::PathBuf::from(".build");
+        let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
+        dependency.mmk_data_mut().data.insert("MMK_CXXFLAGS_APPEND".to_string(), vec!["-pthread".to_string()]);
+        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let test_file = gen.output_directory.join("makefile");
+        assert!(Generator::generate_appending_flags(&mut gen).is_ok());
+        assert_eq!(format!("\
+        CXXFLAGS += -pthread\n\
+        "), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        Ok(())
+    }
+
+
+    #[test]
+    fn generate_appending_flags_test_cppflags() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = std::path::PathBuf::from(".build");
+        let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
+        dependency.mmk_data_mut().data.insert("MMK_CPPFLAGS_APPEND".to_string(), vec!["-somesetting".to_string()]);
+        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let test_file = gen.output_directory.join("makefile");
+        assert!(Generator::generate_appending_flags(&mut gen).is_ok());
+        assert_eq!(format!("\
+        CPPFLAGS += -somesetting\n\
+        "), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        Ok(())
+    }
+
+
+    #[test]
+    fn generate_appending_flags_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = std::path::PathBuf::from(".build");
+        let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
+        dependency.mmk_data_mut().data.insert("MMK_CXXFLAGS_APPEND".to_string(), vec!["-pthread".to_string()]);
+        dependency.mmk_data_mut().data.insert("MMK_CPPFLAGS_APPEND".to_string(), vec!["-somesetting".to_string()]);
+
+        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let test_file = gen.output_directory.join("makefile");
+        assert!(Generator::generate_appending_flags(&mut gen).is_ok());
+        assert_eq!(format!("\
+        CXXFLAGS += -pthread\n\
+        CPPFLAGS += -somesetting\n\
+        "), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
 }

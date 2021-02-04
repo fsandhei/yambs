@@ -26,6 +26,8 @@ TODO:
     *            foreløpig på utviklerens feil og ikke brukerens feil. Feil skal oppdages fra
     *            brukeren sin side.
     *         * Dekke case der tre dependencies eksisterer: A avhenger av B, og C avhenger av B. Får alle samme B?
+
+    "Lag struct CommandLine som håndterer argumentene inn til MyMake. Bruk den til å passere ting videre til de riktige structene."
 */
 
 fn main() -> Result<(), MyMakeError> {
@@ -39,7 +41,7 @@ fn main() -> Result<(), MyMakeError> {
                     .short("g")
                     .long("generator")
                     .takes_value(true)
-                    .help("Input file for MMK."))
+                    .help("Input file for MyMake."))
         .arg(Arg::with_name("clean")
                     .long("clean")
                     .help("Removes .build directories, cleaning the project."))

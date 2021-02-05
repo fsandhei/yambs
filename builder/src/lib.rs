@@ -8,9 +8,9 @@ mod filter;
 mod clean;
 
 pub struct Builder {
-    pub top_dependency: Dependency,
-    pub dep_registry: DependencyRegistry,
-    pub log_file: Option<std::fs::File>,
+    top_dependency: Dependency,
+    dep_registry: DependencyRegistry,
+    log_file: Option<std::fs::File>,
 }
 
 
@@ -23,6 +23,9 @@ impl Builder {
         }
     }
 
+    pub fn top_dependency(&self) -> &Dependency {
+        &self.top_dependency
+    }
 
     pub fn create_log_file(&self) -> Result<Option<std::fs::File>, MyMakeError> {
         if self.top_dependency.is_makefile_made() {
@@ -45,11 +48,11 @@ impl Builder {
         Ok(())
     }
 
-    
-    pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError> {
+
+    pub fn generate_makefiles(&mut self) -> Result<(), MyMakeError> {
         let build_directory = std::path::PathBuf::from(".build");
-        let mut generator = generator::MmkGenerator::new(dependency, &build_directory)?;
-        generator.generate_makefiles(dependency)
+        let mut generator = generator::MmkGenerator::new(&self.top_dependency, &build_directory)?;
+        generator.generate_makefiles(&mut self.top_dependency)
     }
 
 

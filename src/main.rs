@@ -60,7 +60,7 @@ fn main() -> Result<(), MyMakeError> {
     {
         if matches.is_present("dot")
         {
-            let last = &builder.top_dependency;
+            let last = &builder.top_dependency();
             match external::dottie(&last, false, &mut String::new())
             {
                 Ok(()) => {
@@ -78,7 +78,7 @@ fn main() -> Result<(), MyMakeError> {
 
     else {
         print!("MyMake: Generating makefiles");
-        Builder::generate_makefiles(&mut builder.top_dependency).unwrap_or_terminate();
+        builder.generate_makefiles().unwrap_or_terminate();
         println!();
         builder.build_project(false).unwrap_or_terminate();
     }

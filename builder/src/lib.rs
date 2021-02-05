@@ -47,28 +47,9 @@ impl Builder {
 
     // TBD: Flytte funksjon til generator?
     pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError> {
-
-        let mut generator: generator::MmkGenerator;
         let build_directory = std::path::PathBuf::from(".build");
-        if !&dependency.is_makefile_made()
-        {
-            generator = generator::MmkGenerator::new(&dependency,
-                                                     &build_directory)?;
-            &dependency.makefile_made();
-            generator::Generator::generate_makefile(&mut generator)?;
-        }
-        for required_dependency in dependency.requires().borrow().iter()
-        {
-            if !required_dependency.borrow().is_makefile_made()
-            {
-                required_dependency.borrow_mut().makefile_made();
-                generator = generator::MmkGenerator::new(&required_dependency.borrow(),
-                                                         &build_directory)?;
-                generator::Generator::generate_makefile(&mut generator)?;
-            }
-            Builder::generate_makefiles(&mut required_dependency.borrow_mut())?;
-        }
-        Ok(())
+        let mut generator = generator::MmkGenerator::new(dependency, &build_directory)?;
+        generator.generate_makefiles(dependency)
     }
 
 

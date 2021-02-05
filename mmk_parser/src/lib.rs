@@ -108,7 +108,7 @@ impl Mmk
 }
 
 pub fn validate_file_path(file_path_as_str: &str) -> Result<std::path::PathBuf, MyMakeError> {
-    let file_path = std::path::PathBuf::from(file_path_as_str);
+    let file_path = std::path::PathBuf::from(file_path_as_str).canonicalize().unwrap();
     if !file_path.is_file() {
         return Err(MyMakeError::from(format!("Error: {:?} is not a valid path!", &file_path)));
     }

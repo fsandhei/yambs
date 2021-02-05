@@ -4,6 +4,7 @@ use std::io::Write;
 
 use dependency::Dependency;
 use error::MyMakeError;
+// use mmk_parser::Mmk;
 #[allow(dead_code)]
 pub struct MmkGenerator
 {
@@ -12,29 +13,42 @@ pub struct MmkGenerator
     output_directory: std::path::PathBuf,
 }
 
+fn create_dir(dir: &std::path::PathBuf) -> Result<(), MyMakeError> {
+    if !dir.is_dir() {
+        std::fs::create_dir(&dir)?;
+    }
+    Ok(())
+}
+
+
+fn create_file(dir: &std::path::PathBuf, filename: &str) -> Result<File, MyMakeError> {
+    let file = dir.join(filename);
+    if file.is_file() {
+        match std::fs::remove_file(&file) {
+            Ok(()) => (),
+            Err(err) => return Err(MyMakeError::from(format!("Error removing {:?}: {}", file, err))),
+        };
+    }
+    let filename = File::create(&file)?;
+    Ok(filename)
+}
+
 impl MmkGenerator
 {
     pub fn new(dependency: &Dependency, build_directory: &std::path::PathBuf) -> Result<MmkGenerator, MyMakeError>
     {
         let output_directory = dependency.path().parent().unwrap().join(&build_directory);
-        if !output_directory.is_dir() {
-            match std::fs::create_dir(&output_directory) {
-                Ok(()) => (),
-                Err(err) => return Err(MyMakeError::from(format!("Error creating {:?}: {}", output_directory, err))),
-            };
-        }
-
-        let output_file = &output_directory.join("makefile");
-        if output_file.is_file() {
-            match std::fs::remove_file(&output_file) {
-                Ok(()) => (),
-                Err(err) => return Err(MyMakeError::from(format!("Error removing {:?}: {}", output_file, err))),
-            };
-        }
-        let filename = File::create(&output_directory
-                                        .join("makefile"))
-                                        .expect("Something went wrong");
+        create_dir(&output_directory)?;
+        let filename = create_file(&output_directory, "makefile")?;
         Ok(MmkGenerator{ filename: filename, dependency: dependency.clone(), output_directory: output_directory})
+    }
+
+
+    pub fn replace_generator(&mut self, dependency: &Dependency, build_directory: &std::path::PathBuf) {
+        let gen = MmkGenerator::new(dependency, build_directory).unwrap();
+        self.dependency       = gen.dependency;
+        self.filename         = gen.filename;
+        self.output_directory = gen.output_directory;
     }
 
     pub fn make_object_rule(self: &Self, mmk_data: &mmk_parser::Mmk) -> String {
@@ -132,9 +146,9 @@ impl MmkGenerator
             if !required_dependency.borrow().is_makefile_made()
             {
                 required_dependency.borrow_mut().makefile_made();
-                let mut generator = MmkGenerator::new(&required_dependency.borrow(),
-                                                       &build_directory)?;
-                Generator::generate_makefile(&mut generator)?;
+                self.replace_generator(&required_dependency.borrow(),
+                                                 &build_directory);
+                self.generate_makefile()?;
             }
             self.generate_makefiles(&mut required_dependency.borrow_mut())?;
         }

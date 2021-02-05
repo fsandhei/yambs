@@ -45,7 +45,7 @@ impl Builder {
         Ok(())
     }
 
-    // TBD: Flytte funksjon til generator?
+    
     pub fn generate_makefiles(dependency: &mut Dependency) -> Result<(), MyMakeError> {
         let build_directory = std::path::PathBuf::from(".build");
         let mut generator = generator::MmkGenerator::new(dependency, &build_directory)?;

@@ -1,5 +1,6 @@
 use dependency::{Dependency, DependencyRegistry};
 use error::MyMakeError;
+use generator::MmkGenerator;
 use std::io::{self, Write};
 use std::process::Command;
 use colored::Colorize;
@@ -11,6 +12,7 @@ pub struct Builder {
     top_dependency: Dependency,
     dep_registry: DependencyRegistry,
     log_file: Option<std::fs::File>,
+    generator: Option<MmkGenerator>,
 }
 
 
@@ -20,12 +22,31 @@ impl Builder {
             top_dependency: Dependency::new(),
             dep_registry: DependencyRegistry::new(),
             log_file: None,
+            generator: None
         }
     }
+
+    pub fn add_generator(&mut self) {
+        self.generator = Some(MmkGenerator::new(&self.top_dependency, 
+                &std::path::PathBuf::from(".build"))
+                            .unwrap())
+    }
+
+
+    pub fn generator_make_makefile(&mut self) {
+        self.generator.as_mut().unwrap().create_makefile();
+    }
+
+    
+    pub fn debug(&mut self) {
+        self.generator.as_mut().unwrap().debug();
+    }
+
 
     pub fn top_dependency(&self) -> &Dependency {
         &self.top_dependency
     }
+
 
     pub fn create_log_file(&self) -> Result<Option<std::fs::File>, MyMakeError> {
         if self.top_dependency.is_makefile_made() {
@@ -50,9 +71,7 @@ impl Builder {
 
 
     pub fn generate_makefiles(&mut self) -> Result<(), MyMakeError> {
-        let build_directory = std::path::PathBuf::from(".build");
-        let mut generator = generator::MmkGenerator::new(&self.top_dependency, &build_directory)?;
-        generator.generate_makefiles(&mut self.top_dependency)
+        self.generator.as_mut().unwrap().generate_makefiles(&mut self.top_dependency)
     }
 
 

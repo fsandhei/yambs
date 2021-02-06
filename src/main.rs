@@ -45,6 +45,10 @@ fn main() -> Result<(), MyMakeError> {
         .arg(Arg::with_name("clean")
                     .long("clean")
                     .help("Removes .build directories, cleaning the project."))
+        .arg(Arg::with_name("runtime configurations")
+                    .short("v")
+                    .help("Set runtime configurations.")
+                    .min_values(1))
         .subcommand(SubCommand::with_name("extern")
                     .about("Run external programs from MyMake.")
                     .arg(Arg::with_name("dot")
@@ -77,6 +81,16 @@ fn main() -> Result<(), MyMakeError> {
     }
 
     else {
+        builder.add_generator();
+        if matches.is_present("runtime configurations") {
+            let build_configs: Vec<_> = matches.values_of("runtime configurations").unwrap().collect();
+            for config in build_configs {
+                if config == "debug" {
+                    builder.debug();
+                }
+            }
+        }
+        builder.generator_make_makefile();
         print!("MyMake: Generating makefiles");
         builder.generate_makefiles().unwrap_or_terminate();
         println!();

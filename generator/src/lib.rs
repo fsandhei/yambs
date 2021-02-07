@@ -34,6 +34,14 @@ fn create_file(dir: &std::path::PathBuf, filename: &str) -> Result<File, MyMakeE
     Ok(filename)
 }
 
+
+fn print_full_path(os: &mut String, dir: &str, filename: &str) {
+    os.push_str(dir);
+    os.push_str("/");
+    os.push_str(filename);
+    os.push_str(" \\\n");
+}
+
 impl MmkGenerator
 {
     pub fn new(dependency: &Dependency, build_directory: &std::path::PathBuf) -> Result<MmkGenerator, MyMakeError> {
@@ -119,10 +127,9 @@ impl MmkGenerator
             if dependency.borrow().library_name() != "" {
                 let required_dep = dependency.borrow();
                 formatted_string.push_str("\t");
-                formatted_string.push_str(required_dep.get_build_directory().to_str().unwrap());
-                formatted_string.push_str("/");
-                formatted_string.push_str(&required_dep.library_name());
-                formatted_string.push_str(" \\\n");
+                print_full_path(&mut formatted_string, 
+                                required_dep.get_build_directory().to_str().unwrap(),
+                                &required_dep.library_name());
             }
         }
         formatted_string
@@ -147,10 +154,9 @@ impl MmkGenerator
             for source in &self.dependency.mmk_data().data["MMK_SOURCES"] {
                 let object = source.replace(".cpp", ".o");
                 formatted_string.push_str("\t");
-                formatted_string.push_str(build_directory.to_str().unwrap());
-                formatted_string.push_str("/");
-                formatted_string.push_str(&object);
-                formatted_string.push_str(" \\\n");
+                print_full_path(&mut formatted_string,
+                                build_directory.to_str().unwrap(),
+                            &object);
             }
         }
         formatted_string.push_str(&self.print_required_dependencies_libraries());

@@ -13,6 +13,7 @@ pub struct Builder {
     dep_registry: DependencyRegistry,
     log_file: Option<std::fs::File>,
     generator: Option<MmkGenerator>,
+    debug: bool,
 }
 
 
@@ -22,9 +23,11 @@ impl Builder {
             top_dependency: Dependency::new(),
             dep_registry: DependencyRegistry::new(),
             log_file: None,
-            generator: None
+            generator: None,
+            debug: false,
         }
     }
+
 
     pub fn add_generator(&mut self) {
         self.generator = Some(MmkGenerator::new(&self.top_dependency, 
@@ -32,13 +35,9 @@ impl Builder {
                             .unwrap())
     }
 
-
-    pub fn generator_make_makefile(&mut self) {
-        self.generator.as_mut().unwrap().create_makefile();
-    }
-
     
     pub fn debug(&mut self) {
+        self.debug = true;
         self.generator.as_mut().unwrap().debug();
     }
 
@@ -103,7 +102,12 @@ impl Builder {
         }
 
         let build_directory = dependency.get_build_directory();
-        self.change_directory(build_directory, verbosity);
+        if self.debug {
+            self.change_directory(build_directory.join("debug"), verbosity);
+        }
+        else {
+            self.change_directory(build_directory, verbosity);
+        }
         Builder::construct_build_message(dependency);
         let child = Command::new("/usr/bin/make")
                                                             .stdout(std::process::Stdio::piped())

@@ -90,7 +90,6 @@ fn main() -> Result<(), MyMakeError> {
                 }
             }
         }
-        builder.generator_make_makefile();
         print!("MyMake: Generating makefiles");
         builder.generate_makefiles().unwrap_or_terminate();
         println!();

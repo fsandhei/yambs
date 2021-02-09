@@ -1,8 +1,6 @@
 use builder::Builder;
 use clap::{Arg, App, SubCommand, ArgMatches};
 use error::MyMakeError;
-// use external::*;
-// use mmk_parser;
 use std::path::PathBuf;
 use crate::MyMakeUnwrap;
 
@@ -23,7 +21,7 @@ impl<'a> CommandLine<'a> {
             .author("Written and maintained by Fredrik Sandhei <fredrik.sandhei@gmail.com>")        
             .arg(Arg::with_name("mmk_file")
                         .short("g")
-                        .long("generator")
+                        .required(true)
                         .takes_value(true)
                         .help("Input file for MyMake."))
             .arg(Arg::with_name("clean")

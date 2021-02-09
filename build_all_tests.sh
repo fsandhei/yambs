@@ -4,6 +4,10 @@ CARGO=/home/fredrik/.cargo/bin/cargo
 ROOT_DIR="/home/fredrik/bin/mymake/"
 CWD=`pwd`
 
+#test_mymake()
+#{
+#}
+
 execute_command() 
 {
    $@

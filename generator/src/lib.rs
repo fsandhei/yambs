@@ -77,15 +77,11 @@ impl MmkGenerator
     pub fn make_object_rule(self: &Self, mmk_data: &mmk_parser::Mmk) -> String {
         let mut formatted_string = String::new();
         let parent_path = &self.dependency.path().parent().unwrap().to_str().unwrap();
-        let mut output_directory = self.dependency.get_build_directory();
-        if self.debug {
-            output_directory.push("debug");
-        }
 
         if mmk_data.data.contains_key("MMK_SOURCES") {
             for source in &mmk_data.data["MMK_SOURCES"] {
                 let object = source.replace(".cpp", ".o");
-                formatted_string.push_str(output_directory.to_str().unwrap());
+                formatted_string.push_str(self.output_directory.to_str().unwrap());
                 formatted_string.push_str("/");
                 formatted_string.push_str(&object);
                 formatted_string.push_str(": \\\n");
@@ -112,7 +108,8 @@ impl MmkGenerator
                 else {
                     formatted_string.push_str("\n");
                 }
-                formatted_string.push_str(&format!("\t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) {dependencies} -I{path_str} $< -c -o $@)\n\n"
+                formatted_string.push_str(&format!("\t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) \
+                                                          $(WARNINGS) {dependencies} -I{path_str} $< -c -o $@)\n\n"
                 , dependencies = mmk_data.to_string("MMK_DEPEND")
                 , path_str = parent_path));
             }
@@ -145,17 +142,13 @@ impl MmkGenerator
 
     pub fn print_prerequisites(self: &Self) -> String {
         let mut formatted_string = String::new();
-        let mut build_directory = self.dependency.get_build_directory();
-        if self.debug {
-            build_directory.push("debug");
-        }
         if self.dependency.mmk_data().data.contains_key("MMK_SOURCES") {
             formatted_string.push_str("\\\n");
             for source in &self.dependency.mmk_data().data["MMK_SOURCES"] {
                 let object = source.replace(".cpp", ".o");
                 formatted_string.push_str("\t");
                 print_full_path(&mut formatted_string,
-                                build_directory.to_str().unwrap(),
+                                self.output_directory.to_str().unwrap(),
                             &object);
             }
         }

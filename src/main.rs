@@ -2,10 +2,11 @@ extern crate mmk_parser;
 extern crate generator;
 
 mod unwrap_or_terminate;
+mod command_line;
 
-use clap::{Arg, App, SubCommand};
+// use clap::{Arg, App, SubCommand};
 use builder::*;
-use external;
+// use external;
 use error::MyMakeError;
 
 use unwrap_or_terminate::MyMakeUnwrap;
@@ -31,70 +32,17 @@ TODO:
 */
 
 fn main() -> Result<(), MyMakeError> {
-    let matches = App::new("MyMake Makefile Build System")
-        .version("0.1.0")
-        .about("\
-        GNU Make build system overlay for C++ projects. MyMake generates makefiles and builds the project with the \n\
-        specifications written in the respective MyMake files.")
-        .author("Written and maintained by Fredrik Sandhei <fredrik.sandhei@gmail.com>")        
-        .arg(Arg::with_name("mmk_file")
-                    .short("g")
-                    .long("generator")
-                    .takes_value(true)
-                    .help("Input file for MyMake."))
-        .arg(Arg::with_name("clean")
-                    .long("clean")
-                    .help("Removes .build directories, cleaning the project."))
-        .arg(Arg::with_name("runtime configurations")
-                    .short("v")
-                    .help("Set runtime configurations.")
-                    .min_values(1))
-        .subcommand(SubCommand::with_name("extern")
-                    .about("Run external programs from MyMake.")
-                    .arg(Arg::with_name("dot")
-                        .long("dot-dependency")
-                        .help("Produce a dot graph visualization of the project dependency.")))
-        .get_matches();
-    let myfile = mmk_parser::validate_file_path(matches.value_of("mmk_file").unwrap_or_terminate()).unwrap_or_terminate();
-    let mut builder = Builder::new();
+    let command_line = command_line::CommandLine::new();
+    let myfile = command_line.validate_file_path();
+    let mut builder = Builder::new();    
 
     builder.read_mmk_files_from_path(&myfile).unwrap_or_terminate();
+    builder.add_generator();
+    command_line.parse_command_line(&mut builder).unwrap_or_terminate();
 
-    if let Some(ref matches) = matches.subcommand_matches("extern")
-    {
-        if matches.is_present("dot")
-        {
-            let last = &builder.top_dependency();
-            match external::dottie(&last, false, &mut String::new())
-            {
-                Ok(()) => {
-                            println!("MyMake: Dependency graph made: dependency.gv");
-                            std::process::exit(0);
-                          },
-                Err(_) => println!("MyMake: Could not make dependency graph."),
-            };
-        }
-    }
-    
-    if matches.is_present("clean") {
-        builder.clean().unwrap_or_terminate();
-    }
-
-    else {
-        builder.add_generator();
-        if matches.is_present("runtime configurations") {
-            let build_configs: Vec<_> = matches.values_of("runtime configurations").unwrap().collect();
-            for config in build_configs {
-                if config == "debug" {
-                    builder.debug();
-                }
-            }
-        }
-        print!("MyMake: Generating makefiles");
-        builder.generate_makefiles().unwrap_or_terminate();
-        println!();
-        builder.build_project(false).unwrap_or_terminate();
-    }
-    
+    print!("MyMake: Generating makefiles");
+    builder.generate_makefiles().unwrap_or_terminate();
+    println!();
+    builder.build_project(false).unwrap_or_terminate();
     Ok(())
 }

@@ -4,9 +4,8 @@ CARGO=/home/fredrik/.cargo/bin/cargo
 ROOT_DIR="/home/fredrik/bin/mymake/"
 CWD=`pwd`
 
-print_and_execute_command() 
+execute_command() 
 {
-   echo "$@"
    $@
    if [ $? -gt 0 ]; then 
       echo "$@ FAILED. Aborting..."
@@ -18,7 +17,8 @@ cargo_test()
 {
    path=$1
    cd $path
-   print_and_execute_command "$CARGO test"
+   echo "cargo test -p $path"
+   execute_command "$CARGO test"
    cd $ROOT_DIR
 }
 

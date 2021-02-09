@@ -2,11 +2,12 @@ use dependency::{Dependency, DependencyRegistry};
 use error::MyMakeError;
 use generator::MmkGenerator;
 use std::io::{self, Write};
-use std::process::Command;
 use colored::Colorize;
 
 mod filter;
 mod clean;
+mod make;
+use make::Make;
 
 pub struct Builder {
     top_dependency: Dependency,
@@ -15,6 +16,7 @@ pub struct Builder {
     generator: Option<MmkGenerator>,
     debug: bool,
     verbose: bool,
+    make: Make,
 }
 
 
@@ -27,6 +29,7 @@ impl Builder {
             generator: None,
             debug: false,
             verbose: false,
+            make: Make::new(),
         }
     }
 
@@ -35,6 +38,11 @@ impl Builder {
         self.generator = Some(MmkGenerator::new(&self.top_dependency, 
                 &std::path::PathBuf::from(".build"))
                             .unwrap())
+    }
+
+
+    pub fn add_make(&mut self, flag: &str, value: &str) {
+        self.make = Make::new().with_flag(flag, value);
     }
 
     
@@ -116,10 +124,11 @@ impl Builder {
             self.change_directory(build_directory, verbosity);
         }
         Builder::construct_build_message(dependency);
-        let child = Command::new("/usr/bin/make")
-                                                            .stdout(std::process::Stdio::piped())
-                                                            .stderr(std::process::Stdio::piped())
-                                                            .spawn()?;
+        // let child = Command::new("/usr/bin/make")
+        //                                                     .stdout(std::process::Stdio::piped())
+        //                                                     .stderr(std::process::Stdio::piped())
+        //                                                     .spawn()?;
+        let child = self.make.spawn()?;
 
         let output = child.wait_with_output()?;
         let stderr = String::from_utf8(output.stderr.clone()).unwrap();
@@ -156,9 +165,9 @@ impl Builder {
 
 
     pub fn change_directory(&self, directory: std::path::PathBuf, verbose: bool) {
-        let message = format!("Entering directory {:?}", directory);
+        let message = format!("Entering directory {:?}\n", directory);
         if verbose {
-            println!("{}", message);
+            print!("{}", message);
         }
         self.log_file.as_ref().unwrap().write(message.as_bytes()).unwrap();
         std::env::set_current_dir(directory).unwrap()

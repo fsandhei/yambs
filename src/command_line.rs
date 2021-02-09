@@ -40,7 +40,7 @@ impl<'a> CommandLine<'a> {
                         .help("Toggles verbosity"))
             .arg(Arg::with_name("Make job parallelization")
                         .short("j")
-                        .default_value("0")
+                        .default_value("1")
                         .help("Make job parallelization"))
             .subcommand(SubCommand::with_name("extern")
                         .about("Run external programs from MyMake.")
@@ -73,6 +73,12 @@ impl<'a> CommandLine<'a> {
         if self.matches.is_present("verbosity") {
             builder.verbose();
         }
+
+        if self.matches.is_present("Make job parallelization") {
+            let value = self.matches.value_of("Make job parallelization").unwrap();
+            builder.add_make("-j", value);
+        }
+
         Ok(())
     }
 

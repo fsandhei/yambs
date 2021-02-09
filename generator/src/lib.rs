@@ -4,7 +4,7 @@ use std::io::Write;
 
 use dependency::Dependency;
 use error::MyMakeError;
-// use mmk_parser::Mmk;
+
 #[allow(dead_code)]
 pub struct MmkGenerator
 {

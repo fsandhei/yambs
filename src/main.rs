@@ -43,6 +43,6 @@ fn main() -> Result<(), MyMakeError> {
     print!("MyMake: Generating makefiles");
     builder.generate_makefiles().unwrap_or_terminate();
     println!();
-    builder.build_project(false).unwrap_or_terminate();
+    builder.build_project().unwrap_or_terminate();
     Ok(())
 }

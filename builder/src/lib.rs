@@ -14,6 +14,7 @@ pub struct Builder {
     log_file: Option<std::fs::File>,
     generator: Option<MmkGenerator>,
     debug: bool,
+    verbose: bool,
 }
 
 
@@ -25,6 +26,7 @@ impl Builder {
             log_file: None,
             generator: None,
             debug: false,
+            verbose: false,
         }
     }
 
@@ -39,6 +41,11 @@ impl Builder {
     pub fn debug(&mut self) {
         self.debug = true;
         self.generator.as_mut().unwrap().debug();
+    }
+
+
+    pub fn verbose(&mut self) {
+        self.verbose = true;
     }
 
 
@@ -74,11 +81,11 @@ impl Builder {
     }
 
 
-    pub fn build_project(&mut self, verbosity: bool) -> Result<(), MyMakeError> {
+    pub fn build_project(&mut self) -> Result<(), MyMakeError> {
         println!("MyMake: Building...");
         self.log_file = self.create_log_file()?;
         
-        let output = self.build_dependency(&self.top_dependency, verbosity);
+        let output = self.build_dependency(&self.top_dependency, self.verbose);
         if output.is_ok() && output.unwrap().status.success() {
             println!("MyMake: {}", "Build SUCCESS".green());
         }
@@ -149,7 +156,7 @@ impl Builder {
 
 
     pub fn change_directory(&self, directory: std::path::PathBuf, verbose: bool) {
-        let message = format!("Entering directory {:?}\n", directory);
+        let message = format!("Entering directory {:?}", directory);
         if verbose {
             println!("{}", message);
         }

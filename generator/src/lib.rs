@@ -89,25 +89,26 @@ impl MmkGenerator
                 formatted_string.push_str(parent_path);
                 formatted_string.push_str("/");
                 formatted_string.push_str(source);
+                formatted_string.push_str("\n");
 
-                if mmk_data.data.contains_key("MMK_HEADERS") {
-                    formatted_string.push_str(" \\\n");
-                    for header in &mmk_data.data["MMK_HEADERS"] {                        
-                        formatted_string.push_str("\t");
-                        formatted_string.push_str(parent_path);
-                        formatted_string.push_str("/");
-                        formatted_string.push_str(header);
-                        if Some(header) == mmk_data.data["MMK_HEADERS"].last() {
-                            formatted_string.push_str("\n");
-                        }
-                        else {
-                            formatted_string.push_str(" \\\n");
-                        }
-                    }
-                } 
-                else {
-                    formatted_string.push_str("\n");
-                }
+                // if mmk_data.data.contains_key("MMK_HEADERS") {
+                //     formatted_string.push_str(" \\\n");
+                //     for header in &mmk_data.data["MMK_HEADERS"] {                        
+                //         formatted_string.push_str("\t");
+                //         formatted_string.push_str(parent_path);
+                //         formatted_string.push_str("/");
+                //         formatted_string.push_str(header);
+                //         if Some(header) == mmk_data.data["MMK_HEADERS"].last() {
+                //             formatted_string.push_str("\n");
+                //         }
+                //         else {
+                //             formatted_string.push_str(" \\\n");
+                //         }
+                //     }
+                // } 
+                // else {
+                //     formatted_string.push_str("\n");
+                // }
                 formatted_string.push_str(&format!("\t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) \
                                                           $(WARNINGS) {dependencies} -I{path_str} $< -c -o $@)\n\n"
                 , dependencies = mmk_data.to_string("MMK_DEPEND")
@@ -115,6 +116,23 @@ impl MmkGenerator
             }
         }
         formatted_string.trim_end().to_string()
+    }
+
+
+    fn print_header_includes(&self) -> String {
+        let mut formatted_string = String::new();
+        let mmk_data = &self.dependency.mmk_data();
+        if mmk_data.data.contains_key("MMK_SOURCES") {
+            for source in &mmk_data.data["MMK_SOURCES"] {
+                let include_file = source.replace(".cpp", ".d");
+                formatted_string.push_str("sinclude ");
+                formatted_string.push_str(self.output_directory.to_str().unwrap());
+                formatted_string.push_str("/");
+                formatted_string.push_str(&include_file);
+                formatted_string.push_str("\n");
+            }
+        }
+        formatted_string
     }
 
 
@@ -235,6 +253,7 @@ impl Generator for MmkGenerator
         \n\
         # ----- INCLUDES -----\n\
         include /home/fredrik/bin/mymake/include/strict.mk\n\
+        include /home/fredrik/bin/mymake/include/default_make.mk\n\
         {debug}\
         \n\
         # ----- DEFINITIONS -----\n\
@@ -268,9 +287,12 @@ impl Generator for MmkGenerator
         \t$(strip $(AR) $(ARFLAGS) $@ $?)\n\
         \n\
         {sources_to_objects}\n\
+        \n\
+        {include_headers}\n\
         ", prerequisites = self.print_prerequisites()
          , package      = self.dependency.library_name()
-         , sources_to_objects = self.make_object_rule(&self.dependency.mmk_data()));
+         , sources_to_objects = self.make_object_rule(&self.dependency.mmk_data())
+         , include_headers = self.print_header_includes());
         
         match self.filename.as_ref().unwrap().write(data.as_bytes()) {
             Ok(_) => (),
@@ -289,11 +311,14 @@ impl Generator for MmkGenerator
         \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) {dependencies} $^ -o $@)\n\
         \n\
         {sources_to_objects}\n\
+        \n\
+        {include_headers}\n\
         ",
         executable         = self.dependency.mmk_data().to_string("MMK_EXECUTABLE"),
         prerequisites      = self.print_prerequisites(),
         dependencies       = self.dependency.mmk_data().to_string("MMK_DEPEND"),
-        sources_to_objects = self.make_object_rule(&self.dependency.mmk_data()));
+        sources_to_objects = self.make_object_rule(&self.dependency.mmk_data()),
+        include_headers = self.print_header_includes());
         
         match self.filename.as_ref().unwrap().write(data.as_bytes()) {
             Ok(_) => (),
@@ -365,6 +390,7 @@ mod tests {
         \n\
         # ----- INCLUDES -----\n\
         include /home/fredrik/bin/mymake/include/strict.mk\n\
+        include /home/fredrik/bin/mymake/include/default_make.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
         CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
@@ -397,6 +423,7 @@ mod tests {
         \n\
         # ----- INCLUDES -----\n\
         include /home/fredrik/bin/mymake/include/strict.mk\n\
+        include /home/fredrik/bin/mymake/include/default_make.mk\n\
         include /home/fredrik/bin/mymake/include/debug.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
@@ -445,7 +472,11 @@ mod tests {
         {directory}/.build/ofilename.o: \\\n\
         \t{directory}/ofilename.cpp\n\
         \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
-        ", directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        \n\
+        sinclude {directory}/.build/filename.d\n\
+        sinclude {directory}/.build/ofilename.d\n\
+        \n", 
+        directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
 
@@ -479,7 +510,11 @@ mod tests {
         {directory}/.build/ofilename.o: \\\n\
         \t{directory}/ofilename.cpp\n\
         \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
-        ", directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        \n\
+        sinclude {directory}/.build/filename.d\n\
+        sinclude {directory}/.build/ofilename.d\n\
+        \n",
+        directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
 
@@ -534,6 +569,22 @@ mod tests {
         CXXFLAGS += -pthread\n\
         CPPFLAGS += -somesetting\n\
         "), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_header_includes_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = std::path::PathBuf::from(".build");
+        let mut dependency = Dependency::from(&dir.path().join("mymakeinfo.mmk"));
+        dependency.mmk_data_mut().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        let gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let actual = gen.print_header_includes();
+        let expected = format!("sinclude {directory}/.build/filename.d\n\
+                                       sinclude {directory}/.build/ofilename.d\n",
+                                       directory = dir.path().to_str().unwrap());
+        assert_eq!(actual, expected);
         Ok(())
     }
 }

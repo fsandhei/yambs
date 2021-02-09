@@ -30,10 +30,14 @@ impl<'a> CommandLine<'a> {
                         .long("clean")
                         .help("Removes .build directories, cleaning the project."))
             .arg(Arg::with_name("runtime configurations")
-                        .short("v")
+                        .short("r")
                         .value_delimiter(",")
                         .default_value("release")
                         .help("Set runtime configurations."))
+            .arg(Arg::with_name("verbosity")
+                        .short("v")
+                        .multiple(true)
+                        .help("Toggles verbosity"))
             .arg(Arg::with_name("Make job parallelization")
                         .short("j")
                         .default_value("0")
@@ -64,6 +68,10 @@ impl<'a> CommandLine<'a> {
                     // builder.release();
                 }
             }
+        }
+
+        if self.matches.is_present("verbosity") {
+            builder.verbose();
         }
         Ok(())
     }

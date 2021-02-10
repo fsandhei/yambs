@@ -53,6 +53,11 @@ impl Builder {
     }
 
 
+    pub fn release(&mut self) {
+        self.generator.as_mut().unwrap().release();
+    }
+
+
     pub fn verbose(&mut self) {
         self.verbose = true;
     }
@@ -122,7 +127,7 @@ impl Builder {
             self.change_directory(build_directory.join("debug"), verbosity);
         }
         else {
-            self.change_directory(build_directory, verbosity);
+            self.change_directory(build_directory.join("release"), verbosity);
         }
         Builder::construct_build_message(dependency);
         

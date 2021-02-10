@@ -21,6 +21,9 @@ TODO:
     *           Toolchain: Utrede hvordan MyMake skal finne informasjon om toolchain til sluttbruker.
     *                      En liste med predefinerte pather blir søkt gjennom av MyMake til å finne de ulike nødvendige programmene
     *                      (gcc, clang, AR...).
+*               Include: Generatoren lager include - filene som trengs til byggene. Da slippes det å lages spesifikke mapper for dette
+                         til sluttbrukeren. 
+                         include-filene skal ligges i /file/to/project/.build/include/
 
     * Overall: * Endre alle Error - meldinger som er relevant til å ta MyMakeError for Result.
     *          * Ordne bedre feilhåndtering for mmk_parser. Feilhåndteringen der baserer seg

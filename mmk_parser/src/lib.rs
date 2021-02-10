@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::vec::Vec;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use error::MyMakeError;
 use regex::Regex;
 
@@ -15,27 +15,26 @@ pub struct Mmk
     pub data: HashMap<String, Vec<String>>,
 }
 
-impl Mmk
-{
+impl Mmk {
     pub fn new() -> Mmk
     {
         Mmk { data: HashMap::new() }
     }
 
+
     pub fn to_string(self: &Self, key: &str) -> String
     {
         let mut formatted_string = String::new();
-        if self.data.contains_key(key)
-        {
-            for item in &self.data[key]
-            {
-                if *item == String::from("")
-                {
+        if self.data.contains_key(key) {
+            for item in &self.data[key] {
+                if item == "" {
                     break;
                 }
-                if key == "MMK_DEPEND"
-                {
+                if key == "MMK_DEPEND" {
                     formatted_string.push_str("-I");
+                }
+                if key == "MMK_SYS_INCLUDE" {
+                    formatted_string.push_str("-isystem ");
                 }
                 formatted_string.push_str(item);
                 formatted_string.push_str(" ");
@@ -43,6 +42,7 @@ impl Mmk
         }
         formatted_string.trim_end().to_string()
     }
+
 
     pub fn valid_keyword(self: &Self, keyword: & str) -> Result<(), MyMakeError>
     {
@@ -59,6 +59,7 @@ impl Mmk
             Err(MyMakeError::from(format!("{} is not a valid keyword.", keyword)))
         }
     }
+
 
     pub fn sources_to_objects(self: &Self) -> String {
         let sources = &self.to_string("MMK_SOURCES");
@@ -105,10 +106,20 @@ impl Mmk
         }
         Ok(())
     }
+
+
+    pub fn source_file_path(&self, source: &String) -> Option<PathBuf> {
+        let mut source_path = PathBuf::from(source);
+        if source_path.pop() {
+            return Some(source_path);
+        }
+        None
+    }
 }
 
-pub fn validate_file_path(file_path_as_str: &str) -> Result<std::path::PathBuf, MyMakeError> {
-    let file_path = std::path::PathBuf::from(file_path_as_str).canonicalize().unwrap();
+
+pub fn validate_file_path(file_path_as_str: &str) -> Result<PathBuf, MyMakeError> {
+    let file_path = PathBuf::from(file_path_as_str).canonicalize().unwrap();
     if !file_path.is_file() {
         return Err(MyMakeError::from(format!("Error: {:?} is not a valid path!", &file_path)));
     }

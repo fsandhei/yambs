@@ -36,7 +36,7 @@ impl<'a> CommandLine<'a> {
                         .short("v")
                         .multiple(true)
                         .help("Toggles verbosity"))
-            .arg(Arg::with_name("Make job parallelization")
+            .arg(Arg::with_name("jobs")
                         .short("j")
                         .default_value("1")
                         .help("Make job parallelization"))
@@ -63,7 +63,7 @@ impl<'a> CommandLine<'a> {
                     builder.debug();
                 }
                 if config == "release" {
-                    // builder.release();
+                    builder.release();
                 }
             }
         }
@@ -72,8 +72,8 @@ impl<'a> CommandLine<'a> {
             builder.verbose();
         }
 
-        if self.matches.is_present("Make job parallelization") {
-            let value = self.matches.value_of("Make job parallelization").unwrap();
+        if self.matches.is_present("jobs") {
+            let value = self.matches.value_of("jobs").unwrap();
             builder.add_make("-j", value);
         }
 

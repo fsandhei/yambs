@@ -4,8 +4,9 @@ CARGO=/home/fredrik/.cargo/bin/cargo
 ROOT_DIR="/home/fredrik/bin/mymake/"
 CWD=`pwd`
 
-#test_mymake()
+#test_mymake_minimal_build()
 #{
+#   cat << EOF > 
 #}
 
 execute_command() 

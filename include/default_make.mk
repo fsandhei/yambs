@@ -5,3 +5,4 @@
 CPPFLAGS+=-MMD \
 	  -MP
 
+CXXFLAGS+= -pthread \

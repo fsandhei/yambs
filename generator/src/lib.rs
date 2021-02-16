@@ -113,9 +113,8 @@ impl MmkGenerator {
                 formatted_string.push_str(source);
                 formatted_string.push_str("\n");
                 formatted_string.push_str(&format!("\t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) \
-                                                          $(WARNINGS) {dependencies} -I{path_str} $< -c -o $@)\n\n"
-                , dependencies = self.print_dependencies()
-                , path_str = parent_path));
+                                                          $(WARNINGS) {dependencies} $< -c -o $@)\n\n"
+                , dependencies = self.print_dependencies()));
             }
         }
         formatted_string.trim_end().to_string()
@@ -524,11 +523,11 @@ mod tests {
         \n\
         {directory}/.build/filename.o: \\\n\
         \t{directory}/filename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
         \n\
         {directory}/.build/ofilename.o: \\\n\
         \t{directory}/ofilename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
         \n\
         sinclude {directory}/.build/filename.d\n\
         sinclude {directory}/.build/ofilename.d\n\
@@ -562,11 +561,11 @@ mod tests {
         \n\
         {directory}/.build/filename.o: \\\n\
         \t{directory}/filename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
         \n\
         {directory}/.build/ofilename.o: \\\n\
         \t{directory}/ofilename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency -I{directory} $< -c -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
         \n\
         sinclude {directory}/.build/filename.d\n\
         sinclude {directory}/.build/ofilename.d\n\

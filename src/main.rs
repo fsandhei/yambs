@@ -4,9 +4,7 @@ extern crate generator;
 mod unwrap_or_terminate;
 mod command_line;
 
-// use clap::{Arg, App, SubCommand};
 use builder::*;
-// use external;
 use error::MyMakeError;
 
 use unwrap_or_terminate::MyMakeUnwrap;
@@ -17,13 +15,18 @@ TODO:
               *Refakturere testene i Builder.
     * Første inkrement: Ha kun én dependency som trengs for å vise konsept.
     *Implementere unwrap_or_terminate() for Option / Result
+    *
+    *Mmk_parser: Vurder å legge tilbake MMK_LIBRARY_LABEL for å kunne ha ulike library navn.
+    *            Legg inn validering på filnavn og extension. Tillatte navn skal være 
+                 "lib.mmk" og "build.mmk"             
     *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en makefile.
     *           Toolchain: Utrede hvordan MyMake skal finne informasjon om toolchain til sluttbruker.
     *                      En liste med predefinerte pather blir søkt gjennom av MyMake til å finne de ulike nødvendige programmene
     *                      (gcc, clang, AR...).
 *               Include: Generatoren lager include - filene som trengs til byggene. Da slippes det å lages spesifikke mapper for dette
-                         til sluttbrukeren. 
-                         include-filene skal ligges i /file/to/project/.build/include/
+                         til sluttbrukeren.
+                         include-filene til et prosjekt skal legges i /file/to/project/.build/include/
+                         include-filene skal ligges i /file/to/project/.build/mymake_include/
 
     * Overall: * Endre alle Error - meldinger som er relevant til å ta MyMakeError for Result.
     *          * Ordne bedre feilhåndtering for mmk_parser. Feilhåndteringen der baserer seg

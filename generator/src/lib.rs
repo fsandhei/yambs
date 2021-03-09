@@ -228,6 +228,7 @@ impl MmkGenerator {
 
     fn print_dependencies(&self) -> String {
         let mut formatted_string = self.dependency.mmk_data().to_string("MMK_DEPEND");
+        // formatted_string.push_str(" ");
         formatted_string.push_str(&self.dependency.mmk_data().to_string("MMK_SYS_INCLUDE"));
         formatted_string
     }
@@ -279,12 +280,14 @@ impl MmkGenerator {
     }
 
 
-    fn print_debug(&self) -> &str {
+    fn print_debug(&self) -> String {
         if self.debug {
-            "include /home/fredrik/bin/mymake/include/debug.mk\n"
+            let debug_include = format!("include {build_path}/debug.mk\n",
+            build_path = self.include_file_generator.print_build_directory());
+            debug_include
         }
         else {
-            self.print_release()
+            self.print_release().to_string()
         }
     }
 
@@ -502,7 +505,7 @@ mod tests {
         # ----- INCLUDES -----\n\
         include {directory}/.build/make_include/strict.mk\n\
         include /home/fredrik/bin/mymake/include/default_make.mk\n\
-        include /home/fredrik/bin/mymake/include/debug.mk\n\
+        include {directory}/.build/make_include/debug.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
         CC       := /usr/bin/gcc        # GCC is the default compiler.\n\

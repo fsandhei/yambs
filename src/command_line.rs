@@ -58,6 +58,10 @@ impl<'a> CommandLine<'a> {
                 return Err(MyMakeError::from("release and debug can't be used together. Only use one build configuration.".to_string()))
             }
 
+            if !build_configs.contains(&"release") && !build_configs.contains(&"debug") {
+                builder.release();
+            }
+
             for config in build_configs {
                 if config == "debug" {
                     builder.debug();
@@ -68,8 +72,7 @@ impl<'a> CommandLine<'a> {
                     continue;
                 }
                 
-                builder.use_std(config)?;
-                
+                builder.use_std(config)?;                
             }
         }
 

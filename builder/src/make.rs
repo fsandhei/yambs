@@ -24,7 +24,7 @@ impl Make {
     }
 
 
-    pub fn with_flag(mut self, flag: &str, value: &str) -> Make {
+    pub fn with_flag(&mut self, flag: &str, value: &str) -> &mut Make {
         self.configs.push(flag.to_string());
         self.configs.push(value.to_string());
         self

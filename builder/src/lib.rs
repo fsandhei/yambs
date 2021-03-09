@@ -13,7 +13,6 @@ use make::Make;
 pub struct Builder {
     top_dependency: Dependency,
     dep_registry: DependencyRegistry,
-    // log_file: Option<std::fs::File>,
     generator: Option<MmkGenerator>,
     debug: bool,
     verbose: bool,
@@ -26,7 +25,6 @@ impl Builder {
         Builder {
             top_dependency: Dependency::new(),
             dep_registry: DependencyRegistry::new(),
-            // log_file: None,
             generator: None,
             debug: false,
             verbose: false,
@@ -43,7 +41,12 @@ impl Builder {
 
 
     pub fn add_make(&mut self, flag: &str, value: &str) {
-        self.make = Make::new().with_flag(flag, value);
+        self.make.with_flag(flag, value);
+    }
+
+
+    pub fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
+        self.generator.as_mut().unwrap().use_std(version)
     }
 
     

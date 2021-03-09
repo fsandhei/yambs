@@ -61,10 +61,15 @@ impl<'a> CommandLine<'a> {
             for config in build_configs {
                 if config == "debug" {
                     builder.debug();
+                    continue;
                 }
                 if config == "release" {
                     builder.release();
+                    continue;
                 }
+                
+                builder.use_std(config)?;
+                
             }
         }
 
@@ -104,7 +109,6 @@ impl<'a> CommandLine<'a> {
             std::process::exit(0);
         }
         
-
         self.parse_runtime_configuration(builder)?;
         self.parse_extern(builder)?;
         Ok(())

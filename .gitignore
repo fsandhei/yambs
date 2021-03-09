@@ -3,7 +3,8 @@
 *.gv
 .vscode/
 *.build
-*.lock
+
+Cargo.lock
 
 # Dependency related ignores
 mmk_parser/target
@@ -20,6 +21,7 @@ external/Cargo.lock
 
 error/target
 error/Cargo.lock
+
 dependency/target
 dependency/Cargo.lock
 

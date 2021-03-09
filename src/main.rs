@@ -16,6 +16,7 @@ TODO:
     * Første inkrement: Ha kun én dependency som trengs for å vise konsept.
     *Implementere unwrap_or_terminate() for Option / Result
     *
+    * Lag MyMake Utility-fil for filsystem (create_dir og create_file)
     *Mmk_parser: Vurder å legge tilbake MMK_LIBRARY_LABEL for å kunne ha ulike library navn.
     *            Legg inn validering på filnavn og extension. Tillatte navn skal være 
                  "lib.mmk" og "build.mmk"             
@@ -23,6 +24,8 @@ TODO:
     *           Toolchain: Utrede hvordan MyMake skal finne informasjon om toolchain til sluttbruker.
     *                      En liste med predefinerte pather blir søkt gjennom av MyMake til å finne de ulike nødvendige programmene
     *                      (gcc, clang, AR...).
+    *                      Forslag: Nøkkelord etterfulgt av lokaliseringssti som leses av MyMake før kjøring?
+                                    Evt. la dette gå gjennom en JSON-fil.
 *               Include: Generatoren lager include - filene som trengs til byggene. Da slippes det å lages spesifikke mapper for dette
                          til sluttbrukeren.
                          include-filene til et prosjekt skal legges i /file/to/project/.build/include/

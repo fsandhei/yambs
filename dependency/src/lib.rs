@@ -121,9 +121,16 @@ impl Dependency {
     pub fn add_library_name(self: &mut Self) {
         let root_path = self.path.parent().unwrap().parent().unwrap();
         let prefix = root_path.parent().unwrap();
-        let library_name = root_path.strip_prefix(prefix).unwrap().to_str().unwrap();
+        let library_name: String;
+
+        if self.mmk_data.has_library_label() {
+            library_name = self.mmk_data.to_string("MMK_LIBRARY_LABEL");
+        }
+        else {
+            library_name = root_path.strip_prefix(prefix).unwrap().to_str().unwrap().to_string();
+        }
         self.library_name.push_str("lib");
-        self.library_name.push_str(library_name);
+        self.library_name.push_str(&library_name);
         self.library_name.push_str(".a");
     }
 
@@ -293,6 +300,14 @@ mod tests {
         let mut dependency = Dependency::from(&std::path::PathBuf::from("/some/directory/test/mymakeinfo.mmk"));
         dependency.add_library_name();
         assert_eq!(dependency.library_name(), String::from("libdirectory.a"));
+    }
+
+    #[test]
+    fn add_library_name_from_label_test() {
+        let mut dependency = Dependency::from(&std::path::PathBuf::from("/some/directory/test/mymakeinfo.mmk"));
+        dependency.mmk_data_mut().data.insert(String::from("MMK_LIBRARY_LABEL"), vec!["mylibrary".to_string()]);
+        dependency.add_library_name();
+        assert_eq!(dependency.library_name(), String::from("libmylibrary.a"));
     }
 
 

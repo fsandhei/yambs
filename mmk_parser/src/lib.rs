@@ -9,6 +9,11 @@ use std::path::{Path, PathBuf};
 use error::MyMakeError;
 use regex::Regex;
 
+// Pretty assertions only for testing.
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Mmk
 {
@@ -52,7 +57,8 @@ impl Mmk {
         || keyword == "MMK_EXECUTABLE"
         || keyword == "MMK_SYS_INCLUDE" 
         || keyword == "MMK_CXXFLAGS_APPEND" 
-        || keyword == "MMK_CPPFLAGS_APPEND" {
+        || keyword == "MMK_CPPFLAGS_APPEND" 
+        || keyword == "MMK_LIBRARY_LABEL" {
             Ok(())
         }
         else {
@@ -85,6 +91,11 @@ impl Mmk {
         }
         self.data.insert(String::from(mmk_keyword), arg_vec);
         Ok(())
+    }
+
+
+    pub fn has_library_label(&self) -> bool {
+        self.data.contains_key("MMK_LIBRARY_LABEL")
     }
 
 
@@ -151,7 +162,6 @@ pub fn remove_comments(data: &String) -> String {
 pub mod tests
 {
     use super::*;
-    use pretty_assertions::assert_eq;
     #[test]
     fn test_mmk_file_reader()
     {

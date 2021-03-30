@@ -1,6 +1,8 @@
 use error::MyMakeError;
 use mmk_parser;
 use std::{cell::RefCell, path};
+use std::rc::Rc;
+use std::path::PathBuf;
 
 mod dependency_registry;
 pub use crate::dependency_registry::DependencyRegistry;
@@ -10,7 +12,7 @@ pub use crate::dependency_registry::DependencyRegistry;
 pub struct Dependency {
      path: std::path::PathBuf,
      mmk_data: mmk_parser::Mmk,
-     requires: RefCell<Vec<RefCell<Dependency>>>,
+     requires: RefCell<Vec<Rc<RefCell<Dependency>>>>,
      makefile_made: bool,
      library_name: String,
      in_process: bool
@@ -42,21 +44,66 @@ impl Dependency {
 
 
     pub fn create_dependency_from_path(path: &std::path::PathBuf,
-                                       dep_registry: &mut DependencyRegistry) -> Result<Dependency, MyMakeError>{                      
-        let mut dependency = Dependency::from(path);
-        dependency.in_process = true;
-        dep_registry.add_dependency(dependency.to_owned());
-        dependency.read_and_add_mmk_data()?;
-        dependency.add_library_name();
-        dependency.detect_and_add_dependencies(dep_registry)?;
-        dependency.print_ok();
-        dependency.in_process = false;
+                                       dep_registry: &mut DependencyRegistry) -> Result<Rc<RefCell<Dependency>>, MyMakeError>{
+        let dependency = Rc::new(RefCell::new(Dependency::from(path)));
+        dep_registry.add_dependency(Rc::clone(&dependency));
+        // dependency.borrow_mut().process(/*dep_registry*/)?;
+        dependency.borrow_mut().in_process = true;
+        dependency.borrow_mut().read_and_add_mmk_data()?;
+        dependency.borrow_mut().add_library_name();
+
+        let dep_vec = dependency.borrow().detect_dependency(dep_registry)?;
+        
+        for dep in dep_vec {
+            dependency.borrow_mut().add_dependency(dep);
+        }
+
+        dependency.borrow().print_ok();
+        dependency.borrow_mut().in_process = false;
         Ok(dependency)
     }
 
+    
+    fn detect_dependency(&self, dep_registry: &mut DependencyRegistry) -> Result<Vec<Rc<RefCell<Dependency>>>, MyMakeError> {
+        let mut dep_vec : Vec<Rc<RefCell<Dependency>>> = Vec::new();
+        if self.mmk_data().data.contains_key("MMK_DEPEND") {
+            for path in self.mmk_data().data["MMK_DEPEND"].clone() {
+                if path == "" {
+                    break;
+                }
 
-    pub fn add_dependency(self: &mut Self, dependency: Dependency) {
-        self.requires.borrow_mut().push(RefCell::new(dependency));
+                let mmk_path = path;
+                let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
+                
+                if let Some(dependency) = dep_registry.dependency_from_path(&PathBuf::from(dep_path.clone())) {
+                    if dependency.borrow().in_process == true {
+                        return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} depends on\n{:?}, which depends on itself", 
+                                                     dep_path, self.path)));
+                    }
+                }
+
+                let dep_dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;
+                dep_vec.push(dep_dependency);
+            }
+        }
+        Ok(dep_vec)
+    }
+
+
+    #[allow(dead_code)]
+    fn process(&mut self/*, dep_registry: &mut DependencyRegistry*/) -> Result<(), MyMakeError> {
+        self.in_process = true;
+        self.read_and_add_mmk_data()?;
+        self.add_library_name();
+        // self.detect_and_add_dependencies(dep_registry)?;
+        self.print_ok();
+        self.in_process = false;
+        Ok(())
+    }
+
+
+    pub fn add_dependency(self: &mut Self, dependency: Rc<RefCell<Dependency>>) {
+        self.requires.borrow_mut().push(dependency);
     }
 
 
@@ -124,7 +171,7 @@ impl Dependency {
         self.library_name.clone()
     }
 
-    pub fn requires(&self) -> &RefCell<Vec<RefCell<Dependency>>> {
+    pub fn requires(&self) -> &RefCell<Vec<Rc<RefCell<Dependency>>>> {
         &self.requires
     }
 
@@ -133,7 +180,7 @@ impl Dependency {
     }
  
 
-    pub fn detect_and_add_dependencies(self: &mut Self, dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError>{
+    pub fn detect_and_add_dependencies(&mut self, dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError>{
         if self.mmk_data.data.contains_key("MMK_DEPEND") {
             for path in self.mmk_data.data["MMK_DEPEND"].clone() {
                 if path == "" {
@@ -143,24 +190,24 @@ impl Dependency {
                 let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
 
                 self.detect_cycle_dependency_from_path(&dep_path, dep_registry)?;
-                let dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;       
+                let dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;
                 self.add_dependency(dependency);
             }
         }
         Ok(())
     }
-
     
-    fn detect_cycle_dependency_from_path(self: &Self, path: &std::path::PathBuf, 
-                                             dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError> {
+
+    fn detect_cycle_dependency_from_path(&self, path: &std::path::PathBuf, 
+                                             dep_registry: &DependencyRegistry) -> Result<(), MyMakeError> {
         if let Some(dependency) = dep_registry.dependency_from_path(path) {
-            if dependency.in_process == true {
+            if dependency.borrow().in_process == true {
                 return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} depends on\n{:?}, which depends on itself", 
                                              path, self.path)));
                 }
             }
         Ok(())
-        }
+    }
 
 
     pub fn print_ok(self: &Self) {
@@ -219,7 +266,7 @@ mod tests {
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-        assert_eq!(top_dependency.mmk_data(), &expected);
+        assert_eq!(top_dependency.borrow().mmk_data(), &expected);
         Ok(())
     }
 
@@ -254,21 +301,21 @@ mod tests {
 
         assert_eq!(
             top_dependency,
-            Dependency {
+            Rc::new(RefCell::new(Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
+                requires: RefCell::new(vec![Rc::new(RefCell::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(Vec::new()),
                     makefile_made: false,
                     library_name: String::from("libtmp.a"),
                     in_process: false,
-                })]),
+                }))]),
                 makefile_made: false,
                 library_name: String::from("libtmp.a"),
                 in_process: false,
-            }
+            }))
         );
         Ok(())
     }
@@ -326,29 +373,29 @@ mod tests {
 
         assert_eq!(
             top_dependency,
-            Dependency {
+            Rc::new(RefCell::new(Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
+                requires: RefCell::new(vec![Rc::new(RefCell::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(Vec::new()),
                     makefile_made: false,
                     library_name: String::from("libtmp.a"),
                     in_process: false,
-                }),
-                RefCell::new(Dependency {
+                })),
+                Rc::new(RefCell::new(Dependency {
                     path: test_file_second_dep_path,
                     mmk_data: expected_3,
                     requires: RefCell::new(Vec::new()),
                     makefile_made: false,
                     library_name: String::from("libtmp.a"),
                     in_process: false,
-                })]),
+                }))]),
                 makefile_made: false,
                 library_name: String::from("libtmp.a"),
                 in_process: false,
-            }
+            }))
         );
         Ok(())
     }
@@ -399,29 +446,29 @@ mod tests {
 
         assert_eq!(
             top_dependency,
-            Dependency {
+            Rc::new(RefCell::new(Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
+                requires: RefCell::new(vec![Rc::new(RefCell::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(vec![
-                        RefCell::new(Dependency {
+                        Rc::new(RefCell::new(Dependency {
                             path: test_file_second_dep_path,
                             mmk_data: expected_3,
                             requires: RefCell::new(vec![]),
                             makefile_made: false,
                             library_name: String::from("libtmp.a"),
                             in_process: false,
-                        })]),
+                        }))]),
                     makefile_made: false,
                     library_name: String::from("libtmp.a"),
                     in_process: false,
-                })]),
+                }))]),
                 makefile_made: false,
                 library_name: String::from("libtmp.a"),
                 in_process: false,
-            }
+            }))
         );
         Ok(())
     }
@@ -477,37 +524,37 @@ mod tests {
         
         assert_eq!(
             top_dependency,
-            Dependency {
+            Rc::new(RefCell::new(Dependency {
                 path: test_file_path,
                 mmk_data: expected_1,
-                requires: RefCell::new(vec![RefCell::new(Dependency {
+                requires: RefCell::new(vec![Rc::new(RefCell::new(Dependency {
                     path: test_file_third_dep_path,
                     mmk_data: expected_3,
                     requires: RefCell::new(vec![]),
                     makefile_made: false,
                     library_name: String::from("libtmp.a"),
                     in_process: false,
-                }),
-                RefCell::new(Dependency {
+                })),
+                Rc::new(RefCell::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(vec![
-                        RefCell::new(Dependency {
+                        Rc::new(RefCell::new(Dependency {
                             path: test_file_second_dep_path,
                             mmk_data: expected_4,
                             requires: RefCell::new(vec![]),
                             makefile_made: false,
                             library_name: String::from("libtmp.a"),
                             in_process: false,
-                        })]),
+                        }))]),
                     makefile_made: false,
                     library_name: String::from("libtmp.a"),
                     in_process: false,
-                })]),
+                }))]),
                 makefile_made: false,
                 library_name: String::from("libtmp.a"),
                 in_process: false,
-            }
+            }))
         );
         Ok(())
     }

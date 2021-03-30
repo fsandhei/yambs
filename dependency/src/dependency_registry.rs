@@ -26,9 +26,9 @@ impl DependencyRegistry {
     }
 
 
-    // pub fn get_last_dependency_mut(& mut self) -> &mut Dependency {
-    //     self.registry.last_mut().unwrap()
-    // }
+    pub fn get_last_dependency_mut(& mut self) -> &mut Rc<RefCell<Dependency>> {
+        self.registry.last_mut().unwrap()
+    }
 
 
     pub fn get_root_dependency(& self) -> &Rc<RefCell<Dependency>> {
@@ -36,9 +36,9 @@ impl DependencyRegistry {
     }
 
 
-    // pub fn get_root_dependency_mut(&mut self) -> &Dependency {
-    //     self.registry.first_mut().unwrap()
-    // }
+    pub fn get_root_dependency_mut(&mut self) -> &mut Rc<RefCell<Dependency>> {
+        self.registry.first_mut().unwrap()
+    }
 
 
     pub fn dependency_from_path(&self, path: &PathBuf) -> Option<Rc<RefCell<Dependency>>> {

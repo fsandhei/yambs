@@ -2,7 +2,6 @@ use error::MyMakeError;
 use mmk_parser;
 use std::{cell::RefCell, path};
 use std::rc::Rc;
-use std::path::PathBuf;
 
 mod dependency_registry;
 pub use crate::dependency_registry::DependencyRegistry;
@@ -47,7 +46,6 @@ impl Dependency {
                                        dep_registry: &mut DependencyRegistry) -> Result<Rc<RefCell<Dependency>>, MyMakeError>{
         let dependency = Rc::new(RefCell::new(Dependency::from(path)));
         dep_registry.add_dependency(Rc::clone(&dependency));
-        // dependency.borrow_mut().process(/*dep_registry*/)?;
         dependency.borrow_mut().in_process = true;
         dependency.borrow_mut().read_and_add_mmk_data()?;
         dependency.borrow_mut().add_library_name();
@@ -75,12 +73,7 @@ impl Dependency {
                 let mmk_path = path;
                 let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
                 
-                if let Some(dependency) = dep_registry.dependency_from_path(&PathBuf::from(dep_path.clone())) {
-                    if dependency.borrow().in_process == true {
-                        return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} depends on\n{:?}, which depends on itself", 
-                                                     dep_path, self.path)));
-                    }
-                }
+                self.detect_cycle_dependency_from_path(&dep_path, &dep_registry)?;
 
                 let dep_dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;
                 dep_vec.push(dep_dependency);
@@ -91,11 +84,17 @@ impl Dependency {
 
 
     #[allow(dead_code)]
-    fn process(&mut self/*, dep_registry: &mut DependencyRegistry*/) -> Result<(), MyMakeError> {
+    fn process(&mut self, dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError> {
         self.in_process = true;
         self.read_and_add_mmk_data()?;
         self.add_library_name();
-        // self.detect_and_add_dependencies(dep_registry)?;
+
+        let dep_vec = self.detect_dependency(dep_registry)?;
+        
+        for dep in dep_vec {
+            self.add_dependency(dep);
+        }
+
         self.print_ok();
         self.in_process = false;
         Ok(())
@@ -470,6 +469,57 @@ mod tests {
                 in_process: false,
             }))
         );
+        Ok(())
+    }
+
+
+
+    #[test]
+    fn read_mmk_files_three_files_one_common_dependency() -> std::io::Result<()> {
+        let (_dir, test_file_path, mut file, mut expected_1) 
+        = make_mmk_file("example");
+    let (dir_dep, _, mut file_dep, mut expected_2) 
+        = make_mmk_file("example_dep");
+    let (second_dir_dep, _, _file_second_file_dep, _) 
+        = make_mmk_file("example_dep_second");
+
+        write!(
+            file,
+            "\
+        MMK_DEPEND:
+            {}
+            {}
+        \n
+        MMK_EXECUTABLE:
+            x",
+            &dir_dep.path().to_str().unwrap().to_string(),
+            &second_dir_dep.path().to_str().unwrap().to_string())?;
+
+        write!(
+            file_dep,
+            "\
+        MMK_DEPEND:
+            {}
+        \n
+        ",
+        &second_dir_dep.path().to_str().unwrap().to_string())?;
+
+        let mut dep_registry = DependencyRegistry::new();
+        let result = Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry);
+
+        expected_1.data.insert(
+            String::from("MMK_DEPEND"),
+            vec![dir_dep.path().to_str().unwrap().to_string()],
+        );
+        expected_1
+            .data
+            .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
+
+        expected_2
+            .data
+            .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
+
+        assert!(result.is_ok());
         Ok(())
     }
 

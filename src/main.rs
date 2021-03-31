@@ -16,6 +16,8 @@ TODO:
     * Første inkrement: Ha kun én dependency som trengs for å vise konsept.
     *Implementere unwrap_or_terminate() for Option / Result
     *
+    * External: Legg til tester for external - innhold.
+    *
     * Lag MyMake Utility-fil for filsystem (create_dir og create_file)
     *Mmk_parser: Vurder å legge tilbake MMK_LIBRARY_LABEL for å kunne ha ulike library navn.
     *            Legg inn validering på filnavn og extension. Tillatte navn skal være 

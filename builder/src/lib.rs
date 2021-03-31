@@ -1,17 +1,19 @@
-use dependency::{Dependency, DependencyRegistry};
+use dependency::{Dependency, DependencyRegistry, DependencyNode};
 use error::MyMakeError;
 use generator::MmkGenerator;
 use std::io::{self, Write};
 use colored::Colorize;
 use std::process::Output;
+use std::rc::Rc;
 
 mod filter;
 mod clean;
 mod make;
 use make::Make;
 
+
 pub struct Builder {
-    top_dependency: Dependency,
+    top_dependency: Option<DependencyNode>,
     dep_registry: DependencyRegistry,
     generator: Option<MmkGenerator>,
     debug: bool,
@@ -23,7 +25,7 @@ pub struct Builder {
 impl Builder {
     pub fn new() -> Builder {
         Builder {
-            top_dependency: Dependency::new(),
+            top_dependency: None,
             dep_registry: DependencyRegistry::new(),
             generator: None,
             debug: false,
@@ -34,9 +36,11 @@ impl Builder {
 
 
     pub fn add_generator(&mut self) {
-        self.generator = Some(MmkGenerator::new(&self.top_dependency, 
+        if let Some(top_dependency) = &self.top_dependency {
+            self.generator = Some(MmkGenerator::new(&top_dependency, 
                 &std::path::PathBuf::from(".build"))
                             .unwrap())
+        }
     }
 
 
@@ -66,20 +70,22 @@ impl Builder {
     }
 
 
-    pub fn top_dependency(&self) -> &Dependency {
+    pub fn top_dependency(&self) -> &Option<DependencyNode> {
         &self.top_dependency
     }
 
 
     pub fn create_log_file(&mut self) -> Result<(), MyMakeError> {
-        if self.top_dependency.is_makefile_made() {
-            let log_file_name = self.top_dependency.get_build_directory().join("mymake_log.txt");
-            self.make.add_logger(&log_file_name)
+        if let Some(top_dependency) = &self.top_dependency {
+            if top_dependency.borrow().is_makefile_made() {
+                let log_file_name = top_dependency.borrow().get_build_directory().join("mymake_log.txt");
+                return self.make.add_logger(&log_file_name);
+            }
+            else {
+                return Err(MyMakeError::from(format!("Error: Can't create log file because top dependency does not have a makefile!")));
+            }
         }
-        else
-        {
-            return Err(MyMakeError::from(format!("Error: Can't create log file because top dependency does not have a makefile!")));
-        }
+        Ok(())
     }
 
 
@@ -87,14 +93,20 @@ impl Builder {
         print!("MyMake: Reading MyMake files");
         io::stdout().flush().unwrap();
         let top_dependency = Dependency::create_dependency_from_path(&top_path, &mut self.dep_registry)?;
-        self.top_dependency = top_dependency;
+        self.top_dependency = Some(Rc::clone(&top_dependency));
         println!();
         Ok(())
     }
 
 
     pub fn generate_makefiles(&mut self) -> Result<(), MyMakeError> {
-        self.generator.as_mut().unwrap().generate_makefiles(&mut self.top_dependency)
+        if let Some(top_dependency) = &self.top_dependency {
+            return self.generator.as_mut().unwrap().generate_makefiles(&top_dependency);
+        }
+        else {
+            return Err(MyMakeError::from(String::from("builder.generate_builder(): Called in unexpected way.")));
+        }
+        
     }
 
 
@@ -102,30 +114,32 @@ impl Builder {
         println!("MyMake: Building...");
         self.create_log_file()?;
         
-        let output = self.build_dependency(&self.top_dependency, self.verbose);
-        if output.is_ok() && output.unwrap().status.success() {
-            println!("MyMake: {}", "Build SUCCESS".green());
+        if let Some(top_dependency) = &self.top_dependency {
+            let output = self.build_dependency(&top_dependency, self.verbose);
+            if output.is_ok() && output.unwrap().status.success() {
+                println!("MyMake: {}", "Build SUCCESS".green());
+            }
+            else {
+                println!("MyMake: {}", "Build FAILED".red());
+            }
+            let log_path = top_dependency.borrow().get_build_directory().join("mymake_log.txt");
+            println!("MyMake: Build log available at {:?}", log_path);
         }
-        else {
-            println!("MyMake: {}", "Build FAILED".red());
-        }
-        let log_path = self.top_dependency.get_build_directory().join("mymake_log.txt");
-        println!("MyMake: Build log available at {:?}", log_path);
         Ok(())
     }
 
 
-    pub fn build_dependency(&self, dependency: &Dependency, 
+    pub fn build_dependency(&self, dependency: &DependencyNode, 
                             verbosity: bool) -> Result<Output, MyMakeError> {
-        for required_dependency in dependency.requires().borrow().iter() {
-            let dep_output = self.build_dependency(&required_dependency.borrow(), 
+        for required_dependency in dependency.borrow().requires().borrow().iter() {
+            let dep_output = self.build_dependency(&required_dependency, 
                                                          verbosity)?;
             if !dep_output.status.success() {
                 return Ok(dep_output);
             }
         }
 
-        let build_directory = dependency.get_build_directory();
+        let build_directory = dependency.borrow().get_build_directory();
         if self.debug {
             self.change_directory(build_directory.join("debug"), verbosity);
         }
@@ -140,17 +154,17 @@ impl Builder {
     }
 
 
-    pub fn construct_build_message(dependency: &Dependency) {
+    pub fn construct_build_message(dependency: &DependencyNode) {
         let dep_type: &str;
         let dep_type_name: String;
         
-        if dependency.is_executable() {
+        if dependency.borrow().is_executable() {
             dep_type = "executable";
-            dep_type_name = dependency.mmk_data().data["MMK_EXECUTABLE"][0].clone();
+            dep_type_name = dependency.borrow().mmk_data().data["MMK_EXECUTABLE"][0].clone();
         }
         else {
             dep_type = "library";
-            dep_type_name = dependency.library_name();
+            dep_type_name = dependency.borrow().library_name();
         }
         let green_building = format!("{}", "Building".green());
         let target = format!("{} {:?}", dep_type, dep_type_name);
@@ -168,7 +182,12 @@ impl Builder {
     }
 
     pub fn clean(&self) -> Result<(), MyMakeError> {
-        clean::clean(&self.top_dependency)?;
+        if let Some(top_dependency) = &self.top_dependency {
+            clean::clean(top_dependency)?;
+        }
+        else {
+            return Err(MyMakeError::from(String::from("builder.clean(): Unexpected call of function.")));
+        }
         Ok(())
     }
 }
@@ -223,7 +242,7 @@ mod tests {
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-        assert_eq!(builder.top_dependency.mmk_data(), &expected);
+        assert_eq!(builder.top_dependency.unwrap().borrow().mmk_data(), &expected);
         Ok(())
     }
 

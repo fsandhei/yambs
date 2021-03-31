@@ -1,10 +1,10 @@
-use dependency::Dependency;
+use dependency::DependencyNode;
 use std::path::PathBuf;
 use error::MyMakeError;
 use std::fs;
 
-pub fn clean(dependency: &Dependency) -> Result<(), MyMakeError> {
-    for required_dependency in dependency.requires().borrow().iter() {
+pub fn clean(dependency: &DependencyNode) -> Result<(), MyMakeError> {
+    for required_dependency in dependency.borrow().requires().borrow().iter() {
         let dep_build_directory = required_dependency.borrow().get_build_directory();
         match remove_dir(dep_build_directory) {
             Ok(_) => (),
@@ -14,7 +14,7 @@ pub fn clean(dependency: &Dependency) -> Result<(), MyMakeError> {
                                  }
         };
     }
-    let top_build_directory = dependency.get_build_directory();
+    let top_build_directory = dependency.borrow().get_build_directory();
     remove_dir(top_build_directory)?;
     Ok(())
 }

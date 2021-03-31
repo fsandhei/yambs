@@ -1,12 +1,13 @@
-use dependency::Dependency;
+use dependency::DependencyNode;
 use std::io::Write;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::env;
 
-pub fn dottie(top: &Dependency, recursive: bool, data: &mut String) -> std::io::Result<()>{
+pub fn dottie(top: &DependencyNode, recursive: bool, data: &mut String) -> std::io::Result<()>{
     let mut dottie_file = create_dottie_file(recursive)?;
-    let top_path = &top.path();
+    let borrowed_top = top.borrow();
+    let top_path = &borrowed_top.path();
     
     if recursive == false
     {
@@ -18,13 +19,13 @@ pub fn dottie(top: &Dependency, recursive: bool, data: &mut String) -> std::io::
         dottie_file.write_all(data.as_bytes())?;        
     }
     
-    for requirement in top.requires().borrow().iter()
+    for requirement in borrowed_top.requires().borrow().iter()
     {
         data.push_str(&format!("\
         {:?} -> {:?}\n\
         ", requirement.borrow().path()
             , top_path));
-        dottie(&requirement.borrow(), true, data)?;
+        dottie(&requirement, true, data)?;
     }
     Ok(())
 }

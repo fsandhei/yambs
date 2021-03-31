@@ -6,18 +6,19 @@ use std::rc::Rc;
 mod dependency_registry;
 pub use crate::dependency_registry::DependencyRegistry;
 
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dependency {
      path: std::path::PathBuf,
      mmk_data: mmk_parser::Mmk,
-     requires: RefCell<Vec<Rc<RefCell<Dependency>>>>,
+     requires: RefCell<Vec<DependencyNode>>,
      makefile_made: bool,
      library_name: String,
      in_process: bool
 }
 
-impl Dependency {
+pub type DependencyNode = Rc<RefCell<Dependency>>;
+
+impl Dependency {    
     pub fn new() -> Dependency {
         Dependency {
             path: std::path::PathBuf::new(),
@@ -43,7 +44,7 @@ impl Dependency {
 
 
     pub fn create_dependency_from_path(path: &std::path::PathBuf,
-                                       dep_registry: &mut DependencyRegistry) -> Result<Rc<RefCell<Dependency>>, MyMakeError>{
+                                       dep_registry: &mut DependencyRegistry) -> Result<DependencyNode, MyMakeError>{
         let dependency = Rc::new(RefCell::new(Dependency::from(path)));
         dep_registry.add_dependency(Rc::clone(&dependency));
         dependency.borrow_mut().in_process = true;
@@ -62,8 +63,8 @@ impl Dependency {
     }
 
     
-    fn detect_dependency(&self, dep_registry: &mut DependencyRegistry) -> Result<Vec<Rc<RefCell<Dependency>>>, MyMakeError> {
-        let mut dep_vec : Vec<Rc<RefCell<Dependency>>> = Vec::new();
+    fn detect_dependency(&self, dep_registry: &mut DependencyRegistry) -> Result<Vec<DependencyNode>, MyMakeError> {
+        let mut dep_vec : Vec<DependencyNode> = Vec::new();
         if self.mmk_data().data.contains_key("MMK_DEPEND") {
             for path in self.mmk_data().data["MMK_DEPEND"].clone() {
                 if path == "" {
@@ -101,7 +102,7 @@ impl Dependency {
     }
 
 
-    pub fn add_dependency(self: &mut Self, dependency: Rc<RefCell<Dependency>>) {
+    pub fn add_dependency(self: &mut Self, dependency: DependencyNode) {
         self.requires.borrow_mut().push(dependency);
     }
 
@@ -170,7 +171,7 @@ impl Dependency {
         self.library_name.clone()
     }
 
-    pub fn requires(&self) -> &RefCell<Vec<Rc<RefCell<Dependency>>>> {
+    pub fn requires(&self) -> &RefCell<Vec<DependencyNode>> {
         &self.requires
     }
 

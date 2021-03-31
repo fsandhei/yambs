@@ -3,9 +3,11 @@ use crate::Dependency;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+type DependencyNode = Rc<RefCell<Dependency>>;
+
 #[allow(dead_code)]
 pub struct DependencyRegistry{
-    registry: Vec<Rc<RefCell<Dependency>>>,
+    registry: Vec<DependencyNode>,
 }
 
 impl DependencyRegistry {

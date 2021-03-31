@@ -93,13 +93,15 @@ impl<'a> CommandLine<'a> {
         if let Some(ref matches) = self.matches.subcommand_matches("extern") {
             if matches.is_present("dot") {
                 let last = &builder.top_dependency();
-                match external::dottie(&last, false, &mut String::new()) {
-                    Ok(()) => {
-                                println!("MyMake: Dependency graph made: dependency.gv");
-                                std::process::exit(0);
-                            },
-                    Err(_) => return Err(MyMakeError::from("Could not make dependency graph.".to_string())),
-                };
+                if let Some(top_dep) = last {
+                    match external::dottie(top_dep, false, &mut String::new()) {
+                        Ok(()) => {
+                                    println!("MyMake: Dependency graph made: dependency.gv");
+                                    std::process::exit(0);
+                                },
+                        Err(_) => return Err(MyMakeError::from("Could not make dependency graph.".to_string())),
+                    };
+                }                 
             }
         }
         Ok(())

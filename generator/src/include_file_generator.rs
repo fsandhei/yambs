@@ -51,7 +51,7 @@ impl IncludeFileGenerator {
 
 
     pub fn add_cpp_version(&mut self, version: &str) -> Result<(), MyMakeError> {                
-        let cpp_version_string = match version {
+        let cpp_version_string = match version.to_lowercase().as_str() {
             "c++98" => "-std=c++98",
             "c++11" => "-std=c++11",
             "c++14" => "-std=c++14",
@@ -224,6 +224,16 @@ mod tests {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
         let mut gen = IncludeFileGenerator::new(&output_directory);
         gen.add_cpp_version("c++17")?;
+        assert_eq!(gen.args["C++"], "-std=c++17");
+        Ok(())
+    }
+
+
+    #[test]
+    fn add_cpp_version_cpp17_uppercase_test() -> Result<(), MyMakeError> {
+        let output_directory = produce_include_path(TempDir::new("example").unwrap());
+        let mut gen = IncludeFileGenerator::new(&output_directory);
+        gen.add_cpp_version("C++17")?;
         assert_eq!(gen.args["C++"], "-std=c++17");
         Ok(())
     }

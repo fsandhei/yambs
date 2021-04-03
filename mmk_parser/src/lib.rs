@@ -232,6 +232,48 @@ MMK_EXECUTABLE:
     }
 
 
+
+    #[test]
+    fn test_valid_keyword_mmk_sources() {
+        assert!(Mmk::new().valid_keyword("MMK_SOURCES").is_ok());
+    }
+
+
+    #[test]
+    fn test_valid_keyword_mmk_headers() {
+        assert!(Mmk::new().valid_keyword("MMK_HEADERS").is_ok());
+    }
+
+
+    #[test]
+    fn test_valid_keyword_mmk_depend() {
+        assert!(Mmk::new().valid_keyword("MMK_DEPEND").is_ok());
+    }
+
+
+    #[test]
+    fn test_valid_keyword_mmk_executable() {
+        assert!(Mmk::new().valid_keyword("MMK_EXECUTABLE").is_ok());
+    }
+
+
+    #[test]
+    fn test_valid_keyword_mmk_sys_include() {
+        assert!(Mmk::new().valid_keyword("MMK_SYS_INCLUDE").is_ok());
+    }
+
+
+    #[test]
+    fn test_valid_keyword_mmk_cppflags_append() {
+        assert!(Mmk::new().valid_keyword("MMK_CPPFLAGS_APPEND").is_ok());
+    }
+
+
+    #[test]
+    fn test_valid_keyword_mmk_cxxflags_append() {
+        assert!(Mmk::new().valid_keyword("MMK_CXXFLAGS_APPEND").is_ok());
+    }
+
     #[test]
     fn test_parse_mmk_dependencies() -> Result<(), MyMakeError>
     {

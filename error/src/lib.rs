@@ -6,8 +6,7 @@ pub struct MyMakeError {
 }
 
 impl MyMakeError {
-    #[cfg(maybe_unused)]
-    pub fn new(msg: &str) -> MyMakeError {
+    pub fn from_str(msg: &str) -> MyMakeError {
         MyMakeError{details: msg.to_string()}
     }
     pub fn from(msg: String) -> MyMakeError {

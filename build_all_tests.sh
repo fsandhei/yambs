@@ -1,13 +1,41 @@
-#!/bin/sh
+#!/bin/bash
 
-CARGO=/home/fredrik/.cargo/bin/cargo
-ROOT_DIR="/home/fredrik/bin/mymake/"
+CARGO="/home/fredrik/.cargo/bin/cargo"
+ROOT_DIR="/home/fredrik/bin/mymake"
+MYMAKE="$ROOT_DIR/target/debug/mymake"
 CWD=`pwd`
 
-#test_mymake_minimal_build()
-#{
-#   cat << EOF > 
-#}
+build_mymake()
+{
+   echo "Building latest version of MyMake."
+   cd $ROOT_DIR
+   $CARGO build
+}
+
+test_mymake_minimal_build()
+{
+   cat << EOF > test.cpp
+#include <iostream>
+
+int main()
+{
+   std::cout << "Minimum build test successful!\n";
+}
+
+EOF
+
+cat << EOF > mymakeinfo.mmk
+MMK_EXECUTABLE:
+   x
+
+MMK_SOURCES:
+   test.cpp
+EOF
+
+   build_mymake
+   $MYMAKE -g $ROOT_DIR/mymakeinfo.mmk && $ROOT_DIR/.build/release/x
+   rm -rf "$ROOT_DIR/.build" "$ROOT_DIR/test.cpp" "$ROOT_DIR/mymakeinfo.mmk"
+}
 
 execute_command() 
 {
@@ -29,10 +57,12 @@ cargo_test()
 
 [ $CWD != $ROOT_DIR ] && cd $ROOT_DIR
 
-cargo_test "${ROOT_DIR}mmk_parser"
-cargo_test "${ROOT_DIR}builder"
-cargo_test "${ROOT_DIR}dependency"
-cargo_test "${ROOT_DIR}generator"
+cargo_test "${ROOT_DIR}/mmk_parser"
+cargo_test "${ROOT_DIR}/builder"
+cargo_test "${ROOT_DIR}/dependency"
+cargo_test "${ROOT_DIR}/generator"
+
+test_mymake_minimal_build
 
 if [ "$?" -eq 0 ]; then
    echo "SUCCESS"

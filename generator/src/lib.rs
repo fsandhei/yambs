@@ -188,7 +188,7 @@ impl MmkGenerator {
 
     pub fn print_mandatory_libraries(self: &Self) -> String {
         let mut formatted_string = String::new();
-        formatted_string.push_str("-lstdc++ ");
+        formatted_string.push_str("-lstdc++");
         formatted_string
     }
 
@@ -231,8 +231,11 @@ impl MmkGenerator {
 
     fn print_dependencies(&self) -> String {
         let mut formatted_string = self.dependency.borrow().mmk_data().to_string("MMK_DEPEND");
-        formatted_string.push_str(" ");
-        formatted_string.push_str(&self.dependency.borrow().mmk_data().to_string("MMK_SYS_INCLUDE"));
+        if self.dependency.borrow().mmk_data().has_system_include() {
+            formatted_string.push_str(" ");
+            formatted_string.push_str(&self.dependency.borrow().mmk_data().to_string("MMK_SYS_INCLUDE"));
+        }
+
         formatted_string
     }
 

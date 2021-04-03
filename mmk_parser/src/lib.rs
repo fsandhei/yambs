@@ -51,14 +51,15 @@ impl Mmk {
 
     pub fn valid_keyword(self: &Self, keyword: & str) -> Result<(), MyMakeError>
     {
-        if keyword == "MMK_DEPEND"
-        || keyword == "MMK_SOURCES"
-        || keyword == "MMK_HEADERS"
-        || keyword == "MMK_EXECUTABLE"
-        || keyword == "MMK_SYS_INCLUDE" 
-        || keyword == "MMK_CXXFLAGS_APPEND" 
-        || keyword == "MMK_CPPFLAGS_APPEND" 
-        || keyword == "MMK_LIBRARY_LABEL" {
+        let stripped_keyword = keyword.trim_end_matches(":");
+        if stripped_keyword == "MMK_DEPEND"
+        || stripped_keyword == "MMK_SOURCES"
+        || stripped_keyword == "MMK_HEADERS"
+        || stripped_keyword == "MMK_EXECUTABLE"
+        || stripped_keyword == "MMK_SYS_INCLUDE" 
+        || stripped_keyword == "MMK_CXXFLAGS_APPEND" 
+        || stripped_keyword == "MMK_CPPFLAGS_APPEND" 
+        || stripped_keyword == "MMK_LIBRARY_LABEL" {
             Ok(())
         }
         else {
@@ -80,12 +81,15 @@ impl Mmk {
         let mut current_line = data_iter.next();
         while current_line != None {
             let line = current_line.unwrap().trim();
-            if line != "" {
+            if line != "" && !self.valid_keyword(line).is_ok() {
                 let arg = current_line.unwrap().trim().to_string();
-                arg_vec.push(arg);                
+                arg_vec.push(arg);
+            }
+            else if line == "" {
+                break;
             }
             else {
-                break;
+                return Err(MyMakeError::from_str("Invalid spacing of arguments! Keep at least one line between each MyMake keyword."));
             }
             current_line = data_iter.next();
         }
@@ -99,6 +103,11 @@ impl Mmk {
     }
 
 
+    pub fn has_system_include(&self) -> bool {
+        self.data.contains_key("MMK_SYS_INCLUDE")
+    }
+
+
     pub fn parse(&mut self, data: &String) -> Result<(), MyMakeError> {
         let no_comment_data = remove_comments(data);
         let mut lines = no_comment_data.lines();
@@ -107,7 +116,6 @@ impl Mmk {
         while current_line != None {
             if let Some(captured) = mmk_rule.captures(current_line.unwrap()) {
                 let mmk_keyword = captured.get(1).unwrap().as_str();
-                self.valid_keyword(mmk_keyword)?;
                 self.parse_mmk_expression(mmk_keyword, &mut lines)?;
                 current_line = lines.next();
             }
@@ -256,6 +264,60 @@ MMK_EXECUTABLE:
         assert_eq!(mmk_content.data["MMK_EXECUTABLE"], ["main"]);
         Ok(())
     }
+
+
+    #[test]
+    fn test_has_library_label_true() -> Result<(), MyMakeError>
+    {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_LIBRARY_LABEL:\n\
+                                                myLib");
+
+        mmk_content.parse( &content)?;
+        assert!(mmk_content.has_library_label());
+        Ok(())
+    }
+
+
+    #[test]
+    fn test_has_library_label_false() -> Result<(), MyMakeError>
+    {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_SOURCES:\n\
+                                                my_source.cpp");
+
+        mmk_content.parse( &content)?;
+        assert!(!mmk_content.has_library_label());
+        Ok(())
+    }
+
+
+    #[test]
+    fn test_has_system_include_true() -> Result<(), MyMakeError>
+    {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_SYS_INCLUDE:\n\
+                                                /some/third/party/software/");
+
+        mmk_content.parse( &content)?;
+        assert!(mmk_content.has_system_include());
+        Ok(())
+    }
+
+
+    #[test]
+    fn test_has_system_include_false() -> Result<(), MyMakeError>
+    {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_SOURCES:\n\
+                                                my_source.cpp");
+
+        mmk_content.parse( &content)?;
+        assert!(!mmk_content.has_system_include());
+        Ok(())
+    }
+
+
     #[test]
     fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError>
     {
@@ -266,6 +328,21 @@ MMK_EXECUTABLE:
         let result = mmk_content.parse(&content);                
         assert!(result.is_err());
         assert_eq!(&String::from("MMK_DEPENDS is not a valid keyword."), result.unwrap_err().to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError>
+    {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_DEPEND:\n\
+                                                /some/path/to/depend/on\n\
+                                            MMK_SOURCES:\n\
+                                                some_file.cpp\n");
+        let result = mmk_content.parse(&content);                
+        assert!(result.is_err());
+        assert_eq!(&String::from("Invalid spacing of arguments! Keep at least one line between each MyMake keyword."), 
+                   result.unwrap_err().to_string());
         Ok(())
     }
 }

@@ -4,16 +4,18 @@ use std::{cell::RefCell, path};
 use std::rc::Rc;
 
 mod dependency_registry;
+mod dependency_state;
 pub use crate::dependency_registry::DependencyRegistry;
+pub use crate::dependency_state::DependencyState;
+
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dependency {
      path: std::path::PathBuf,
      mmk_data: mmk_parser::Mmk,
      requires: RefCell<Vec<DependencyNode>>,
-     makefile_made: bool,
      library_name: String,
-     in_process: bool
+     state: DependencyState,
 }
 
 pub type DependencyNode = Rc<RefCell<Dependency>>;
@@ -24,9 +26,8 @@ impl Dependency {
             path: std::path::PathBuf::new(),
             mmk_data: mmk_parser::Mmk::new(),
             requires: RefCell::new(Vec::new()),
-            makefile_made: false,
             library_name: String::new(),
-            in_process: false
+            state: DependencyState::new()
         }
     }
 
@@ -36,10 +37,14 @@ impl Dependency {
             path: std::path::PathBuf::from(path),
             mmk_data: mmk_parser::Mmk::new(),
             requires: RefCell::new(Vec::new()),
-            makefile_made: false,
             library_name: String::new(),
-            in_process: false,
+            state: DependencyState::new()
         }
+    }
+
+
+    fn change_state(&mut self, to_state: DependencyState) {
+        self.state = to_state;
     }
 
 
@@ -47,7 +52,7 @@ impl Dependency {
                                        dep_registry: &mut DependencyRegistry) -> Result<DependencyNode, MyMakeError>{
         let dependency = Rc::new(RefCell::new(Dependency::from(path)));
         dep_registry.add_dependency(Rc::clone(&dependency));
-        dependency.borrow_mut().in_process = true;
+        dependency.borrow_mut().change_state(DependencyState::InProcess);
         dependency.borrow_mut().read_and_add_mmk_data()?;
         dependency.borrow_mut().add_library_name();
 
@@ -58,7 +63,7 @@ impl Dependency {
         }
 
         dependency.borrow().print_ok();
-        dependency.borrow_mut().in_process = false;
+        dependency.borrow_mut().change_state(DependencyState::Registered);
         Ok(dependency)
     }
 
@@ -74,10 +79,15 @@ impl Dependency {
                 let mmk_path = path;
                 let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
                 
-                self.detect_cycle_dependency_from_path(&dep_path, &dep_registry)?;
+                if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {
+                    self.detect_cycle_from_dependency(&dependency)?;
+                    dep_vec.push(dependency);
+                }
 
-                let dep_dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;
-                dep_vec.push(dep_dependency);
+                else {
+                    let dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;
+                    dep_vec.push(dependency);
+                }
             }
         }
         Ok(dep_vec)
@@ -86,7 +96,7 @@ impl Dependency {
 
     #[allow(dead_code)]
     fn process(&mut self, dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError> {
-        self.in_process = true;
+        self.change_state(DependencyState::InProcess);
         self.read_and_add_mmk_data()?;
         self.add_library_name();
 
@@ -97,7 +107,7 @@ impl Dependency {
         }
 
         self.print_ok();
-        self.in_process = false;
+        self.change_state(DependencyState::Registered);
         Ok(())
     }
 
@@ -108,7 +118,22 @@ impl Dependency {
 
 
     pub fn is_makefile_made(&self) -> bool {
-        self.makefile_made
+        self.state == DependencyState::MakefileMade
+    }
+
+
+    pub fn is_in_process(&self) -> bool {
+        self.state == DependencyState::InProcess
+    }
+
+
+    pub fn is_building(&self) -> bool {
+        self.state == DependencyState::Building
+    }
+
+
+    pub fn build_completed(&self) -> bool {
+        self.state == DependencyState::BuildComplete
     }
 
 
@@ -119,7 +144,17 @@ impl Dependency {
 
     pub fn makefile_made(self: &mut Self)
     {
-        self.makefile_made = true;
+        self.change_state(DependencyState::MakefileMade);
+    }
+
+
+    pub fn building(&mut self) {
+        self.change_state(DependencyState::Building);
+    }
+
+
+    pub fn build_complete(&mut self) {
+        self.change_state(DependencyState::BuildComplete);
     }
 
 
@@ -189,9 +224,15 @@ impl Dependency {
                 let mmk_path = path.clone();
                 let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
 
-                self.detect_cycle_dependency_from_path(&dep_path, dep_registry)?;
-                let dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;
-                self.add_dependency(dependency);
+                if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {
+                    self.add_dependency(dependency)
+                }
+
+                else {
+                    self.detect_cycle_dependency_from_path(&dep_path, dep_registry)?;
+                    let dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;
+                    self.add_dependency(dependency);
+                }                
             }
         }
         Ok(())
@@ -201,11 +242,22 @@ impl Dependency {
     fn detect_cycle_dependency_from_path(&self, path: &std::path::PathBuf, 
                                              dep_registry: &DependencyRegistry) -> Result<(), MyMakeError> {
         if let Some(dependency) = dep_registry.dependency_from_path(path) {
-            if dependency.borrow().in_process == true {
+            if dependency.borrow().is_in_process() {
                 return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} depends on\n{:?}, which depends on itself", 
                                              path, self.path)));
                 }
             }
+        Ok(())
+    }
+
+
+    fn detect_cycle_from_dependency(&self, dependency: &DependencyNode) -> Result<(), MyMakeError>{
+        if dependency.borrow().is_in_process() {
+            if dependency.borrow().is_in_process() {
+                return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} depends on\n{:?}, which depends on itself", 
+                                             dependency.borrow().path(), self.path)));
+            }
+        }
         Ok(())
     }
 
@@ -252,6 +304,40 @@ mod tests {
 
         (dir, test_file_path, file, mmk_data)
     }
+
+
+    #[test]
+    fn test_is_in_process_true() {
+        let mut dependency = Dependency::new();
+        dependency.change_state(DependencyState::InProcess);
+        assert!(dependency.is_in_process());
+    }
+
+
+    #[test]
+    fn test_is_in_process_false() {
+        let mut dependency = Dependency::new();
+        dependency.change_state(DependencyState::Registered);
+        assert!(!dependency.is_in_process());
+    }
+
+
+    #[test]
+    fn test_is_makefile_made_true() {
+        let mut dependency = Dependency::new();
+        dependency.change_state(DependencyState::MakefileMade);
+        assert!(dependency.is_makefile_made());
+    }
+
+
+    #[test]
+    fn test_is_makefile_made_false() {
+        let mut dependency = Dependency::new();
+        dependency.change_state(DependencyState::NotInProcess);
+        assert!(!dependency.is_makefile_made());
+    }
+
+
     #[test]
     fn read_mmk_files_one_file() -> std::io::Result<()> {
         let (_dir, test_file_path, mut file, mut expected) = make_mmk_file("example");
@@ -308,13 +394,11 @@ mod tests {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(Vec::new()),
-                    makefile_made: false,
                     library_name: String::from("libtmp.a"),
-                    in_process: false,
+                    state: DependencyState::Registered,
                 }))]),
-                makefile_made: false,
                 library_name: String::from("libtmp.a"),
-                in_process: false,
+                state: DependencyState::Registered,
             }))
         );
         Ok(())
@@ -380,21 +464,18 @@ mod tests {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
                     requires: RefCell::new(Vec::new()),
-                    makefile_made: false,
                     library_name: String::from("libtmp.a"),
-                    in_process: false,
+                    state: DependencyState::Registered,
                 })),
                 Rc::new(RefCell::new(Dependency {
                     path: test_file_second_dep_path,
                     mmk_data: expected_3,
                     requires: RefCell::new(Vec::new()),
-                    makefile_made: false,
                     library_name: String::from("libtmp.a"),
-                    in_process: false,
+                    state: DependencyState::Registered,
                 }))]),
-                makefile_made: false,
                 library_name: String::from("libtmp.a"),
-                in_process: false,
+                state: DependencyState::Registered,
             }))
         );
         Ok(())
@@ -457,17 +538,14 @@ mod tests {
                             path: test_file_second_dep_path,
                             mmk_data: expected_3,
                             requires: RefCell::new(vec![]),
-                            makefile_made: false,
                             library_name: String::from("libtmp.a"),
-                            in_process: false,
+                            state: DependencyState::Registered,
                         }))]),
-                    makefile_made: false,
                     library_name: String::from("libtmp.a"),
-                    in_process: false,
+                    state: DependencyState::Registered,
                 }))]),
-                makefile_made: false,
                 library_name: String::from("libtmp.a"),
-                in_process: false,
+                state: DependencyState::Registered,
             }))
         );
         Ok(())
@@ -582,9 +660,8 @@ mod tests {
                     path: test_file_third_dep_path,
                     mmk_data: expected_3,
                     requires: RefCell::new(vec![]),
-                    makefile_made: false,
                     library_name: String::from("libtmp.a"),
-                    in_process: false,
+                    state: DependencyState::Registered,
                 })),
                 Rc::new(RefCell::new(Dependency {
                     path: test_file_dep_path,
@@ -594,17 +671,14 @@ mod tests {
                             path: test_file_second_dep_path,
                             mmk_data: expected_4,
                             requires: RefCell::new(vec![]),
-                            makefile_made: false,
                             library_name: String::from("libtmp.a"),
-                            in_process: false,
+                            state: DependencyState::Registered,
                         }))]),
-                    makefile_made: false,
                     library_name: String::from("libtmp.a"),
-                    in_process: false,
+                    state: DependencyState::Registered,
                 }))]),
-                makefile_made: false,
                 library_name: String::from("libtmp.a"),
-                in_process: false,
+                state: DependencyState::Registered,
             }))
         );
         Ok(())

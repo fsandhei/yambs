@@ -132,13 +132,19 @@ impl Builder {
     pub fn build_dependency(&self, dependency: &DependencyNode, 
                             verbosity: bool) -> Result<Output, MyMakeError> {
         for required_dependency in dependency.borrow().requires().borrow().iter() {
+            if required_dependency.borrow().build_completed() {
+                continue;
+            }
+            required_dependency.borrow_mut().building();
             let dep_output = self.build_dependency(&required_dependency, 
                                                          verbosity)?;
             if !dep_output.status.success() {
                 return Ok(dep_output);
             }
+            required_dependency.borrow_mut().build_complete();
         }
 
+        dependency.borrow_mut().building();
         let build_directory = dependency.borrow().get_build_directory();
         if self.debug {
             self.change_directory(build_directory.join("debug"), verbosity);
@@ -149,6 +155,7 @@ impl Builder {
         Builder::construct_build_message(dependency);
         
         let output = self.make.spawn()?;
+        dependency.borrow_mut().build_complete();
     
         Ok(output)
     }

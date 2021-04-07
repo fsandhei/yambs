@@ -132,7 +132,7 @@ impl Builder {
     pub fn build_dependency(&self, dependency: &DependencyNode, 
                             verbosity: bool) -> Result<Output, MyMakeError> {
         for required_dependency in dependency.borrow().requires().borrow().iter() {
-            if required_dependency.borrow().build_completed() {
+            if required_dependency.borrow().is_build_completed() {
                 continue;
             }
             required_dependency.borrow_mut().building();
@@ -187,6 +187,7 @@ impl Builder {
         self.make.log_text(message).unwrap();
         std::env::set_current_dir(directory).unwrap()
     }
+
 
     pub fn clean(&self) -> Result<(), MyMakeError> {
         if let Some(top_dependency) = &self.top_dependency {

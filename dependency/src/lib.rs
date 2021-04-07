@@ -132,7 +132,7 @@ impl Dependency {
     }
 
 
-    pub fn build_completed(&self) -> bool {
+    pub fn is_build_completed(&self) -> bool {
         self.state == DependencyState::BuildComplete
     }
 
@@ -335,6 +335,39 @@ mod tests {
         let mut dependency = Dependency::new();
         dependency.change_state(DependencyState::NotInProcess);
         assert!(!dependency.is_makefile_made());
+    }
+
+
+
+    #[test]
+    fn test_is_building_true() {
+        let mut dependency = Dependency::new();
+        dependency.change_state(DependencyState::Building);
+        assert!(dependency.is_building());
+    }
+
+
+    #[test]
+    fn test_is_building_false() {
+        let mut dependency = Dependency::new();
+        dependency.change_state(DependencyState::BuildComplete);
+        assert!(!dependency.is_building());
+    }
+
+
+    #[test]
+    fn test_is_build_completed_true() {
+        let mut dependency = Dependency::new();
+        dependency.change_state(DependencyState::BuildComplete);
+        assert!(dependency.is_build_completed());
+    }
+
+
+    #[test]
+    fn test_is_build_completed_false() {
+        let mut dependency = Dependency::new();
+        dependency.change_state(DependencyState::NotInProcess);
+        assert!(!dependency.is_build_completed());
     }
 
 

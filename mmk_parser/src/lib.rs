@@ -35,9 +35,6 @@ impl Mmk {
                 if item == "" {
                     break;
                 }
-                if key == "MMK_DEPEND" {
-                    formatted_string.push_str("-I");
-                }
                 if key == "MMK_SYS_INCLUDE" {
                     formatted_string.push_str("-isystem ");
                 }
@@ -46,6 +43,22 @@ impl Mmk {
             }
         }
         formatted_string.trim_end().to_string()
+    }
+
+
+    pub fn get_include_directories_for_make(&self) -> String {
+        if self.data.contains_key("MMK_DEPEND") {
+            let mut formatted_string = String::new();
+            for dep_path_as_string in &self.data["MMK_DEPEND"] {
+                formatted_string.push_str("-I");
+                let mut dep_path = PathBuf::from(dep_path_as_string);
+                dep_path.push("include");
+                formatted_string.push_str(dep_path.to_str().unwrap());
+                formatted_string.push_str(" ");
+            }
+            return formatted_string.trim_end().to_string();
+        }
+        String::from("")
     }
 
 

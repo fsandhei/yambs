@@ -35,6 +35,11 @@ impl Mmk {
                 if item == "" {
                     break;
                 }
+
+                if key == "MMK_DEPEND" {
+                    formatted_string.push_str("-I");
+                }
+
                 if key == "MMK_SYS_INCLUDE" {
                     formatted_string.push_str("-isystem ");
                 }

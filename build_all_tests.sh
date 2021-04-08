@@ -24,7 +24,7 @@ int main()
 
 EOF
 
-cat << EOF > mymakeinfo.mmk
+cat << EOF > run.mmk
 MMK_EXECUTABLE:
    x
 
@@ -33,8 +33,8 @@ MMK_SOURCES:
 EOF
 
    build_mymake
-   $MYMAKE -g $ROOT_DIR/mymakeinfo.mmk && $ROOT_DIR/.build/release/x
-   rm -rf "$ROOT_DIR/.build" "$ROOT_DIR/test.cpp" "$ROOT_DIR/mymakeinfo.mmk"
+   $MYMAKE -g $ROOT_DIR/run.mmk && $ROOT_DIR/.build/release/x
+   rm -rf "$ROOT_DIR/.build" "$ROOT_DIR/test.cpp" "$ROOT_DIR/run.mmk"
 }
 
 execute_command() 

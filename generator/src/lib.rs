@@ -281,19 +281,22 @@ impl MmkGenerator {
     }
 
 
-    fn print_release(&self) -> &str {
-        "include /home/fredrik/bin/mymake/include/release.mk\n"
+    fn print_release(&self) -> String {
+        // "/home/fredrik/bin/mymake/include/release.mk\n"
+        let release_include = format!("{build_path}/release.mk",
+        build_path = self.include_file_generator.print_build_directory());
+        release_include
     }
 
 
     fn print_debug(&self) -> String {
         if self.debug {
-            let debug_include = format!("include {build_path}/debug.mk\n",
+            let debug_include = format!("{build_path}/debug.mk",
             build_path = self.include_file_generator.print_build_directory());
             debug_include
         }
         else {
-            self.print_release().to_string()
+            self.print_release()
         }
     }
 
@@ -337,8 +340,8 @@ impl Generator for MmkGenerator
         \n\
         # ----- INCLUDES -----\n\
         include {build_path}/strict.mk\n\
-        include /home/fredrik/bin/mymake/include/default_make.mk\n\
-        {debug}\
+        include {build_path}/default_make.mk\n\
+        include {debug}\n\
         \n\
         # ----- DEFINITIONS -----\n\
         CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
@@ -465,7 +468,17 @@ mod tests {
 
 
     #[test]
-    fn generate_header_test() -> std::io::Result<()> {
+    fn print_debug_test() {
+        let path = std::path::PathBuf::from("some_path");
+        let dependency = Rc::new(RefCell::new(Dependency::from(&path.join("mymakeinfo.mmk"))));
+        let mut gen = MmkGenerator::new(&dependency, &std::path::PathBuf::from(".build")).unwrap();
+        gen.debug();
+        assert_eq!(String::from("some_path/.build/make_include/debug.mk"), gen.print_debug());
+    }
+
+
+    #[test]
+    fn generate_header_release_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
@@ -478,8 +491,8 @@ mod tests {
         \n\
         # ----- INCLUDES -----\n\
         include {directory}/.build/make_include/strict.mk\n\
-        include /home/fredrik/bin/mymake/include/default_make.mk\n\
-        include /home/fredrik/bin/mymake/include/release.mk\n\
+        include {directory}/.build/make_include/default_make.mk\n\
+        include {directory}/.build/make_include/release.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
         CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
@@ -499,7 +512,7 @@ mod tests {
 
 
     #[test]
-    fn generate_header_test_with_debug() -> std::io::Result<()> {
+    fn generate_header_debug_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
         let output_dir = std::path::PathBuf::from(".build");
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
@@ -513,7 +526,7 @@ mod tests {
         \n\
         # ----- INCLUDES -----\n\
         include {directory}/.build/make_include/strict.mk\n\
-        include /home/fredrik/bin/mymake/include/default_make.mk\n\
+        include {directory}/.build/make_include/default_make.mk\n\
         include {directory}/.build/make_include/debug.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\

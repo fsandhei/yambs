@@ -156,11 +156,24 @@ impl Mmk {
 
 
 pub fn validate_file_path(file_path_as_str: &str) -> Result<PathBuf, MyMakeError> {
-    let file_path = PathBuf::from(file_path_as_str).canonicalize().unwrap();
+    let file_path = match PathBuf::from(file_path_as_str).canonicalize() {
+        Ok(file) => file,
+        Err(err) => return Err(MyMakeError::from(format!("{:?}", err)))
+     };
     if !file_path.is_file() {
         return Err(MyMakeError::from(format!("Error: {:?} is not a valid path!", &file_path)));
     }
     Ok(file_path)
+}
+
+
+pub fn validate_file_name(path: &PathBuf) -> Result<(), MyMakeError> {
+    let file_name = path.file_name().unwrap().to_str().unwrap();
+    match file_name {
+        "lib.mmk" | "run.mmk" => (),
+        _ => return Err(MyMakeError::from(format!("{:?} is illegal name! File must be named lib.mmk or run.mmk.", file_name))),
+    };
+    Ok(())
 }
 
 
@@ -305,8 +318,7 @@ MMK_EXECUTABLE:
     }
 
     #[test]
-    fn test_multiple_keywords() -> Result<(), MyMakeError>
-    {
+    fn test_multiple_keywords() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES:
                                                 filename.cpp
@@ -327,8 +339,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_has_library_label_true() -> Result<(), MyMakeError>
-    {
+    fn test_has_library_label_true() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_LIBRARY_LABEL:\n\
                                                 myLib");
@@ -340,8 +351,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_has_library_label_false() -> Result<(), MyMakeError>
-    {
+    fn test_has_library_label_false() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES:\n\
                                                 my_source.cpp");
@@ -353,8 +363,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_has_system_include_true() -> Result<(), MyMakeError>
-    {
+    fn test_has_system_include_true() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SYS_INCLUDE:\n\
                                                 /some/third/party/software/");
@@ -366,8 +375,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_has_system_include_false() -> Result<(), MyMakeError>
-    {
+    fn test_has_system_include_false() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES:\n\
                                                 my_source.cpp");
@@ -379,8 +387,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError>
-    {
+    fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_DEPENDS:\n\
                                                 /some/path/to/depend/on \n\
@@ -392,8 +399,7 @@ MMK_EXECUTABLE:
     }
 
     #[test]
-    fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError>
-    {
+    fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_DEPEND:\n\
                                                 /some/path/to/depend/on\n\
@@ -404,6 +410,32 @@ MMK_EXECUTABLE:
         assert_eq!(&String::from("Invalid spacing of arguments! Keep at least one line between each MyMake keyword."), 
                    result.unwrap_err().to_string());
         Ok(())
+    }
+
+    #[test]
+    fn get_include_directories_for_make_test() {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_DEPEND:\n\
+                                                /some/path/to/depend/on");
+        mmk_content.parse(&content).unwrap();
+        assert_eq!(mmk_content.get_include_directories_for_make(), String::from("-I/some/path/to/depend/on/include"));
+    }
+
+
+    #[test]
+    fn validate_file_name_test() {
+        let some_valid_file_path = PathBuf::from("lib.mmk");
+        assert!(validate_file_name(&some_valid_file_path).is_ok());
+    }
+
+
+    #[test]
+    fn validate_file_name_invalid_file_name_test() {
+        let some_invalid_file_path = PathBuf::from("mymakeinfo.mmk");
+        let result = validate_file_name(&some_invalid_file_path);
+        assert!(result.is_err());
+        assert_eq!(&String::from("\"mymakeinfo.mmk\" is illegal name! File must be named lib.mmk or run.mmk."), 
+                    result.unwrap_err().to_string());
     }
 }
 

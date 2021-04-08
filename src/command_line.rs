@@ -121,8 +121,10 @@ impl<'a> CommandLine<'a> {
 
 
     pub fn validate_file_path(&self) -> PathBuf {
-        mmk_parser::validate_file_path(self.matches.value_of("mmk_file")
+        let file_name = mmk_parser::validate_file_path(self.matches.value_of("mmk_file")
                                         .unwrap_or_terminate())
-                                        .unwrap_or_terminate()
+                                        .unwrap_or_terminate();
+        mmk_parser::validate_file_name(&file_name).unwrap_or_terminate();
+        file_name
     }
 }

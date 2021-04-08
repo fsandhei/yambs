@@ -77,7 +77,7 @@ impl Dependency {
                 }
 
                 let mmk_path = path;
-                let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
+                let dep_path = std::path::Path::new(&mmk_path).join("lib.mmk");
                 
                 if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {
                     self.detect_cycle_from_dependency(&dependency)?;
@@ -198,56 +198,34 @@ impl Dependency {
         &self.mmk_data
     }
 
+    
     pub fn mmk_data_mut(&mut self) -> &mut mmk_parser::Mmk {
         &mut self.mmk_data
     }
 
-    pub fn library_name(&self) -> String{
+    
+    pub fn library_name(&self) -> String {
         self.library_name.clone()
     }
+
+
+    pub fn print_library_name(&self) -> String {
+        if self.mmk_data().has_library_label() {
+            return self.mmk_data().to_string("MMK_LIBRARY_LABEL");
+        }
+        else {
+            return self.library_name();
+        }
+    }
+
 
     pub fn requires(&self) -> &RefCell<Vec<DependencyNode>> {
         &self.requires
     }
 
+    
     pub fn path(&self) -> &path::PathBuf {
         &self.path
-    }
- 
-
-    pub fn detect_and_add_dependencies(&mut self, dep_registry: &mut DependencyRegistry) -> Result<(), MyMakeError>{
-        if self.mmk_data.data.contains_key("MMK_DEPEND") {
-            for path in self.mmk_data.data["MMK_DEPEND"].clone() {
-                if path == "" {
-                    break;
-                }
-                let mmk_path = path.clone();
-                let dep_path = std::path::Path::new(&mmk_path).join("mymakeinfo.mmk");
-
-                if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {
-                    self.add_dependency(dependency)
-                }
-
-                else {
-                    self.detect_cycle_dependency_from_path(&dep_path, dep_registry)?;
-                    let dependency = Dependency::create_dependency_from_path(&dep_path, dep_registry)?;
-                    self.add_dependency(dependency);
-                }                
-            }
-        }
-        Ok(())
-    }
-    
-
-    fn detect_cycle_dependency_from_path(&self, path: &std::path::PathBuf, 
-                                             dep_registry: &DependencyRegistry) -> Result<(), MyMakeError> {
-        if let Some(dependency) = dep_registry.dependency_from_path(path) {
-            if dependency.borrow().is_in_process() {
-                return Err(MyMakeError::from(format!("Error: dependency circulation!\n{:?} depends on\n{:?}, which depends on itself", 
-                                             path, self.path)));
-                }
-            }
-        Ok(())
     }
 
 
@@ -279,7 +257,7 @@ mod tests {
 
     fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
         let dir: TempDir = TempDir::new(&dir_name).unwrap();
-        let test_file_path = dir.path().join("mymakeinfo.mmk");
+        let test_file_path = dir.path().join("lib.mmk");
         let mut file = File::create(&test_file_path)
                                 .expect("make_mmk_file(): Something went wrong writing to file.");
         write!(file, 

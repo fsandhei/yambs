@@ -211,7 +211,7 @@ mod tests {
 
     fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
         let dir: TempDir = TempDir::new(&dir_name).unwrap();
-        let test_file_path = dir.path().join("mymakeinfo.mmk");
+        let test_file_path = dir.path().join("lib.mmk");
         let mut file = File::create(&test_file_path)
                                 .expect("make_mmk_file(): Something went wrong writing to file.");
         write!(file, 

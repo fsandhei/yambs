@@ -51,7 +51,7 @@ impl Mmk {
     }
 
 
-    pub fn get_include_directories_for_make(&self) -> String {
+    pub fn get_include_directories(&self) -> String {
         if self.data.contains_key("MMK_DEPEND") {
             let mut formatted_string = String::new();
             for dep_path_as_string in &self.data["MMK_DEPEND"] {

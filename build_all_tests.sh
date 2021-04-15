@@ -34,6 +34,10 @@ EOF
 
    build_mymake
    $MYMAKE -g $ROOT_DIR/run.mmk && $ROOT_DIR/.build/release/x
+   build_result=$?
+   if [ "$build_result" -ne 0 ]; then
+      return "$build_result"
+   fi
    rm -rf "$ROOT_DIR/.build" "$ROOT_DIR/test.cpp" "$ROOT_DIR/run.mmk"
 }
 
@@ -66,5 +70,7 @@ test_mymake_minimal_build
 
 if [ "$?" -eq 0 ]; then
    echo "SUCCESS"
-   exit "$?"
+else
+   echo "FAILURE"
 fi
+exit "$?"

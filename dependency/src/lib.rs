@@ -158,6 +158,20 @@ impl Dependency {
     }
 
 
+    pub fn get_source_directory(&self) -> std::path::PathBuf {
+        let parent = self.path.parent().unwrap();
+        if parent.join("source").is_dir() {
+            return parent.join("source");
+        }
+        else if parent.join("src").is_dir() {
+            return parent.join("src");
+        }
+        else {
+            return parent.to_path_buf();
+        }
+    }
+
+
     pub fn get_build_directory(self: &Self) -> std::path::PathBuf {
         let parent = self.path.parent().unwrap();
         let build_directory_name = std::path::PathBuf::from(".build");

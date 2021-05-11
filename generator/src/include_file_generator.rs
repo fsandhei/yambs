@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 
 use error::MyMakeError;
+use utility;
 
 #[allow(dead_code)]
 pub struct IncludeFileGenerator {
@@ -13,31 +14,10 @@ pub struct IncludeFileGenerator {
 }
 
 
-fn create_dir(dir: &std::path::PathBuf) -> Result<(), MyMakeError> {
-    if !dir.is_dir() {
-        std::fs::create_dir_all(&dir)?;
-    }
-    Ok(())
-}
-
-
-fn create_file(dir: &std::path::PathBuf, filename: &str) -> Result<File, MyMakeError> {
-    let file = dir.join(filename);
-    if file.is_file() {
-        match std::fs::remove_file(&file) {
-            Ok(()) => (),
-            Err(err) => return Err(MyMakeError::from(format!("Error removing {:?}: {}", file, err))),
-        };
-    }
-    let filename = File::create(&file)?;
-    Ok(filename)
-}
-
-
 #[allow(dead_code)]
 impl IncludeFileGenerator {    
     pub fn new(output_directory: &std::path::PathBuf) -> Self {
-        create_dir(&output_directory).unwrap();
+        utility::create_dir(&output_directory).unwrap();
         IncludeFileGenerator{ file: None, output_directory: output_directory.clone(), args: HashMap::new()}
     }
 
@@ -45,7 +25,7 @@ impl IncludeFileGenerator {
     fn create_mk_file(&mut self, filename_prefix: &str) {
         let mut filename = PathBuf::from(filename_prefix);
         filename.set_extension("mk");
-        let file = create_file(&self.output_directory, filename.to_str().unwrap()).unwrap();
+        let file = utility::create_file(&self.output_directory, filename.to_str().unwrap()).unwrap();
         self.file = Some(file);
     }
 
@@ -190,7 +170,7 @@ impl IncludeFileGenerator {
 
     pub fn change_directory(&mut self, directory: std::path::PathBuf) {
         self.output_directory = directory;
-        create_dir(&self.output_directory).unwrap()
+        utility::create_dir(&self.output_directory).unwrap()
     }
 }
 

@@ -71,3 +71,17 @@ impl Make {
         Ok(output)
     }
 }
+
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+    #[test]
+    fn with_flag_test() {
+        let mut make = Make::new();
+        make.with_flag("-j", "10");
+        make.with_flag("-r", "debug");
+        assert_eq!(make.configs, ["-j", "10", "-r", "debug"]);
+    }
+}

@@ -418,7 +418,7 @@ MMK_EXECUTABLE:
         let content: String = String::from("MMK_DEPEND:\n\
                                                 /some/path/to/depend/on");
         mmk_content.parse(&content).unwrap();
-        assert_eq!(mmk_content.get_include_directories_for_make(), String::from("-I/some/path/to/depend/on/include"));
+        assert_eq!(mmk_content.get_include_directories(), String::from("-I/some/path/to/depend/on/include"));
     }
 
 

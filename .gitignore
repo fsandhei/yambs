@@ -25,3 +25,5 @@ error/Cargo.lock
 dependency/target
 dependency/Cargo.lock
 
+utility/target
+utility/Cargo.lock

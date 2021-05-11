@@ -61,6 +61,14 @@ mod tests {
 
 
     #[test]
+    fn filter_string_nothing_to_filter_test() {
+        let input = String::from("This is a string with nothing to be filtered.");
+        let expected_output = input.clone();
+        assert_eq!(expected_output, filter_string(&input));
+    }
+
+
+    #[test]
     fn filter_string_remove_ar_creating_test() {
         let input = String::from("\nar: creating /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/googletest/");
         let expected_output = "";

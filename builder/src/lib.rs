@@ -1,6 +1,7 @@
 use dependency::{Dependency, DependencyRegistry, DependencyNode};
 use error::MyMakeError;
 use generator::MmkGenerator;
+use std::env;
 use std::io::{self, Write};
 use colored::Colorize;
 use std::process::Output;
@@ -38,7 +39,7 @@ impl Builder {
     pub fn add_generator(&mut self) {
         if let Some(top_dependency) = &self.top_dependency {
             self.generator = Some(MmkGenerator::new(&top_dependency, 
-                &std::path::PathBuf::from(".build"))
+                env::current_dir().unwrap())
                             .unwrap())
         }
     }
@@ -78,7 +79,7 @@ impl Builder {
     pub fn create_log_file(&mut self) -> Result<(), MyMakeError> {
         if let Some(top_dependency) = &self.top_dependency {
             if top_dependency.borrow().is_makefile_made() {
-                let log_file_name = top_dependency.borrow().get_build_directory().join("mymake_log.txt");
+                let log_file_name = env::current_dir().unwrap().join("mymake_log.txt");
                 return self.make.add_logger(&log_file_name);
             }
             else {
@@ -122,7 +123,7 @@ impl Builder {
             else {
                 println!("MyMake: {}", "Build FAILED".red());
             }
-            let log_path = top_dependency.borrow().get_build_directory().join("mymake_log.txt");
+            let log_path = env::current_dir().unwrap().join("mymake_log.txt");
             println!("MyMake: Build log available at {:?}", log_path);
         }
         Ok(())
@@ -145,7 +146,7 @@ impl Builder {
         }
 
         dependency.borrow_mut().building();
-        let build_directory = dependency.borrow().get_build_directory();
+        let build_directory = env::current_dir().unwrap();
         if self.debug {
             self.change_directory(build_directory.join("debug"), verbosity);
         }
@@ -208,10 +209,13 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use tempdir::TempDir;
+    use utility;
 
     fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
         let dir: TempDir = TempDir::new(&dir_name).unwrap();
-        let test_file_path = dir.path().join("lib.mmk");
+        let source_dir = dir.path().join("source");
+        utility::create_dir(&source_dir).unwrap();
+        let test_file_path = source_dir.join("lib.mmk");
         let mut file = File::create(&test_file_path)
                                 .expect("make_mmk_file(): Something went wrong writing to file.");
         write!(file, 
@@ -239,14 +243,14 @@ mod tests {
     #[test]
     fn read_mmk_files_one_file() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (_dir, test_file_path, mut file, mut expected) = make_mmk_file("example");
+        let (dir, _, mut file, mut expected) = make_mmk_file("example");
         
         write!(
             file,
             "MMK_EXECUTABLE:
                 x
             ")?;
-        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
@@ -254,10 +258,48 @@ mod tests {
         Ok(())
     }
 
+
+    #[test]
+    fn add_generator() -> std::io::Result<()> {
+        let mut builder = Builder::new();
+        let (dir, _, mut file, _) = make_mmk_file("example");
+        
+        write!(
+            file,
+            "MMK_EXECUTABLE:
+                x
+            ")?;
+        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
+
+        builder.add_generator();
+        assert!(builder.generator.is_some());
+        Ok(())
+    }
+
+
+    // #[test]
+    // fn read_mmk_files_one_file_generate_makefile() -> std::io::Result<()> {
+    //     let mut builder = Builder::new();
+    //     let (dir, _, mut file, _) = make_mmk_file("example");
+        
+    //     write!(
+    //         file,
+    //         "MMK_EXECUTABLE:
+    //             x
+    //         ")?;
+    
+    //     assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
+    //     builder.add_generator();
+
+    //     assert!(builder.generate_makefiles().is_ok());
+    //     Ok(())
+    // }
+
+
     #[test]
     fn read_mmk_files_two_files() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (_dir, test_file_path, mut file, mut expected_1)     = make_mmk_file("example");
+        let (dir, _, mut file, mut expected_1)     = make_mmk_file("example");
         let (dir_dep, _, _file_dep, _) = make_mmk_file("example_dep");
 
         write!(
@@ -281,14 +323,14 @@ mod tests {
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
 
-        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
         Ok(())
     }
 
     #[test]
     fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (_dir, test_file_path, mut file, mut expected_1) 
+        let (dir, _, mut file, mut expected_1) 
             = make_mmk_file("example");
         let (dir_dep, _, _file_dep, _) 
             = make_mmk_file("example_dep");
@@ -318,14 +360,14 @@ mod tests {
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
 
-        assert!((builder.read_mmk_files_from_path(&test_file_path)).is_ok());
+        assert!((builder.read_mmk_files_from_path(&dir.path().to_path_buf())).is_ok());
         Ok(())
     }
 
     #[test]
     fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (_dir, test_file_path, mut file, mut expected_1) 
+        let (dir, _, mut file, mut expected_1) 
         = make_mmk_file("example");
     let (dir_dep, _, mut file_dep, mut expected_2) 
         = make_mmk_file("example_dep");
@@ -363,14 +405,14 @@ mod tests {
             .data
             .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
 
-        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
         Ok(())
     }
 
     #[test]
     fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (_dir, test_file_path, mut file, mut expected_1) 
+        let (dir, _, mut file, mut expected_1) 
         = make_mmk_file("example");
     let (dir_dep, _, mut file_dep, mut expected_2) 
         = make_mmk_file("example_dep");
@@ -415,13 +457,13 @@ mod tests {
             .data
             .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
         
-        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
         Ok(())
     }
     #[test]
     fn read_mmk_files_two_files_circulation() -> Result<(), MyMakeError> {
         let mut builder = Builder::new();
-        let (dir, test_file_path, mut file, _expected_1)              = make_mmk_file("example");
+        let (dir, _, mut file, _expected_1)              = make_mmk_file("example");
         let (dir_dep, _test_file_dep_path, mut file_dep, _expected_2) = make_mmk_file("example_dep");
 
         write!(
@@ -444,7 +486,7 @@ mod tests {
         \n", &dir.path().to_str().unwrap().to_string()
         ).unwrap();
 
-        let result = builder.read_mmk_files_from_path(&test_file_path);
+        let result = builder.read_mmk_files_from_path(&dir.path().to_path_buf());
 
         assert!(result.is_err());
         Ok(())

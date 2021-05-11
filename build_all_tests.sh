@@ -14,7 +14,11 @@ build_mymake()
 
 test_mymake_minimal_build()
 {
-   cat << EOF > test.cpp
+   TEST_DIR="$ROOT_DIR/test_project"
+   mkdir $TEST_DIR && cd $TEST_DIR
+   mkdir "$TEST_DIR/source"
+
+   cat << EOF > $TEST_DIR/source/test.cpp
 #include <iostream>
 
 int main()
@@ -24,7 +28,7 @@ int main()
 
 EOF
 
-cat << EOF > run.mmk
+cat << EOF > $TEST_DIR/run.mmk
 MMK_EXECUTABLE:
    x
 
@@ -32,13 +36,15 @@ MMK_SOURCES:
    test.cpp
 EOF
 
-   build_mymake
-   $MYMAKE -g $ROOT_DIR/run.mmk && $ROOT_DIR/.build/release/x
+   cd $ROOT_DIR && build_mymake
+   mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
+   $MYMAKE -g "$TEST_DIR/run.mmk" && $ROOT_DIR/build/release/x
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"
    fi
-   rm -rf "$ROOT_DIR/.build" "$ROOT_DIR/test.cpp" "$ROOT_DIR/run.mmk"
+   cd "$ROOT_DIR"
+   rm -rf "$ROOT_DIR/build" "$ROOT_DIR/test.cpp" "$ROOT_DIR/run.mmk" "$ROOT_DIR/test_project"
 }
 
 execute_command() 

@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 error      = { path = "../error" }
 dependency = { path = "../dependency" }
+utility    = { path = "../utility" }
 mmk_parser = { path = "../mmk_parser"}
 
 [dev-dependencies]

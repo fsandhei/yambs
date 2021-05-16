@@ -6,6 +6,7 @@ use std::io::{self, Write};
 use colored::Colorize;
 use std::process::Output;
 use std::rc::Rc;
+use std::path::PathBuf;
 
 mod filter;
 mod clean;
@@ -114,9 +115,12 @@ impl Builder {
     pub fn build_project(&mut self) -> Result<(), MyMakeError> {
         println!("MyMake: Building...");
         self.create_log_file()?;
+        let build_directory = std::env::current_dir().unwrap();
         
         if let Some(top_dependency) = &self.top_dependency {
-            let output = self.build_dependency(&top_dependency, self.verbose);
+            let output = self.build_dependency(&top_dependency,
+                                                                        &build_directory, 
+                                                                        self.verbose);
             if output.is_ok() && output.unwrap().status.success() {
                 println!("MyMake: {}", "Build SUCCESS".green());
             }
@@ -129,16 +133,25 @@ impl Builder {
         Ok(())
     }
 
-
-    pub fn build_dependency(&self, dependency: &DependencyNode, 
+    // Muligens skill ut funksjonalitet for å lage lib - directory.
+    pub fn build_dependency(&self, dependency: &DependencyNode,
+                            build_path: &PathBuf, 
                             verbosity: bool) -> Result<Output, MyMakeError> {
+        
+        let build_directory = self.resolve_build_directory(build_path);
+
         for required_dependency in dependency.borrow().requires().borrow().iter() {
             if required_dependency.borrow().is_build_completed() {
                 continue;
             }
+            
+            let build_path_dep = &build_directory.join("libs")
+                                                         .join(required_dependency.borrow().get_project_name());
+            
             required_dependency.borrow_mut().building();
-            let dep_output = self.build_dependency(&required_dependency, 
-                                                         verbosity)?;
+            let dep_output = self.build_dependency(&required_dependency,
+                                                          &build_path_dep,
+                                                          verbosity)?;
             if !dep_output.status.success() {
                 return Ok(dep_output);
             }
@@ -146,19 +159,24 @@ impl Builder {
         }
 
         dependency.borrow_mut().building();
-        let build_directory = env::current_dir().unwrap();
-        if self.debug {
-            self.change_directory(build_directory.join("debug"), verbosity);
-        }
-        else {
-            self.change_directory(build_directory.join("release"), verbosity);
-        }
+        
+        self.change_directory(build_directory, verbosity);
         Builder::construct_build_message(dependency);
         
         let output = self.make.spawn()?;
         dependency.borrow_mut().build_complete();
     
         Ok(output)
+    }
+
+    // Lag test til denne
+    fn resolve_build_directory(&self, path: &PathBuf) -> PathBuf {
+        if self.debug {
+            return path.join("debug");
+        }
+        else {
+            return path.join("release");
+        }
     }
 
 

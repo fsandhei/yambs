@@ -38,7 +38,7 @@ impl MmkGenerator {
         let output_directory = build_directory;
         let include_output_directory = output_directory.join("make_include");
         utility::create_dir(&output_directory)?;
-        
+
         Ok(MmkGenerator{ 
             filename: None, 
             dependency: dependency.clone(), 
@@ -235,14 +235,14 @@ impl MmkGenerator {
         }
 
         let dependency_output_library_head = self.get_required_project_lib_dir();
+
         if !utility::directory_exists(&dependency_output_library_head) {
             utility::create_dir(&dependency_output_library_head)?;
         }
 
         for required_dependency in dependency.borrow().requires().borrow().iter()
         {
-            if !required_dependency.borrow().is_makefile_made()
-            {
+            if !required_dependency.borrow().is_makefile_made() {
                 required_dependency.borrow_mut().makefile_made();
                 let mut build_directory = dependency_output_library_head
                                                   .join(required_dependency.borrow().get_project_name());

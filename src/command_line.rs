@@ -110,7 +110,7 @@ impl<'a> CommandLine<'a> {
 
     pub fn parse_command_line(&self, builder: &mut Builder) -> Result<(), MyMakeError> {
         if self.matches.is_present("clean") {
-            builder.clean().unwrap_or_terminate();
+            // builder.clean().unwrap_or_terminate();
             std::process::exit(0);
         }
         

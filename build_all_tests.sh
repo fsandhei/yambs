@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e # Bail on error.
+
 CARGO="/home/fredrik/.cargo/bin/cargo"
 ROOT_DIR="/home/fredrik/bin/mymake"
 MYMAKE="$ROOT_DIR/target/debug/mymake"
@@ -33,7 +35,7 @@ MMK_EXECUTABLE:
    x
 
 MMK_SOURCES:
-   test.cpp
+   source/test.cpp
 EOF
 
    cd $ROOT_DIR && build_mymake

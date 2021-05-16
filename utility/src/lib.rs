@@ -2,8 +2,10 @@ use error::MyMakeError;
 use std::fs::File;
 use std::path::{PathBuf, Path};
 
+// LEGG TIL TESTER FOR UTILITY.
+
 // TODO: Vurder om denne skal returnere Result<PathBuf, MyMakeError>
-pub fn get_source_directory_from_path(path: &std::path::PathBuf) -> PathBuf {
+pub fn get_source_directory_from_path(path: &PathBuf) -> PathBuf {
     if path.join("source").is_dir() {
         return path.join("source");
     }
@@ -14,6 +16,17 @@ pub fn get_source_directory_from_path(path: &std::path::PathBuf) -> PathBuf {
         return path.to_path_buf();
     }
 }
+
+
+pub fn get_mmk_library_file_from_path(path: &PathBuf) -> Result<PathBuf, MyMakeError> {
+    if path.join("lib.mmk").is_file() {
+        return Ok(path.join("lib.mmk"));
+    }
+    else {
+        return Err(MyMakeError::from(format!("{:?} does not contain a lib.mmk file!", path)));
+    }
+}
+
 
 pub fn is_source_directory(path: &Path) -> bool {
     (path.ends_with("source") || path.ends_with("src"))
@@ -29,6 +42,11 @@ pub fn is_test_directory(path: &Path) -> bool {
 pub fn get_head_directory(path: &Path) -> &Path {
     let part_to_strip = path.parent().unwrap();
     return path.strip_prefix(part_to_strip).unwrap()
+}
+
+
+pub fn directory_exists(path: &Path) -> bool {
+    path.exists()
 }
 
 

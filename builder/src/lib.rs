@@ -190,15 +190,15 @@ impl Builder {
     }
 
 
-    pub fn clean(&self) -> Result<(), MyMakeError> {
-        if let Some(top_dependency) = &self.top_dependency {
-            clean::clean(top_dependency)?;
-        }
-        else {
-            return Err(MyMakeError::from(String::from("builder.clean(): Unexpected call of function.")));
-        }
-        Ok(())
-    }
+    // pub fn clean(&self) -> Result<(), MyMakeError> {
+    //     if let Some(top_dependency) = &self.top_dependency {
+    //         clean::clean(top_dependency)?;
+    //     }
+    //     else {
+    //         return Err(MyMakeError::from(String::from("builder.clean(): Unexpected call of function.")));
+    //     }
+    //     Ok(())
+    // }
 }
 
 //TODO: Skriv om testene for Builder slik at det stemmer med funksjonalitet.
@@ -243,14 +243,14 @@ mod tests {
     #[test]
     fn read_mmk_files_one_file() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (dir, _, mut file, mut expected) = make_mmk_file("example");
+        let (_dir, test_file_path, mut file, mut expected) = make_mmk_file("example");
         
         write!(
             file,
             "MMK_EXECUTABLE:
                 x
             ")?;
-        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
         expected
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
@@ -262,14 +262,14 @@ mod tests {
     #[test]
     fn add_generator() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (dir, _, mut file, _) = make_mmk_file("example");
+        let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
         
         write!(
             file,
             "MMK_EXECUTABLE:
                 x
             ")?;
-        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
 
         builder.add_generator();
         assert!(builder.generator.is_some());
@@ -280,7 +280,7 @@ mod tests {
     // #[test]
     // fn read_mmk_files_one_file_generate_makefile() -> std::io::Result<()> {
     //     let mut builder = Builder::new();
-    //     let (dir, _, mut file, _) = make_mmk_file("example");
+    //     let (dir, test_file_path, mut file, _) = make_mmk_file("example");
         
     //     write!(
     //         file,
@@ -288,7 +288,7 @@ mod tests {
     //             x
     //         ")?;
     
-    //     assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
+    //     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
     //     builder.add_generator();
 
     //     assert!(builder.generate_makefiles().is_ok());
@@ -299,8 +299,8 @@ mod tests {
     #[test]
     fn read_mmk_files_two_files() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (dir, _, mut file, mut expected_1)     = make_mmk_file("example");
-        let (dir_dep, _, _file_dep, _) = make_mmk_file("example_dep");
+        let (_dir, test_file_path, mut file, _)     = make_mmk_file("example");
+        let (_dir_dep, test_file_dep_path, _file_dep, _) = make_mmk_file("example_dep");
 
         write!(
             file,
@@ -312,29 +312,21 @@ mod tests {
         MMK_EXECUTABLE:
             x
         ",
-            &dir_dep.path().to_str().unwrap().to_string()
+            &test_file_dep_path.parent().unwrap().to_str().unwrap().to_string()
         )?;
 
-        expected_1.data.insert(
-            String::from("MMK_DEPEND"),
-            vec![dir_dep.path().to_str().unwrap().to_string()],
-        );
-        expected_1
-            .data
-            .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-
-        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
         Ok(())
     }
 
     #[test]
     fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (dir, _, mut file, mut expected_1) 
+        let (_dir, test_file_path, mut file, _) 
             = make_mmk_file("example");
-        let (dir_dep, _, _file_dep, _) 
+        let (_dir_dep, test_file_dep_path, _file_dep, _) 
             = make_mmk_file("example_dep");
-        let (second_dir_dep, _, _file_second_file_dep, _) 
+        let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) 
             = make_mmk_file("example_dep");
 
         write!(
@@ -347,31 +339,22 @@ mod tests {
         \n
         MMK_EXECUTABLE:
             x",
-            &dir_dep.path().to_str().unwrap().to_string(),
-            &second_dir_dep.path().to_str().unwrap().to_string()
+            &test_file_dep_path.parent().unwrap().to_str().unwrap().to_string(),
+            &test_file_second_dep_path.parent().unwrap().to_str().unwrap().to_string()
         )?;
 
-        expected_1.data.insert(
-            String::from("MMK_DEPEND"),
-            vec![dir_dep.path().to_str().unwrap().to_string(),
-                 second_dir_dep.path().to_str().unwrap().to_string()],
-        );
-        expected_1
-            .data
-            .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-
-        assert!((builder.read_mmk_files_from_path(&dir.path().to_path_buf())).is_ok());
+        assert!((builder.read_mmk_files_from_path(&test_file_path)).is_ok());
         Ok(())
     }
 
     #[test]
     fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (dir, _, mut file, mut expected_1) 
+        let (_dir, test_file_path, mut file, _) 
         = make_mmk_file("example");
-    let (dir_dep, _, mut file_dep, mut expected_2) 
+    let (_dir_dep, test_file_dep_path, mut file_dep, _) 
         = make_mmk_file("example_dep");
-    let (second_dir_dep, _, _file_second_file_dep, _) 
+    let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) 
         = make_mmk_file("example_dep_second");
 
         write!(
@@ -382,7 +365,7 @@ mod tests {
         \n
         MMK_EXECUTABLE:
             x",
-            &dir_dep.path().to_str().unwrap().to_string())?;
+            &test_file_dep_path.parent().unwrap().to_str().unwrap().to_string())?;
 
         write!(
             file_dep,
@@ -391,34 +374,22 @@ mod tests {
             {}
         \n
         ",
-        &second_dir_dep.path().to_str().unwrap().to_string())?;
+        &test_file_second_dep_path.parent().unwrap().to_str().unwrap().to_string())?;
 
-        expected_1.data.insert(
-            String::from("MMK_DEPEND"),
-            vec![dir_dep.path().to_str().unwrap().to_string()],
-        );
-        expected_1
-            .data
-            .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-
-        expected_2
-            .data
-            .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
-
-        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
         Ok(())
     }
 
     #[test]
     fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std::io::Result<()> {
         let mut builder = Builder::new();
-        let (dir, _, mut file, mut expected_1) 
+        let (_dir, test_file_path, mut file, _) 
         = make_mmk_file("example");
-    let (dir_dep, _, mut file_dep, mut expected_2) 
+    let (_dir_dep, test_file_dep_path, mut file_dep, _) 
         = make_mmk_file("example_dep");
-    let (second_dir_dep, _, _file_second_file_dep, _) 
+    let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) 
         = make_mmk_file("example_dep_second");
-    let (third_dir_dep, _, _file_third_file_dep, _) 
+    let (_third_dir_dep, test_file_third_dep_path, _file_third_file_dep, _) 
         = make_mmk_file("example_dep_third");
 
         write!(
@@ -430,8 +401,8 @@ mod tests {
         \n
         MMK_EXECUTABLE:
             x",            
-            &third_dir_dep.path().to_str().unwrap().to_string(),
-            &dir_dep.path().to_str().unwrap().to_string())?;
+            &test_file_third_dep_path.parent().unwrap().to_str().unwrap().to_string(),
+            &test_file_dep_path.parent().unwrap().to_str().unwrap().to_string())?;
 
         write!(
             file_dep,
@@ -440,31 +411,16 @@ mod tests {
             {}
         \n
         ",
-        &second_dir_dep.path().to_str().unwrap().to_string())?;
-
+        &test_file_second_dep_path.parent().unwrap().to_str().unwrap().to_string())?;
         
-
-        expected_1.data.insert(
-            String::from("MMK_DEPEND"),
-            vec![third_dir_dep.path().to_str().unwrap().to_string(),
-                 dir_dep.path().to_str().unwrap().to_string()],
-        );
-        expected_1
-            .data
-            .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
-
-        expected_2
-            .data
-            .insert(String::from("MMK_DEPEND"), vec![second_dir_dep.path().to_str().unwrap().to_string()]);
-        
-        assert!(builder.read_mmk_files_from_path(&dir.path().to_path_buf()).is_ok());
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
         Ok(())
     }
     #[test]
     fn read_mmk_files_two_files_circulation() -> Result<(), MyMakeError> {
         let mut builder = Builder::new();
-        let (dir, _, mut file, _expected_1)              = make_mmk_file("example");
-        let (dir_dep, _test_file_dep_path, mut file_dep, _expected_2) = make_mmk_file("example_dep");
+        let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
+        let (_dir_dep, test_file_dep_path, mut file_dep, _) = make_mmk_file("example_dep");
 
         write!(
             file,
@@ -475,7 +431,7 @@ mod tests {
         
         MMK_EXECUTABLE:
             x",
-            &dir_dep.path().to_str().unwrap().to_string()
+            &test_file_dep_path.parent().unwrap().to_str().unwrap().to_string()
         ).unwrap();
 
         write!(
@@ -483,10 +439,10 @@ mod tests {
             "\
             MMK_DEPEND:
                 {}
-        \n", &dir.path().to_str().unwrap().to_string()
+        \n", &test_file_path.parent().unwrap().to_str().unwrap().to_string()
         ).unwrap();
 
-        let result = builder.read_mmk_files_from_path(&dir.path().to_path_buf());
+        let result = builder.read_mmk_files_from_path(&test_file_path);
 
         assert!(result.is_err());
         Ok(())

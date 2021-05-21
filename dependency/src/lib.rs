@@ -91,7 +91,7 @@ impl Dependency {
                 }
 
                 let mmk_path = std::path::PathBuf::from(path);
-                let dep_path = utility::get_source_directory_from_path(&mmk_path).join("lib.mmk");
+                let dep_path = &mmk_path.join("lib.mmk");
                 
                 if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {
                     self.detect_cycle_from_dependency(&dependency)?;
@@ -222,7 +222,6 @@ impl Dependency {
             let root_path = self.path.parent().unwrap().parent().unwrap();
             library_name = utility::get_head_directory(root_path)
                                                         .to_str().unwrap().to_string();
-                                                        //root_path.strip_prefix(prefix).unwrap().to_str().unwrap().to_string();
         }
         self.library_name.push_str("lib");
         self.library_name.push_str(&library_name);

@@ -9,6 +9,8 @@ use error::MyMakeError;
 
 use unwrap_or_terminate::MyMakeUnwrap;
 
+use std::io::Write;
+
 /*
 TODO: 
     *Builder: *Generere dependency graph. Finne ut hva som skal bygges i riktig rekkefølge
@@ -54,7 +56,10 @@ fn main() -> Result<(), MyMakeError> {
     let myfile = command_line.validate_file_path();
     let mut builder = Builder::new();    
 
+    print!("MyMake: Reading MyMake files");
+    std::io::stdout().flush().unwrap();
     builder.read_mmk_files_from_path(&myfile).unwrap_or_terminate();
+    println!();
     builder.add_generator();
     command_line.parse_command_line(&mut builder).unwrap_or_terminate();
 

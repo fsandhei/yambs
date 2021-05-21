@@ -26,7 +26,7 @@ impl<'a> CommandLine<'a> {
                         .help("Input file for MyMake."))
             .arg(Arg::with_name("clean")
                         .long("clean")
-                        .help("Removes .build directories, cleaning the project."))
+                        .help("Removes .build directories, cleaning the project. WARNING: Deprecated. Delete build directory manually instead."))
             .arg(Arg::with_name("runtime configurations")
                         .short("r")
                         .value_delimiter(",")

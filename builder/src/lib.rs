@@ -2,7 +2,6 @@ use dependency::{Dependency, DependencyRegistry, DependencyNode};
 use error::MyMakeError;
 use generator::MmkGenerator;
 use std::env;
-use std::io::{self, Write};
 use colored::Colorize;
 use std::process::Output;
 use std::rc::Rc;
@@ -21,6 +20,7 @@ pub struct Builder {
     debug: bool,
     verbose: bool,
     make: Make,
+    top_build_directory: Option<PathBuf>
 }
 
 
@@ -33,15 +33,18 @@ impl Builder {
             debug: false,
             verbose: false,
             make: Make::new(),
+            top_build_directory: Some(env::current_dir().unwrap())
         }
     }
 
 
     pub fn add_generator(&mut self) {
         if let Some(top_dependency) = &self.top_dependency {
-            self.generator = Some(MmkGenerator::new(&top_dependency, 
-                env::current_dir().unwrap())
-                            .unwrap())
+            self.generator = Some(MmkGenerator::new(&top_dependency, self.top_build_directory
+                                                                                        .as_ref()
+                                                                                        .unwrap()
+                                                                                        .to_owned())
+                                                                                        .unwrap())
         }
     }
 
@@ -92,11 +95,8 @@ impl Builder {
 
 
     pub fn read_mmk_files_from_path(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
-        print!("MyMake: Reading MyMake files");
-        io::stdout().flush().unwrap();
         let top_dependency = Dependency::create_dependency_from_path(&top_path, &mut self.dep_registry)?;
-        self.top_dependency = Some(Rc::clone(&top_dependency));
-        println!();
+        self.top_dependency = Some(Rc::clone(&top_dependency));        
         Ok(())
     }
 
@@ -127,7 +127,7 @@ impl Builder {
             else {
                 println!("MyMake: {}", "Build FAILED".red());
             }
-            let log_path = env::current_dir().unwrap().join("mymake_log.txt");
+            let log_path = self.top_build_directory.as_ref().unwrap().join("mymake_log.txt");
             println!("MyMake: Build log available at {:?}", log_path);
         }
         Ok(())
@@ -141,12 +141,23 @@ impl Builder {
         let build_directory = self.resolve_build_directory(build_path);
 
         for required_dependency in dependency.borrow().requires().borrow().iter() {
-            if required_dependency.borrow().is_build_completed() {
-                continue;
-            }
-            
             let build_path_dep = &build_directory.join("libs")
-                                                         .join(required_dependency.borrow().get_project_name());
+                                            .join(required_dependency.borrow().get_project_name());
+
+            if required_dependency.borrow().is_build_completed() {
+                // Finn her directory til prosjektet, dvs. top-directory for bygget
+                let top_build_directory_resolved = self.resolve_build_directory(self.top_build_directory.as_ref().unwrap());
+
+                // Deretter (kanskje) lage symlink mellom required_dependency og dependency-mappa til dependeny-to-be-built.
+                let directory_to_link = top_build_directory_resolved.join("libs").join(required_dependency.borrow().get_project_name());
+
+                if !build_path_dep.is_dir() {
+                    std::os::unix::fs::symlink(directory_to_link, build_path_dep)?;
+                }                
+                
+                // Se eventuelt etter annen løsning.
+                continue;
+            }            
             
             required_dependency.borrow_mut().building();
             let dep_output = self.build_dependency(&required_dependency,

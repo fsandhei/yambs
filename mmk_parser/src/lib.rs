@@ -8,6 +8,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use error::MyMakeError;
 use regex::Regex;
+use utility;
 
 // Pretty assertions only for testing.
 #[cfg(test)]
@@ -51,19 +52,18 @@ impl Mmk {
     }
 
 
-    pub fn get_include_directories(&self) -> String {
+    pub fn get_include_directories(&self) -> Result<String, MyMakeError> {
         if self.data.contains_key("MMK_DEPEND") {
             let mut formatted_string = String::new();
             for dep_path_as_string in &self.data["MMK_DEPEND"] {
                 formatted_string.push_str("-I");
-                let mut dep_path = PathBuf::from(dep_path_as_string);
-                dep_path.push("include");
+                let dep_path = utility::get_include_directory_from_path(&PathBuf::from(dep_path_as_string))?;
                 formatted_string.push_str(dep_path.to_str().unwrap());
                 formatted_string.push_str(" ");
             }
-            return formatted_string.trim_end().to_string();
+            return Ok(formatted_string.trim_end().to_string());
         }
-        String::from("")
+        Ok(String::from(""))
     }
 
 
@@ -201,6 +201,7 @@ pub fn remove_comments(data: &String) -> String {
 pub mod tests
 {
     use super::*;
+    use tempdir::TempDir;
     #[test]
     fn test_mmk_file_reader()
     {
@@ -413,12 +414,20 @@ MMK_EXECUTABLE:
     }
 
     #[test]
-    fn get_include_directories_for_make_test() {
+    fn get_include_directories_for_make_test() -> std::io::Result<()> {
         let mut mmk_content = Mmk::new();
-        let content: String = String::from("MMK_DEPEND:\n\
-                                                /some/path/to/depend/on");
+        let dir = TempDir::new("example")?;
+        let src_dir = dir.path().join("src");
+        let include_dir = dir.path().join("include");
+        utility::create_dir(&include_dir).unwrap();
+        let content: String = format!("MMK_DEPEND:\n\
+                                          {}", src_dir.to_str().unwrap());
+
         mmk_content.parse(&content).unwrap();
-        assert_eq!(mmk_content.get_include_directories(), String::from("-I/some/path/to/depend/on/include"));
+        let actual = mmk_content.get_include_directories();
+        assert!(actual.is_ok());
+        assert_eq!(actual.unwrap(), format!("-I{}", include_dir.to_str().unwrap()));
+        Ok(())
     }
 
 

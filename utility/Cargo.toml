@@ -8,3 +8,6 @@ edition = "2018"
 
 [dependencies]
 error = { path = "../error" }
+
+[dev-dependencies]
+tempdir = "0.3.7"

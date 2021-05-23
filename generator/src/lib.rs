@@ -88,7 +88,7 @@ impl MmkGenerator {
 
 
     // TODO: Make function return Result<String, MyMakeError>?
-    pub fn make_object_rule(&self, mmk_data: &mmk_parser::Mmk) -> String {
+    fn make_object_rule(&self, mmk_data: &mmk_parser::Mmk) -> String {
         let mut formatted_string = String::new();
         let borrowed_dependency = self.dependency.borrow();
         let mut object = String::new();
@@ -149,7 +149,7 @@ impl MmkGenerator {
     }
 
 
-    pub fn print_required_dependencies_libraries(self: &Self) -> String {
+    fn print_required_dependencies_libraries(self: &Self) -> String {
         let mut formatted_string = String::new();
         for dependency in  self.dependency.borrow().requires().borrow().iter() {
             if dependency.borrow().library_name() != "" {
@@ -217,7 +217,7 @@ impl MmkGenerator {
 
 
     fn print_dependencies(&self) -> String {
-        let mut formatted_string = self.dependency.borrow().mmk_data().get_include_directories();
+        let mut formatted_string = self.dependency.borrow().mmk_data().get_include_directories().unwrap();
         if self.dependency.borrow().mmk_data().has_system_include() {
             formatted_string.push_str(" ");
             formatted_string.push_str(&self.dependency.borrow().mmk_data().to_string("MMK_SYS_INCLUDE"));
@@ -556,13 +556,18 @@ mod tests {
     #[test]
     fn generate_package_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
+        let dir_first_dep = TempDir::new("example_dep")?;
+        let dir_second_dep = TempDir::new("example_new_dep")?;
         let output_dir = TempDir::new("build")?;
-        let source_dir = dir.path().join("source");
-        utility::create_dir(&source_dir).unwrap();
+        let include_dir = dir.path().join("include");
+        utility::create_dir(&include_dir).unwrap();
+        utility::create_dir(dir_first_dep.path().join("include")).unwrap();
+        utility::create_dir(dir_second_dep.path().join("include")).unwrap();
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
         dependency.borrow_mut().mmk_data_mut().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
         dependency.borrow_mut().add_library_name();
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
+                                                                                               dir_second_dep.path().to_str().unwrap().to_string()]);
 
         let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         gen.create_makefile();
@@ -580,17 +585,20 @@ mod tests {
         \n\
         {directory}/filename.o: \\\n\
         \t{dep_directory}/filename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency/include -I/some/new/dependency/include $< -c -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
         \n\
         {directory}/ofilename.o: \\\n\
         \t{dep_directory}/ofilename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency/include -I/some/new/dependency/include $< -c -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
         \n\
         sinclude {directory}/filename.d\n\
         sinclude {directory}/ofilename.d\n\
         \n", 
         directory = output_dir.path().to_str().unwrap(),
-        dep_directory = dependency.borrow().get_parent_directory().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        dep_directory = dependency.borrow().get_parent_directory().to_str().unwrap(),
+        dir_dep_str = dir_first_dep.path().to_str().unwrap().to_string(),
+        dir_second_dep_str = dir_second_dep.path().to_str().unwrap().to_string()),
+        fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
 
@@ -598,13 +606,19 @@ mod tests {
     #[test]
     fn generate_executable_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let source_dir = dir.path().join("source");
-        utility::create_dir(&source_dir).unwrap();
+        let dir_first_dep = TempDir::new("example_dep")?;
+        let dir_second_dep = TempDir::new("example_new_dep")?;
         let output_dir = TempDir::new("build")?;
+        let include_dir = dir.path().join("include");
+        utility::create_dir(&include_dir).unwrap();
+        utility::create_dir(dir_first_dep.path().join("include")).unwrap();
+        utility::create_dir(dir_second_dep.path().join("include")).unwrap();
+
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
         dependency.borrow_mut().mmk_data_mut().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
         dependency.borrow_mut().mmk_data_mut().data.insert("MMK_EXECUTABLE".to_string(), vec!["x".to_string()]);
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
+                                                                                               dir_second_dep.path().to_str().unwrap().to_string()]);
         let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         gen.create_makefile();
         let test_file = gen.output_directory.join("makefile");
@@ -617,21 +631,24 @@ mod tests {
         \t{directory}/filename.o \\\n\
         \t{directory}/ofilename.o \\\n\
         \t-lstdc++\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency/include -I/some/new/dependency/include $^ -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dir_dep_str}/include -I{dir_second_dep_str}/include $^ -o $@)\n\
         \n\
         {directory}/filename.o: \\\n\
         \t{dep_directory}/filename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency/include -I/some/new/dependency/include $< -c -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
         \n\
         {directory}/ofilename.o: \\\n\
         \t{dep_directory}/ofilename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency/include -I/some/new/dependency/include $< -c -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
         \n\
         sinclude {directory}/filename.d\n\
         sinclude {directory}/ofilename.d\n\
         \n",
         directory = output_dir.path().to_str().unwrap(),
-        dep_directory = dependency.borrow().get_parent_directory().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        dep_directory = dependency.borrow().get_parent_directory().to_str().unwrap(),
+        dir_dep_str = dir_first_dep.path().to_str().unwrap().to_string(),
+        dir_second_dep_str = dir_second_dep.path().to_str().unwrap().to_string()),
+        fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
 
@@ -702,6 +719,71 @@ mod tests {
                                        sinclude {directory}/ofilename.d\n",
                                        directory = output_dir.path().to_str().unwrap());
         assert_eq!(actual, expected);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_dependencies_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dir_first_dep = TempDir::new("example_dep")?;
+        let dir_second_dep = TempDir::new("example_second_dep")?;
+        let dep_include_dir = dir_first_dep.path().join("include");
+        let second_dep_include_dir = dir_second_dep.path().join("include");
+        utility::create_dir(&dep_include_dir).unwrap();
+        utility::create_dir(&second_dep_include_dir).unwrap();
+        
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
+                                                                                               dir_second_dep.path().to_str().unwrap().to_string()]);
+
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+        let expected = format!("-I{} -I{}", dep_include_dir.to_str().unwrap(), second_dep_include_dir.to_str().unwrap());
+        let actual = gen.print_dependencies();
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_dependencies_with_sys_include_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dir_first_dep = TempDir::new("example_dep")?;
+        let dir_second_dep = TempDir::new("example_second_dep")?;
+        let dep_include_dir = dir_first_dep.path().join("include");
+        let second_dep_include_dir = dir_second_dep.path().join("include");
+        utility::create_dir(&dep_include_dir).unwrap();
+        utility::create_dir(&second_dep_include_dir).unwrap();
+        
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_SYS_INCLUDE".to_string(), vec![dir_second_dep.path().to_str().unwrap().to_string()]);
+
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+        let expected = format!("-I{} -isystem {}", dep_include_dir.to_str().unwrap(), dir_second_dep.path().to_str().unwrap());
+        let actual = gen.print_dependencies();
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_dependencies_with_only_sys_include_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dir_dep = TempDir::new("example_dep")?;
+        let dep_include_dir = dir_dep.path().join("include");
+        utility::create_dir(&dep_include_dir).unwrap();
+        
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_SYS_INCLUDE".to_string(), vec![dir_dep.path().to_str().unwrap().to_string()]);
+
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+        let expected = format!(" -isystem {}", dir_dep.path().to_str().unwrap());
+        let actual = gen.print_dependencies();
+        assert_eq!(expected, actual);
         Ok(())
     }
 }

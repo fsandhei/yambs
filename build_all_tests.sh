@@ -11,7 +11,7 @@ build_mymake()
 {
    echo "Building latest version of MyMake."
    cd $ROOT_DIR
-   $CARGO build
+   $CARGO build --release
 }
 
 
@@ -64,6 +64,8 @@ test_mymake_with_one_dependency_build()
 
 int main()
 {
+   A a;
+   a.hello();
    std::cout << "Minimum build with one dependency test successful!\n";
 }
 
@@ -152,6 +154,7 @@ cargo_test "${ROOT_DIR}/mmk_parser"
 cargo_test "${ROOT_DIR}/builder"
 cargo_test "${ROOT_DIR}/dependency"
 cargo_test "${ROOT_DIR}/generator"
+cargo_test "${ROOT_DIR}/utility"
 
 test_mymake_minimal_build
 test_mymake_with_one_dependency_build

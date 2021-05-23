@@ -751,7 +751,7 @@ mod tests {
 
     #[test]
     fn read_mmk_files_two_files_circulation() -> Result<(), MyMakeError> {
-        let (dir, test_file_path, mut file, _expected_1)              = make_mmk_file("example");
+        let (_dir, test_file_path, mut file, _expected_1)              = make_mmk_file("example");
         let (_dir_dep, test_file_dep_path, mut file_dep, _expected_2) = make_mmk_file("example_dep");
 
         write!(
@@ -771,7 +771,7 @@ mod tests {
             "\
             MMK_DEPEND:
                 {}
-        \n", &dir.path().to_str().unwrap().to_string()
+        \n", &test_file_path.parent().unwrap().to_str().unwrap().to_string()
         ).unwrap();
 
         let mut dep_registry = DependencyRegistry::new();
@@ -783,7 +783,7 @@ mod tests {
 
     #[test]
     fn read_mmk_files_four_files_one_dependency_serial_and_one_circular_serial() -> std::io::Result<()> {
-        let (dir, test_file_path, mut file, _expected_1) 
+        let (_dir, test_file_path, mut file, _expected_1) 
             = make_mmk_file("example");
         let (_dir_dep, test_file_dep_path, mut file_dep, _expected_2) 
             = make_mmk_file("example_dep");
@@ -816,7 +816,7 @@ mod tests {
             {}
         \n
         ",
-        &dir.path().to_str().unwrap().to_string())?;
+        &test_file_path.parent().unwrap().to_str().unwrap().to_string())?;
 
         let mut dep_registry = DependencyRegistry::new();
         let top_dependency = Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry);

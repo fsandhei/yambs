@@ -66,6 +66,16 @@ pub fn remove_dir(dir: &std::path::PathBuf) -> Result<(), MyMakeError> {
 }
 
 
+pub fn create_symlink<D, S>(destination: D, source: S) -> Result<(), MyMakeError> 
+    where D: AsRef<Path>,
+          S: AsRef<Path> {
+    match std::os::unix::fs::symlink(destination.as_ref(), source.as_ref()) {
+        Ok(()) => Ok(()),
+        Err(err) => Err(MyMakeError::from(format!("Error: Could not create symlink between {:?} and {:?}: {}", destination.as_ref(), source.as_ref(), err))),
+    }
+}
+
+
 pub fn create_file(dir: &PathBuf, filename: &str) -> Result<File, MyMakeError> {
     let file = dir.join(filename);
     if file.is_file() {

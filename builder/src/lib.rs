@@ -55,18 +55,25 @@ impl Builder {
 
 
     pub fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
-        self.generator.as_mut().unwrap().use_std(version)
+        if self.generator.is_some() {
+            return self.generator.as_mut().unwrap().use_std(version);
+        }
+        Ok(())
     }
 
     
     pub fn debug(&mut self) {
         self.debug = true;
-        self.generator.as_mut().unwrap().debug();
+        if self.generator.is_some() {
+            self.generator.as_mut().unwrap().debug();
+        }
     }
 
 
     pub fn release(&mut self) {
-        self.generator.as_mut().unwrap().release();
+        if self.generator.is_some() {
+            self.generator.as_mut().unwrap().release();
+        }
     }
 
 
@@ -113,7 +120,6 @@ impl Builder {
 
 
     pub fn build_project(&mut self) -> Result<(), MyMakeError> {
-        println!("MyMake: Building...");
         self.create_log_file()?;
         let build_directory = std::env::current_dir().unwrap();
         
@@ -145,15 +151,12 @@ impl Builder {
                                             .join(required_dependency.borrow().get_project_name());
 
             if required_dependency.borrow().is_build_completed() {
-                // Finn her directory til prosjektet, dvs. top-directory for bygget
                 let top_build_directory_resolved = self.resolve_build_directory(self.top_build_directory.as_ref().unwrap());
-
-                // Deretter (kanskje) lage symlink mellom required_dependency og dependency-mappa til dependeny-to-be-built.
                 let directory_to_link = top_build_directory_resolved.join("libs").join(required_dependency.borrow().get_project_name());
 
                 if !build_path_dep.is_dir() {
-                    std::os::unix::fs::symlink(directory_to_link, build_path_dep)?;
-                }                
+                    utility::create_symlink(directory_to_link,build_path_dep)?;
+                }
                 
                 // Se eventuelt etter annen løsning.
                 continue;
@@ -172,7 +175,7 @@ impl Builder {
         dependency.borrow_mut().building();
         
         self.change_directory(build_directory, verbosity);
-        Builder::construct_build_message(dependency);
+        println!("{}", Builder::construct_build_message(dependency));
         
         let output = self.make.spawn()?;
         dependency.borrow_mut().build_complete();
@@ -180,7 +183,7 @@ impl Builder {
         Ok(output)
     }
 
-    // Lag test til denne
+
     fn resolve_build_directory(&self, path: &PathBuf) -> PathBuf {
         if self.debug {
             return path.join("debug");
@@ -191,7 +194,7 @@ impl Builder {
     }
 
 
-    pub fn construct_build_message(dependency: &DependencyNode) {
+    fn construct_build_message(dependency: &DependencyNode) -> String {
         let dep_type: &str;
         let dep_type_name: String;
         
@@ -205,7 +208,7 @@ impl Builder {
         }
         let green_building = format!("{}", "Building".green());
         let target = format!("{} {:?}", dep_type, dep_type_name);
-        println!("{} {}", green_building, target);
+        format!("{} {}", green_building, target)
     }
 
 
@@ -217,17 +220,6 @@ impl Builder {
         self.make.log_text(message).unwrap();
         std::env::set_current_dir(directory).unwrap()
     }
-
-
-    // pub fn clean(&self) -> Result<(), MyMakeError> {
-    //     if let Some(top_dependency) = &self.top_dependency {
-    //         clean::clean(top_dependency)?;
-    //     }
-    //     else {
-    //         return Err(MyMakeError::from(String::from("builder.clean(): Unexpected call of function.")));
-    //     }
-    //     Ok(())
-    // }
 }
 
 //TODO: Skriv om testene for Builder slik at det stemmer med funksjonalitet.
@@ -284,24 +276,6 @@ mod tests {
             .data
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
         assert_eq!(builder.top_dependency.unwrap().borrow().mmk_data(), &expected);
-        Ok(())
-    }
-
-
-    #[test]
-    fn add_generator() -> std::io::Result<()> {
-        let mut builder = Builder::new();
-        let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
-        
-        write!(
-            file,
-            "MMK_EXECUTABLE:
-                x
-            ")?;
-        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
-
-        builder.add_generator();
-        assert!(builder.generator.is_some());
         Ok(())
     }
 
@@ -474,6 +448,60 @@ mod tests {
         let result = builder.read_mmk_files_from_path(&test_file_path);
 
         assert!(result.is_err());
+        Ok(())
+    }
+
+
+    #[test]
+    fn add_generator() -> std::io::Result<()> {
+        let mut builder = Builder::new();
+        let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
+        
+        write!(
+            file,
+            "MMK_EXECUTABLE:
+                x
+            ")?;
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+
+        builder.add_generator();
+        assert!(builder.generator.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_build_directory_debug() {
+        let mut builder = Builder::new();
+        builder.debug();
+        let path = PathBuf::from("some/path");
+        let expected = path.join("debug");
+        assert_eq!(builder.resolve_build_directory(&path), expected);
+    }
+
+    #[test]
+    fn resolve_build_directory_release() {
+        let builder = Builder::new();
+        let path = PathBuf::from("some/path");
+        let expected = path.join("release");
+        assert_eq!(builder.resolve_build_directory(&path), expected);
+    }
+
+
+    #[test]
+    fn construct_build_message_executable() -> std::io::Result<()> {
+        let mut builder = Builder::new();
+        let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
+        
+        write!(
+            file,
+            "MMK_EXECUTABLE:
+                x
+            ")?;
+        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+        let green_text = "Building".green();
+        let expected_message = format!("{} executable \"x\"", green_text);
+        let borrowed_dependency = builder.top_dependency.unwrap();
+        assert_eq!(Builder::construct_build_message(&borrowed_dependency), expected_message);
         Ok(())
     }
 }

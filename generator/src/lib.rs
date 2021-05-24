@@ -165,7 +165,7 @@ impl MmkGenerator {
                 formatted_string.push_str("\t");
                 print_full_path(&mut formatted_string, 
                                 output_directory.to_str().unwrap(),
-                                &required_dep.library_name(),
+                                &required_dep.library_file_name(),
                                 false);
             }
         }
@@ -182,10 +182,19 @@ impl MmkGenerator {
 
     fn print_library_name(&self) -> String {
         let mut formatted_string = String::new();
-        print_full_path(&mut formatted_string,
-                        self.output_directory.to_str().unwrap(),
-                        &self.dependency.borrow().library_name(),
-                        true);
+        if self.dependency.borrow().mmk_data().has_library_label() {
+            print_full_path(&mut formatted_string,
+                            self.output_directory.to_str().unwrap(),
+                            &self.dependency.borrow().library_file_name(),
+                            true);
+        }
+        else {
+            print_full_path(&mut formatted_string,
+                            self.output_directory.to_str().unwrap(),
+                            &self.dependency.borrow().library_name(),
+                            true);
+        }
+        
         formatted_string
     }
 
@@ -733,6 +742,7 @@ mod tests {
         let output_dir = TempDir::new("build")?;
         let dir_first_dep = TempDir::new("example_dep")?;
         let dir_second_dep = TempDir::new("example_second_dep")?;
+        
         let dep_include_dir = dir_first_dep.path().join("include");
         let second_dep_include_dir = dir_second_dep.path().join("include");
         utility::create_dir(&dep_include_dir).unwrap();
@@ -756,6 +766,7 @@ mod tests {
         let output_dir = TempDir::new("build")?;
         let dir_first_dep = TempDir::new("example_dep")?;
         let dir_second_dep = TempDir::new("example_second_dep")?;
+
         let dep_include_dir = dir_first_dep.path().join("include");
         let second_dep_include_dir = dir_second_dep.path().join("include");
         utility::create_dir(&dep_include_dir).unwrap();
@@ -778,8 +789,6 @@ mod tests {
         let dir = TempDir::new("example")?;
         let output_dir = TempDir::new("build")?;
         let dir_dep = TempDir::new("example_dep")?;
-        let dep_include_dir = dir_dep.path().join("include");
-        utility::create_dir(&dep_include_dir).unwrap();
         
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
         dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SYS_INCLUDE".to_string(), vec![dir_dep.path().to_str().unwrap().to_string()]);
@@ -797,8 +806,6 @@ mod tests {
         let dir = TempDir::new("example")?;
         let output_dir = TempDir::new("build")?;
         let dir_dep = TempDir::new("example_dep")?;
-        let dep_include_dir = dir_dep.path().join("include");
-        utility::create_dir(&dep_include_dir).unwrap();
 
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
         let dependency_dep = Rc::new(RefCell::new(Dependency::from(&dir_dep.path().join("lib.mmk"))));
@@ -810,7 +817,7 @@ mod tests {
         let expected = format!("\t{directory}/libs/{dep_directory}/release/{library_name} \\\n",
                                      directory = output_dir.path().to_str().unwrap(),
                                      dep_directory = dependency_dep.borrow().get_project_name().to_str().unwrap(),
-                                     library_name = dependency_dep.borrow().library_name());
+                                     library_name = dependency_dep.borrow().library_file_name());
 
         let actual = gen.print_required_dependencies_libraries();
         assert_eq!(expected, actual);
@@ -823,8 +830,6 @@ mod tests {
         let dir = TempDir::new("example")?;
         let output_dir = TempDir::new("build")?;
         let dir_dep = TempDir::new("example_dep")?;
-        let dep_include_dir = dir_dep.path().join("include");
-        utility::create_dir(&dep_include_dir).unwrap();
 
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
         let dependency_dep = Rc::new(RefCell::new(Dependency::from(&dir_dep.path().join("lib.mmk"))));
@@ -842,10 +847,43 @@ mod tests {
                                      directory = output_dir.path().to_str().unwrap(),
                                      dep_directory = dependency_dep.borrow().get_project_name().to_str().unwrap(),
                                      second_dep_directory = second_dependency_dep.borrow().get_project_name().to_str().unwrap(),
-                                     library_name = dependency_dep.borrow().library_name(),
-                                     second_library_name = second_dependency_dep.borrow().library_name());
+                                     library_name = dependency_dep.borrow().library_file_name(),
+                                     second_library_name = second_dependency_dep.borrow().library_file_name());
 
         let actual = gen.print_required_dependencies_libraries();
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_library_name_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+
+        let expected = format!("{directory}/{library_file_name}",
+                                      directory = output_dir.path().to_str().unwrap(),
+                                      library_file_name = dependency.borrow().library_file_name());
+        let actual = gen.print_library_name();
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_library_name_with_label_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_LIBRARY_LABEL".to_string(), vec!["myDependency".to_string()]);
+        dependency.borrow_mut().add_library_name();
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+
+        let expected = format!("{directory}/libmyDependency.a",
+                                      directory = output_dir.path().to_str().unwrap());
+        let actual = gen.print_library_name();
         assert_eq!(expected, actual);
         Ok(())
     }

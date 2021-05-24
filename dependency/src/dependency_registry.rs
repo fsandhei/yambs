@@ -5,6 +5,8 @@ use std::rc::Rc;
 
 type DependencyNode = Rc<RefCell<Dependency>>;
 
+// LEGG TIL TESTER
+
 #[allow(dead_code)]
 pub struct DependencyRegistry{
     registry: Vec<DependencyNode>,

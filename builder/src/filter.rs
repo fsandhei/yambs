@@ -61,6 +61,14 @@ mod tests {
 
 
     #[test]
+    fn filter_string_nothing_to_filter_test() {
+        let input = String::from("This is a string with nothing to be filtered.");
+        let expected_output = input.clone();
+        assert_eq!(expected_output, filter_string(&input));
+    }
+
+
+    #[test]
     fn filter_string_remove_ar_creating_test() {
         let input = String::from("\nar: creating /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/googletest/");
         let expected_output = "";
@@ -69,13 +77,9 @@ mod tests {
     }
 
     #[test]
-    fn is_warning_message_test() {
-        let input = "/sadfasdfsaf/fasdfdf sadfasf fsadf [-Wunused-variable]";
-        let input_narrowing = "/sadfasdfsaf/fasdfdf sadfasf fsadf [-Wnarrowing]";
-        let input_uninitialized = "/sadfasdfsaf/fasdfdf sadfasf fsadf [-Wuninitialized]";
-        assert!(is_warning_message(&input) == true);
-        assert!(is_warning_message(&input_narrowing) == true);
-        assert!(is_warning_message(&input_uninitialized) == true);
+    fn is_warning_message_false_test() {
+        let input = "/sadfasdfsaf/fasdfdf sadfasf fsadf this is not a warning!";
+        assert!(is_warning_message(&input) == false);
     }
 
     #[test]
@@ -84,5 +88,12 @@ mod tests {
         /home/user/Documents/Tests/AStarPathFinder/PlanGenerator/test/PlanGeneratorTest.cpp:32:13: error: ‘dfasdf’
         was not declared in this scope";
         assert!(is_error_message(&input) == true);
+    }
+
+    #[test]
+    fn is_error_message_false_test() {
+        let input = "\
+        This is not an error!";
+        assert!(is_error_message(&input) == false);
     }
 }

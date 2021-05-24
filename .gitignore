@@ -1,5 +1,5 @@
 # General ignores
-*target/*
+target
 *.gv
 .vscode/
 *.build
@@ -25,3 +25,5 @@ error/Cargo.lock
 dependency/target
 dependency/Cargo.lock
 
+utility/target
+utility/Cargo.lock

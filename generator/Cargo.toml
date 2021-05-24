@@ -9,8 +9,9 @@ edition = "2018"
 [dependencies]
 error      = { path = "../error" }
 dependency = { path = "../dependency" }
+utility    = { path = "../utility" }
 mmk_parser = { path = "../mmk_parser"}
-tempdir = "0.3.7"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
+tempdir = "0.3.7"

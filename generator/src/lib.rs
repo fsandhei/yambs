@@ -1,14 +1,17 @@
 mod include_file_generator;
 mod generator;
+
 pub use crate::generator::Generator;
 pub use crate::include_file_generator::IncludeFileGenerator;
 
 use std::fs::File;
 use std::io::Write;
 use std::rc::Rc;
+use std::path::PathBuf;
 
 use dependency::DependencyNode;
 use error::MyMakeError;
+use utility;
 
 #[allow(dead_code)]
 pub struct MmkGenerator
@@ -18,26 +21,6 @@ pub struct MmkGenerator
     output_directory: std::path::PathBuf,
     debug: bool,
     include_file_generator: IncludeFileGenerator,
-}
-
-fn create_dir(dir: &std::path::PathBuf) -> Result<(), MyMakeError> {
-    if !dir.is_dir() {
-        std::fs::create_dir_all(&dir)?;
-    }
-    Ok(())
-}
-
-
-fn create_file(dir: &std::path::PathBuf, filename: &str) -> Result<File, MyMakeError> {
-    let file = dir.join(filename);
-    if file.is_file() {
-        match std::fs::remove_file(&file) {
-            Ok(()) => (),
-            Err(err) => return Err(MyMakeError::from(format!("Error removing {:?}: {}", file, err))),
-        };
-    }
-    let filename = File::create(&file)?;
-    Ok(filename)
 }
 
 
@@ -51,11 +34,11 @@ fn print_full_path(os: &mut String, dir: &str, filename: &str, no_newline: bool)
 }
 
 impl MmkGenerator {
-    pub fn new(dependency: &DependencyNode, build_directory: &std::path::PathBuf) -> Result<MmkGenerator, MyMakeError> {
-        let output_directory = dependency.borrow().path().parent().unwrap().join(&build_directory);
+    pub fn new(dependency: &DependencyNode, build_directory: std::path::PathBuf) -> Result<MmkGenerator, MyMakeError> {
+        let output_directory = build_directory;
         let include_output_directory = output_directory.join("make_include");
-        create_dir(&output_directory)?;
-        
+        utility::create_dir(&output_directory)?;
+
         Ok(MmkGenerator{ 
             filename: None, 
             dependency: dependency.clone(), 
@@ -66,8 +49,8 @@ impl MmkGenerator {
     }
 
 
-    pub fn replace_generator(&mut self, dependency: &DependencyNode, build_directory: &std::path::PathBuf) {
-        let gen = MmkGenerator::new(dependency, build_directory).unwrap();        
+    pub fn replace_generator(&mut self, dependency: &DependencyNode, build_directory: std::path::PathBuf) {
+        let gen = MmkGenerator::new(dependency, build_directory).unwrap();
         self.dependency       = gen.dependency;
         self.output_directory = gen.output_directory;
         let include_output_directory = self.output_directory.parent().unwrap().join("make_include");
@@ -77,23 +60,26 @@ impl MmkGenerator {
 
 
     pub fn create_makefile(&mut self) {
-        let filename = create_file(&self.output_directory, "makefile").unwrap();
+        let filename = utility::create_file(&self.output_directory, "makefile").unwrap();
         self.filename = Some(filename);
     }
 
 
     fn use_subdir(&mut self, dir: std::path::PathBuf) -> Result<(), MyMakeError>{
         let new_output_dir = self.output_directory.join(dir);
-        create_dir(&new_output_dir)?;
+        utility::create_dir(&new_output_dir)?;
         self.output_directory = new_output_dir;
         Ok(())
     }
 
 
     fn create_subdir(&self, dir: std::path::PathBuf) -> Result<(), MyMakeError> {
-        create_dir(&self.output_directory.join(dir))
+        utility::create_dir(&self.output_directory.join(dir))
     }
 
+    fn get_required_project_lib_dir(&self) -> PathBuf {
+        self.output_directory.join("libs")
+    }
 
     #[allow(dead_code)]
     fn pop_dir(&mut self) {
@@ -101,14 +87,14 @@ impl MmkGenerator {
     }
 
 
-    pub fn make_object_rule(&self, mmk_data: &mmk_parser::Mmk) -> String {
+    // TODO: Make function return Result<String, MyMakeError>?
+    fn make_object_rule(&self, mmk_data: &mmk_parser::Mmk) -> String {
         let mut formatted_string = String::new();
         let borrowed_dependency = self.dependency.borrow();
-        let parent_path = borrowed_dependency.path().parent().unwrap().to_str().unwrap();
-        let mut object = String::new();
 
-        if mmk_data.data.contains_key("MMK_SOURCES") {
-            for source in &mmk_data.data["MMK_SOURCES"] {
+        if mmk_data.data().contains_key("MMK_SOURCES") {
+            let mut object = String::new();
+            for source in &mmk_data.data()["MMK_SOURCES"] {
                 if let Some(source_path) = mmk_data.source_file_path(source) {
                     self.create_subdir(source_path).unwrap();
                 }
@@ -125,7 +111,7 @@ impl MmkGenerator {
                 formatted_string.push_str(&object);
                 formatted_string.push_str(": \\\n");
                 formatted_string.push_str("\t");
-                formatted_string.push_str(parent_path);
+                formatted_string.push_str(borrowed_dependency.get_parent_directory().to_str().unwrap());
                 formatted_string.push_str("/");
                 formatted_string.push_str(source);
                 formatted_string.push_str("\n");
@@ -143,8 +129,8 @@ impl MmkGenerator {
         let borrowed_dependency = self.dependency.borrow();
         let mmk_data = borrowed_dependency.mmk_data();
         let mut include_file = String::new();
-        if mmk_data.data.contains_key("MMK_SOURCES") {
-            for source in &mmk_data.data["MMK_SOURCES"] {
+        if mmk_data.data().contains_key("MMK_SOURCES") {
+            for source in &mmk_data.data()["MMK_SOURCES"] {
                 if source.ends_with(".cpp") {
                     include_file = source.replace(".cpp", ".d");
                 }
@@ -163,12 +149,13 @@ impl MmkGenerator {
     }
 
 
-    pub fn print_required_dependencies_libraries(self: &Self) -> String {
+    fn print_required_dependencies_libraries(&self) -> String {
         let mut formatted_string = String::new();
         for dependency in  self.dependency.borrow().requires().borrow().iter() {
             if dependency.borrow().library_name() != "" {
                 let required_dep = dependency.borrow();
-                let mut output_directory = required_dep.get_build_directory().clone();
+                let mut output_directory = self.get_required_project_lib_dir()
+                                                  .join(required_dep.get_project_name());
                 if self.debug {
                     output_directory = output_directory.join("debug");
                 }
@@ -206,9 +193,9 @@ impl MmkGenerator {
     fn print_prerequisites(self: &Self) -> String {
         let mut formatted_string = String::new();
         let mut object = String::new();
-        if self.dependency.borrow().mmk_data().data.contains_key("MMK_SOURCES") {
+        if self.dependency.borrow().mmk_data().data().contains_key("MMK_SOURCES") {
             formatted_string.push_str("\\\n");
-            for source in &self.dependency.borrow().mmk_data().data["MMK_SOURCES"] {
+            for source in &self.dependency.borrow().mmk_data().data()["MMK_SOURCES"] {
                 if source.ends_with(".cpp") {
                     object = source.replace(".cpp", ".o");
                 }
@@ -230,7 +217,8 @@ impl MmkGenerator {
 
 
     fn print_dependencies(&self) -> String {
-        let mut formatted_string = self.dependency.borrow().mmk_data().to_string("MMK_DEPEND");
+        let mut formatted_string = self.print_include_dependency_top();
+        formatted_string.push_str(&self.dependency.borrow().mmk_data().get_include_directories().unwrap());
         if self.dependency.borrow().mmk_data().has_system_include() {
             formatted_string.push_str(" ");
             formatted_string.push_str(&self.dependency.borrow().mmk_data().to_string("MMK_SYS_INCLUDE"));
@@ -240,18 +228,31 @@ impl MmkGenerator {
     }
 
 
+    fn print_include_dependency_top(&self) -> String {
+        let include_line = format!("-I{} ", utility::get_project_top_directory(self.dependency.borrow().path()).to_str().unwrap());
+        include_line
+    }
+
+
     pub fn generate_makefiles(&mut self, dependency: &DependencyNode) -> Result<(), MyMakeError> {
         if !&dependency.borrow().is_makefile_made()
         {
             dependency.borrow_mut().makefile_made();
             self.generate_makefile()?;
         }
+
+        let dependency_output_library_head = self.get_required_project_lib_dir();
+
+        if !utility::directory_exists(&dependency_output_library_head) {
+            utility::create_dir(&dependency_output_library_head)?;
+        }
+
         for required_dependency in dependency.borrow().requires().borrow().iter()
         {
-            if !required_dependency.borrow().is_makefile_made()
-            {
+            if !required_dependency.borrow().is_makefile_made() {
                 required_dependency.borrow_mut().makefile_made();
-                let mut build_directory = std::path::PathBuf::from(".build");
+                let mut build_directory = dependency_output_library_head
+                                                  .join(required_dependency.borrow().get_project_name());
                 if self.debug {
                     build_directory.push("debug");
                 }
@@ -259,7 +260,7 @@ impl MmkGenerator {
                     build_directory.push("release");
                 }
                 self.replace_generator(&Rc::clone(required_dependency),
-                                                 &build_directory);
+                                                 build_directory);
                 self.generate_makefile()?;
             }
             self.generate_makefiles(&required_dependency)?;
@@ -281,19 +282,21 @@ impl MmkGenerator {
     }
 
 
-    fn print_release(&self) -> &str {
-        "include /home/fredrik/bin/mymake/include/release.mk\n"
+    fn print_release(&self) -> String {
+        let release_include = format!("{build_path}/release.mk",
+        build_path = self.include_file_generator.print_build_directory());
+        release_include
     }
 
 
     fn print_debug(&self) -> String {
         if self.debug {
-            let debug_include = format!("include {build_path}/debug.mk\n",
+            let debug_include = format!("{build_path}/debug.mk",
             build_path = self.include_file_generator.print_build_directory());
             debug_include
         }
         else {
-            self.print_release().to_string()
+            self.print_release()
         }
     }
 
@@ -309,7 +312,6 @@ impl MmkGenerator {
 }
 
 
-
 impl Generator for MmkGenerator
 {
     fn generate_makefile(self: &mut Self) -> Result<(), MyMakeError> {
@@ -317,13 +319,10 @@ impl Generator for MmkGenerator
         self.create_makefile();
         self.generate_header()?;
         self.generate_appending_flags()?;
-        if self.dependency.borrow().mmk_data().data.contains_key("MMK_EXECUTABLE") && 
-           self.dependency.borrow().mmk_data().data["MMK_EXECUTABLE"] != {[""]}
-        {
+        if self.dependency.borrow().mmk_data().has_executables() {
             self.generate_rule_executable()?;
         }
-        else
-        {
+        else {
             self.generate_rule_package()?;
         }
         self.print_ok();
@@ -337,8 +336,8 @@ impl Generator for MmkGenerator
         \n\
         # ----- INCLUDES -----\n\
         include {build_path}/strict.mk\n\
-        include /home/fredrik/bin/mymake/include/default_make.mk\n\
-        {debug}\
+        include {build_path}/default_make.mk\n\
+        include {debug}\n\
         \n\
         # ----- DEFINITIONS -----\n\
         CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
@@ -416,12 +415,12 @@ impl Generator for MmkGenerator
     fn generate_appending_flags(&mut self) -> Result<(), MyMakeError> {
         let mut data = String::new();
 
-        if self.dependency.borrow().mmk_data().data.contains_key("MMK_CXXFLAGS_APPEND") {
+        if self.dependency.borrow().mmk_data().data().contains_key("MMK_CXXFLAGS_APPEND") {
             data.push_str(&format!("CXXFLAGS += {cxxflags}\n", 
             cxxflags = self.dependency.borrow().mmk_data().to_string("MMK_CXXFLAGS_APPEND")).to_owned());
         }
 
-        if self.dependency.borrow().mmk_data().data.contains_key("MMK_CPPFLAGS_APPEND") {
+        if self.dependency.borrow().mmk_data().data().contains_key("MMK_CPPFLAGS_APPEND") {
             data.push_str(&format!("CPPFLAGS += {cppflags}\n", 
             cppflags = self.dependency.borrow().mmk_data().to_string("MMK_CPPFLAGS_APPEND")).to_owned());
         }
@@ -451,25 +450,49 @@ mod tests {
     use tempdir::TempDir;
     use pretty_assertions::assert_eq;
 
+
+    #[allow(dead_code)]
+    fn expected_library_name(path: &std::path::Path) -> String {
+        let mut library_name = String::from("lib");
+        library_name.push_str(utility::get_head_directory(path).to_str().unwrap());
+        library_name.push_str(".a");
+        library_name
+    }
+
     #[test]
     fn generate_makefile_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let output_dir = std::path::PathBuf::from(".build");
-        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_EXECUTABLE".to_string(), vec!["main".to_string()]);
-        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let source_dir = dir.path().join("source");
+        utility::create_dir(&source_dir).unwrap();
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_EXECUTABLE".to_string(), vec!["main".to_string()]);
+        let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         assert!(Generator::generate_makefile(&mut gen).is_ok());
         Ok(())
     }
 
 
     #[test]
-    fn generate_header_test() -> std::io::Result<()> {
+    fn print_debug_test() -> std::io::Result<()> {
+        let path = std::path::PathBuf::from("some_path");
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&path.join("run.mmk"))));
+        let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+        gen.debug();
+        assert_eq!(format!("{directory}/make_include/debug.mk",
+                   directory = output_dir.path().to_str().unwrap()), gen.print_debug());
+        Ok(())
+    }
+
+
+    #[test]
+    fn generate_header_release_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let output_dir = std::path::PathBuf::from(".build");
-        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
-        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
+        let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         gen.create_makefile();
         let test_file = gen.output_directory.join("makefile");
         assert!(Generator::generate_header(&mut gen).is_ok());
@@ -477,9 +500,9 @@ mod tests {
         # Generated by MmkGenerator.generate_header(). DO NOT EDIT THIS FILE.\n\
         \n\
         # ----- INCLUDES -----\n\
-        include {directory}/.build/make_include/strict.mk\n\
-        include /home/fredrik/bin/mymake/include/default_make.mk\n\
-        include /home/fredrik/bin/mymake/include/release.mk\n\
+        include {directory}/make_include/strict.mk\n\
+        include {directory}/make_include/default_make.mk\n\
+        include {directory}/make_include/release.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
         CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
@@ -493,17 +516,18 @@ mod tests {
         .PHONY: package\n\
         .PHONY: install\n\
         .PHONY: uninstall\n\
-        .PHONY: clean\n", directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        .PHONY: clean\n", directory = output_dir.path().to_str().unwrap()), 
+        fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
 
 
     #[test]
-    fn generate_header_test_with_debug() -> std::io::Result<()> {
+    fn generate_header_debug_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let output_dir = std::path::PathBuf::from(".build");
-        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
-        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();        
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();        
         gen.debug();
         gen.create_makefile();
         let test_file = gen.output_directory.join("makefile");
@@ -512,9 +536,9 @@ mod tests {
         # Generated by MmkGenerator.generate_header(). DO NOT EDIT THIS FILE.\n\
         \n\
         # ----- INCLUDES -----\n\
-        include {directory}/.build/make_include/strict.mk\n\
-        include /home/fredrik/bin/mymake/include/default_make.mk\n\
-        include {directory}/.build/make_include/debug.mk\n\
+        include {directory}/make_include/strict.mk\n\
+        include {directory}/make_include/default_make.mk\n\
+        include {directory}/make_include/debug.mk\n\
         \n\
         # ----- DEFINITIONS -----\n\
         CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
@@ -528,7 +552,7 @@ mod tests {
         .PHONY: package\n\
         .PHONY: install\n\
         .PHONY: uninstall\n\
-        .PHONY: clean\n", directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        .PHONY: clean\n", directory = output_dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
 
@@ -536,37 +560,49 @@ mod tests {
     #[test]
     fn generate_package_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let output_dir = std::path::PathBuf::from(".build");
-        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        let dir_first_dep = TempDir::new("example_dep")?;
+        let dir_second_dep = TempDir::new("example_new_dep")?;
+        let output_dir = TempDir::new("build")?;
+        let include_dir = dir.path().join("include");
+        utility::create_dir(&include_dir).unwrap();
+        utility::create_dir(dir_first_dep.path().join("include")).unwrap();
+        utility::create_dir(dir_second_dep.path().join("include")).unwrap();
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
         dependency.borrow_mut().add_library_name();
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
+                                                                                               dir_second_dep.path().to_str().unwrap().to_string()]);
 
-        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         gen.create_makefile();
         let test_file = gen.output_directory.join("makefile");
+
         assert!(Generator::generate_rule_package(&mut gen).is_ok());
         assert_eq!(format!("\n\
         #Generated by MmkGenerator.generate_rule_package(). \n\
         \n\
-        {directory}/.build/libtmp.a: \\\n\
-        \t{directory}/.build/filename.o \\\n\
-        \t{directory}/.build/ofilename.o \\\n\
+        {directory}/libtmp.a: \\\n\
+        \t{directory}/filename.o \\\n\
+        \t{directory}/ofilename.o \\\n\
         \t-lstdc++\n\
         \t$(strip $(AR) $(ARFLAGS) $@ $?)\n\
         \n\
-        {directory}/.build/filename.o: \\\n\
-        \t{directory}/filename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
+        {directory}/filename.o: \\\n\
+        \t{dep_directory}/filename.cpp\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
         \n\
-        {directory}/.build/ofilename.o: \\\n\
-        \t{directory}/ofilename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
+        {directory}/ofilename.o: \\\n\
+        \t{dep_directory}/ofilename.cpp\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
         \n\
-        sinclude {directory}/.build/filename.d\n\
-        sinclude {directory}/.build/ofilename.d\n\
+        sinclude {directory}/filename.d\n\
+        sinclude {directory}/ofilename.d\n\
         \n", 
-        directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        directory = output_dir.path().to_str().unwrap(),
+        dep_directory = dependency.borrow().get_parent_directory().to_str().unwrap(),
+        dir_dep_str = dir_first_dep.path().to_str().unwrap().to_string(),
+        dir_second_dep_str = dir_second_dep.path().to_str().unwrap().to_string()),
+        fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
 
@@ -574,12 +610,20 @@ mod tests {
     #[test]
     fn generate_executable_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let output_dir = std::path::PathBuf::from(".build");
-        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_EXECUTABLE".to_string(), vec!["x".to_string()]);
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_DEPEND".to_string(), vec!["/some/dependency".to_string(), "/some/new/dependency".to_string()]);
-        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let dir_first_dep = TempDir::new("example_dep")?;
+        let dir_second_dep = TempDir::new("example_new_dep")?;
+        let output_dir = TempDir::new("build")?;
+        let include_dir = dir.path().join("include");
+        utility::create_dir(&include_dir).unwrap();
+        utility::create_dir(dir_first_dep.path().join("include")).unwrap();
+        utility::create_dir(dir_second_dep.path().join("include")).unwrap();
+
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_EXECUTABLE".to_string(), vec!["x".to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
+                                                                                               dir_second_dep.path().to_str().unwrap().to_string()]);
+        let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         gen.create_makefile();
         let test_file = gen.output_directory.join("makefile");
         assert!(Generator::generate_rule_executable(&mut gen).is_ok());
@@ -588,23 +632,27 @@ mod tests {
         \n\
         .PHONY: x\n\
         x: \\\n\
-        \t{directory}/.build/filename.o \\\n\
-        \t{directory}/.build/ofilename.o \\\n\
+        \t{directory}/filename.o \\\n\
+        \t{directory}/ofilename.o \\\n\
         \t-lstdc++\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $^ -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $^ -o $@)\n\
         \n\
-        {directory}/.build/filename.o: \\\n\
-        \t{directory}/filename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
+        {directory}/filename.o: \\\n\
+        \t{dep_directory}/filename.cpp\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
         \n\
-        {directory}/.build/ofilename.o: \\\n\
-        \t{directory}/ofilename.cpp\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I/some/dependency -I/some/new/dependency $< -c -o $@)\n\
+        {directory}/ofilename.o: \\\n\
+        \t{dep_directory}/ofilename.cpp\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
         \n\
-        sinclude {directory}/.build/filename.d\n\
-        sinclude {directory}/.build/ofilename.d\n\
+        sinclude {directory}/filename.d\n\
+        sinclude {directory}/ofilename.d\n\
         \n",
-        directory = dir.path().to_str().unwrap()), fs::read_to_string(test_file.to_str().unwrap()).unwrap());
+        directory = output_dir.path().to_str().unwrap(),
+        dep_directory = dependency.borrow().get_parent_directory().to_str().unwrap(),
+        dir_dep_str = dir_first_dep.path().to_str().unwrap().to_string(),
+        dir_second_dep_str = dir_second_dep.path().to_str().unwrap().to_string()),
+        fs::read_to_string(test_file.to_str().unwrap()).unwrap());
         Ok(())
     }
 
@@ -612,10 +660,10 @@ mod tests {
     #[test]
     fn generate_appending_flags_test_cxxflags() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let output_dir = std::path::PathBuf::from(".build");
-        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_CXXFLAGS_APPEND".to_string(), vec!["-pthread".to_string()]);
-        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_CXXFLAGS_APPEND".to_string(), vec!["-pthread".to_string()]);
+        let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         gen.create_makefile();
         let test_file = gen.output_directory.join("makefile");
         assert!(Generator::generate_appending_flags(&mut gen).is_ok());
@@ -629,10 +677,10 @@ mod tests {
     #[test]
     fn generate_appending_flags_test_cppflags() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let output_dir = std::path::PathBuf::from(".build");
-        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_CPPFLAGS_APPEND".to_string(), vec!["-somesetting".to_string()]);
-        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_CPPFLAGS_APPEND".to_string(), vec!["-somesetting".to_string()]);
+        let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         gen.create_makefile();
         let test_file = gen.output_directory.join("makefile");
         assert!(Generator::generate_appending_flags(&mut gen).is_ok());
@@ -646,12 +694,12 @@ mod tests {
     #[test]
     fn generate_appending_flags_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let output_dir = std::path::PathBuf::from(".build");
-        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_CXXFLAGS_APPEND".to_string(), vec!["-pthread".to_string()]);
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_CPPFLAGS_APPEND".to_string(), vec!["-somesetting".to_string()]);
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_CXXFLAGS_APPEND".to_string(), vec!["-pthread".to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_CPPFLAGS_APPEND".to_string(), vec!["-somesetting".to_string()]);
 
-        let mut gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let mut gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         gen.create_makefile();
         let test_file = gen.output_directory.join("makefile");
         assert!(Generator::generate_appending_flags(&mut gen).is_ok());
@@ -666,15 +714,139 @@ mod tests {
     #[test]
     fn print_header_includes_test() -> std::io::Result<()> {
         let dir = TempDir::new("example")?;
-        let output_dir = std::path::PathBuf::from(".build");
-        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("mymakeinfo.mmk"))));
-        dependency.borrow_mut().mmk_data_mut().data.insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
-        let gen = MmkGenerator::new(&dependency, &output_dir).unwrap();
+        let output_dir = TempDir::new("build")?;
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         let actual = gen.print_header_includes();
-        let expected = format!("sinclude {directory}/.build/filename.d\n\
-                                       sinclude {directory}/.build/ofilename.d\n",
-                                       directory = dir.path().to_str().unwrap());
+        let expected = format!("sinclude {directory}/filename.d\n\
+                                       sinclude {directory}/ofilename.d\n",
+                                       directory = output_dir.path().to_str().unwrap());
         assert_eq!(actual, expected);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_dependencies_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dir_first_dep = TempDir::new("example_dep")?;
+        let dir_second_dep = TempDir::new("example_second_dep")?;
+        let dep_include_dir = dir_first_dep.path().join("include");
+        let second_dep_include_dir = dir_second_dep.path().join("include");
+        utility::create_dir(&dep_include_dir).unwrap();
+        utility::create_dir(&second_dep_include_dir).unwrap();
+        
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
+                                                                                               dir_second_dep.path().to_str().unwrap().to_string()]);
+
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+        let expected = format!("-I{} -I{} -I{}", dir.path().to_str().unwrap() , dep_include_dir.to_str().unwrap(), second_dep_include_dir.to_str().unwrap());
+        let actual = gen.print_dependencies();
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_dependencies_with_sys_include_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dir_first_dep = TempDir::new("example_dep")?;
+        let dir_second_dep = TempDir::new("example_second_dep")?;
+        let dep_include_dir = dir_first_dep.path().join("include");
+        let second_dep_include_dir = dir_second_dep.path().join("include");
+        utility::create_dir(&dep_include_dir).unwrap();
+        utility::create_dir(&second_dep_include_dir).unwrap();
+        
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SYS_INCLUDE".to_string(), vec![dir_second_dep.path().to_str().unwrap().to_string()]);
+
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+        let expected = format!("-I{} -I{} -isystem {}", dir.path().to_str().unwrap(), dep_include_dir.to_str().unwrap(), dir_second_dep.path().to_str().unwrap());
+        let actual = gen.print_dependencies();
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_dependencies_with_only_sys_include_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dir_dep = TempDir::new("example_dep")?;
+        let dep_include_dir = dir_dep.path().join("include");
+        utility::create_dir(&dep_include_dir).unwrap();
+        
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SYS_INCLUDE".to_string(), vec![dir_dep.path().to_str().unwrap().to_string()]);
+
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+        let expected = format!("-I{}  -isystem {}", dir.path().to_str().unwrap(), dir_dep.path().to_str().unwrap());
+        let actual = gen.print_dependencies();
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_required_dependencies_libraries_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dir_dep = TempDir::new("example_dep")?;
+        let dep_include_dir = dir_dep.path().join("include");
+        utility::create_dir(&dep_include_dir).unwrap();
+
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
+        let dependency_dep = Rc::new(RefCell::new(Dependency::from(&dir_dep.path().join("lib.mmk"))));
+        dependency_dep.borrow_mut().mmk_data_mut().data_mut().insert("MMK_LIBRARY_LABEL".to_string(), vec!["myDependency".to_string()]);
+        dependency_dep.borrow_mut().add_library_name();
+        dependency.borrow_mut().add_dependency(Rc::clone(&dependency_dep));
+
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+        let expected = format!("\t{directory}/libs/{dep_directory}/release/{library_name} \\\n",
+                                     directory = output_dir.path().to_str().unwrap(),
+                                     dep_directory = dependency_dep.borrow().get_project_name().to_str().unwrap(),
+                                     library_name = dependency_dep.borrow().library_name());
+
+        let actual = gen.print_required_dependencies_libraries();
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn print_required_dependencies_libraries_multiple_test() -> std::io::Result<()> {
+        let dir = TempDir::new("example")?;
+        let output_dir = TempDir::new("build")?;
+        let dir_dep = TempDir::new("example_dep")?;
+        let dep_include_dir = dir_dep.path().join("include");
+        utility::create_dir(&dep_include_dir).unwrap();
+
+        let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
+        let dependency_dep = Rc::new(RefCell::new(Dependency::from(&dir_dep.path().join("lib.mmk"))));
+        let second_dependency_dep = Rc::new(RefCell::new(Dependency::from(&dir_dep.path().join("lib.mmk"))));
+        dependency_dep.borrow_mut().mmk_data_mut().data_mut().insert("MMK_LIBRARY_LABEL".to_string(), vec!["myDependency".to_string()]);
+        dependency_dep.borrow_mut().add_library_name();
+        second_dependency_dep.borrow_mut().mmk_data_mut().data_mut().insert("MMK_LIBRARY_LABEL".to_string(), vec!["mySecondDependency".to_string()]);
+        second_dependency_dep.borrow_mut().add_library_name();
+        dependency.borrow_mut().add_dependency(Rc::clone(&dependency_dep));
+        dependency.borrow_mut().add_dependency(Rc::clone(&second_dependency_dep));
+
+        let gen = MmkGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
+        let expected = format!("\t{directory}/libs/{dep_directory}/release/{library_name} \\\n\
+                                       \t{directory}/libs/{second_dep_directory}/release/{second_library_name} \\\n",
+                                     directory = output_dir.path().to_str().unwrap(),
+                                     dep_directory = dependency_dep.borrow().get_project_name().to_str().unwrap(),
+                                     second_dep_directory = second_dependency_dep.borrow().get_project_name().to_str().unwrap(),
+                                     library_name = dependency_dep.borrow().library_name(),
+                                     second_library_name = second_dependency_dep.borrow().library_name());
+
+        let actual = gen.print_required_dependencies_libraries();
+        assert_eq!(expected, actual);
         Ok(())
     }
 }

@@ -8,6 +8,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use error::MyMakeError;
 use regex::Regex;
+use utility;
 
 // Pretty assertions only for testing.
 #[cfg(test)]
@@ -17,13 +18,32 @@ extern crate pretty_assertions;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Mmk
 {
-    pub data: HashMap<String, Vec<String>>,
+    data: HashMap<String, Vec<String>>,
 }
 
 impl Mmk {
     pub fn new() -> Mmk
     {
         Mmk { data: HashMap::new() }
+    }
+
+    pub fn data(&self) -> &HashMap<String, Vec<String>> {
+        &self.data
+    }
+
+
+    pub fn data_mut(&mut self) -> &mut HashMap<String, Vec<String>> {
+        &mut self.data
+    }
+
+
+    pub fn has_executables(&self) -> bool {
+        self.data.contains_key("MMK_EXECUTABLE")
+    }
+
+
+    pub fn has_dependencies(&self) -> bool {
+        self.data.contains_key("MMK_DEPEND")
     }
 
 
@@ -34,10 +54,6 @@ impl Mmk {
             for item in &self.data[key] {
                 if item == "" {
                     break;
-                }
-
-                if key == "MMK_DEPEND" {
-                    formatted_string.push_str("-I");
                 }
 
                 if key == "MMK_SYS_INCLUDE" {
@@ -51,19 +67,18 @@ impl Mmk {
     }
 
 
-    pub fn get_include_directories_for_make(&self) -> String {
+    pub fn get_include_directories(&self) -> Result<String, MyMakeError> {
         if self.data.contains_key("MMK_DEPEND") {
             let mut formatted_string = String::new();
             for dep_path_as_string in &self.data["MMK_DEPEND"] {
                 formatted_string.push_str("-I");
-                let mut dep_path = PathBuf::from(dep_path_as_string);
-                dep_path.push("include");
+                let dep_path = utility::get_include_directory_from_path(&PathBuf::from(dep_path_as_string))?;
                 formatted_string.push_str(dep_path.to_str().unwrap());
                 formatted_string.push_str(" ");
             }
-            return formatted_string.trim_end().to_string();
+            return Ok(formatted_string.trim_end().to_string());
         }
-        String::from("")
+        Ok(String::from(""))
     }
 
 
@@ -156,11 +171,24 @@ impl Mmk {
 
 
 pub fn validate_file_path(file_path_as_str: &str) -> Result<PathBuf, MyMakeError> {
-    let file_path = PathBuf::from(file_path_as_str).canonicalize().unwrap();
+    let file_path = match PathBuf::from(file_path_as_str).canonicalize() {
+        Ok(file) => file,
+        Err(err) => return Err(MyMakeError::from(format!("{:?}", err)))
+     };
     if !file_path.is_file() {
         return Err(MyMakeError::from(format!("Error: {:?} is not a valid path!", &file_path)));
     }
     Ok(file_path)
+}
+
+
+pub fn validate_file_name(path: &PathBuf) -> Result<(), MyMakeError> {
+    let file_name = path.file_name().unwrap().to_str().unwrap();
+    match file_name {
+        "lib.mmk" | "run.mmk" => (),
+        _ => return Err(MyMakeError::from(format!("{:?} is illegal name! File must be named lib.mmk or run.mmk.", file_name))),
+    };
+    Ok(())
 }
 
 
@@ -188,6 +216,7 @@ pub fn remove_comments(data: &String) -> String {
 pub mod tests
 {
     use super::*;
+    use tempdir::TempDir;
     #[test]
     fn test_mmk_file_reader()
     {
@@ -224,6 +253,37 @@ MMK_SOURCES:
 MMK_EXECUTABLE:
    x\n"));
     }
+
+
+    #[test]
+    fn test_to_string_mmk_sources() -> Result<(), MyMakeError> {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_SOURCES:\n\
+                                                filename.cpp\n\
+                                                otherfilename.cpp\n");
+
+        mmk_content.parse( &content)?;
+        let expected = "filename.cpp otherfilename.cpp";
+        let actual = mmk_content.to_string("MMK_SOURCES");
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn test_to_string_mmk_headers() -> Result<(), MyMakeError> {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_HEADERS:\n\
+                                                filename.h\n\
+                                                otherfilename.h\n");
+
+        mmk_content.parse( &content)?;
+        let expected = "filename.h otherfilename.h";
+        let actual = mmk_content.to_string("MMK_HEADERS");
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
     
     #[test]
     fn test_parse_mmk_sources() -> Result<(), MyMakeError>
@@ -305,8 +365,7 @@ MMK_EXECUTABLE:
     }
 
     #[test]
-    fn test_multiple_keywords() -> Result<(), MyMakeError>
-    {
+    fn test_multiple_keywords() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES:
                                                 filename.cpp
@@ -327,8 +386,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_has_library_label_true() -> Result<(), MyMakeError>
-    {
+    fn test_has_library_label_true() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_LIBRARY_LABEL:\n\
                                                 myLib");
@@ -340,8 +398,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_has_library_label_false() -> Result<(), MyMakeError>
-    {
+    fn test_has_library_label_false() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES:\n\
                                                 my_source.cpp");
@@ -353,8 +410,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_has_system_include_true() -> Result<(), MyMakeError>
-    {
+    fn test_has_system_include_true() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SYS_INCLUDE:\n\
                                                 /some/third/party/software/");
@@ -366,8 +422,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_has_system_include_false() -> Result<(), MyMakeError>
-    {
+    fn test_has_system_include_false() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_SOURCES:\n\
                                                 my_source.cpp");
@@ -379,8 +434,7 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError>
-    {
+    fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_DEPENDS:\n\
                                                 /some/path/to/depend/on \n\
@@ -391,9 +445,9 @@ MMK_EXECUTABLE:
         Ok(())
     }
 
+
     #[test]
-    fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError>
-    {
+    fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
         let content: String = String::from("MMK_DEPEND:\n\
                                                 /some/path/to/depend/on\n\
@@ -404,6 +458,41 @@ MMK_EXECUTABLE:
         assert_eq!(&String::from("Invalid spacing of arguments! Keep at least one line between each MyMake keyword."), 
                    result.unwrap_err().to_string());
         Ok(())
+    }
+
+
+    #[test]
+    fn get_include_directories_for_make_test() -> std::io::Result<()> {
+        let mut mmk_content = Mmk::new();
+        let dir = TempDir::new("example")?;
+        let src_dir = dir.path().join("src");
+        let include_dir = dir.path().join("include");
+        utility::create_dir(&include_dir).unwrap();
+        let content: String = format!("MMK_DEPEND:\n\
+                                          {}", src_dir.to_str().unwrap());
+
+        mmk_content.parse(&content).unwrap();
+        let actual = mmk_content.get_include_directories();
+        assert!(actual.is_ok());
+        assert_eq!(actual.unwrap(), format!("-I{}", include_dir.to_str().unwrap()));
+        Ok(())
+    }
+
+
+    #[test]
+    fn validate_file_name_test() {
+        let some_valid_file_path = PathBuf::from("lib.mmk");
+        assert!(validate_file_name(&some_valid_file_path).is_ok());
+    }
+
+
+    #[test]
+    fn validate_file_name_invalid_file_name_test() {
+        let some_invalid_file_path = PathBuf::from("mymakeinfo.mmk");
+        let result = validate_file_name(&some_invalid_file_path);
+        assert!(result.is_err());
+        assert_eq!(&String::from("\"mymakeinfo.mmk\" is illegal name! File must be named lib.mmk or run.mmk."), 
+                    result.unwrap_err().to_string());
     }
 }
 

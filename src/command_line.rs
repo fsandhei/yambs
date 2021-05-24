@@ -26,7 +26,7 @@ impl<'a> CommandLine<'a> {
                         .help("Input file for MyMake."))
             .arg(Arg::with_name("clean")
                         .long("clean")
-                        .help("Removes .build directories, cleaning the project."))
+                        .help("Removes .build directories, cleaning the project. WARNING: Deprecated. Delete build directory manually instead."))
             .arg(Arg::with_name("runtime configurations")
                         .short("r")
                         .value_delimiter(",")
@@ -110,7 +110,7 @@ impl<'a> CommandLine<'a> {
 
     pub fn parse_command_line(&self, builder: &mut Builder) -> Result<(), MyMakeError> {
         if self.matches.is_present("clean") {
-            builder.clean().unwrap_or_terminate();
+            // builder.clean().unwrap_or_terminate();
             std::process::exit(0);
         }
         
@@ -121,8 +121,10 @@ impl<'a> CommandLine<'a> {
 
 
     pub fn validate_file_path(&self) -> PathBuf {
-        mmk_parser::validate_file_path(self.matches.value_of("mmk_file")
+        let file_name = mmk_parser::validate_file_path(self.matches.value_of("mmk_file")
                                         .unwrap_or_terminate())
-                                        .unwrap_or_terminate()
+                                        .unwrap_or_terminate();
+        mmk_parser::validate_file_name(&file_name).unwrap_or_terminate();
+        file_name
     }
 }

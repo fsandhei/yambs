@@ -1,24 +1,25 @@
-use dependency::DependencyNode;
+// use dependency::DependencyNode;
 use std::path::PathBuf;
 use error::MyMakeError;
 use std::fs;
 
-pub fn clean(dependency: &DependencyNode) -> Result<(), MyMakeError> {
-    for required_dependency in dependency.borrow().requires().borrow().iter() {
-        let dep_build_directory = required_dependency.borrow().get_build_directory();
-        match remove_dir(dep_build_directory) {
-            Ok(_) => (),
-            Err(e) => { 
-                                    eprintln!("{}", e);
-                                    continue;
-                                 }
-        };
-    }
-    let top_build_directory = dependency.borrow().get_build_directory();
-    remove_dir(top_build_directory)?;
-    Ok(())
-}
+// pub fn clean(dependency: &DependencyNode) -> Result<(), MyMakeError> {
+//     for required_dependency in dependency.borrow().requires().borrow().iter() {
+//         let dep_build_directory = required_dependency.borrow().get_build_directory();
+//         match remove_dir(dep_build_directory) {
+//             Ok(_) => (),
+//             Err(e) => { 
+//                                     eprintln!("{}", e);
+//                                     continue;
+//                                  }
+//         };
+//     }
+//     let top_build_directory = dependency.borrow().get_build_directory();
+//     remove_dir(top_build_directory)?;
+//     Ok(())
+// }
 
+#[allow(dead_code)]
 fn remove_dir(directory: PathBuf) -> Result<(), MyMakeError> {
     if directory.is_dir() {
         println!("Removing directory {:?}", directory);

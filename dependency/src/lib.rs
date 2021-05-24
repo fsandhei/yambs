@@ -35,10 +35,6 @@ impl Dependency {
 
 
     pub fn from(path: &std::path::PathBuf) -> Dependency {
-        // let mut source_path = utility::get_source_directory_from_path(path);
-        // if !source_path.ends_with("run.mmk") {
-        //     source_path = source_path.join("lib.mmk");
-        // }
         let source_path : PathBuf;
         if path.ends_with("run.mmk") || path.ends_with("lib.mmk") {
             source_path = path.to_owned();
@@ -165,34 +161,6 @@ impl Dependency {
         }
     }
 
-    // Determin whether or not this function is neccessary.
-    pub fn get_source_directory(&self) -> Result<std::path::PathBuf, MyMakeError> {
-        let mut parent = self.path.parent().unwrap();
-        if utility::is_source_directory(parent) {
-            return Ok(parent.to_path_buf());
-        }
-
-        else if utility::is_source_directory(&parent.join("src")) {
-            return Ok(parent.join("src").to_path_buf());
-        }
-        else if utility::is_source_directory(&parent.join("source")) {
-            return Ok(parent.join("source").to_path_buf());
-        }
-
-        else {
-            parent = parent.parent().unwrap();
-            if utility::is_source_directory(&parent.join("src")) {
-                return Ok(parent.join("src").to_path_buf());
-            }
-            else if utility::is_source_directory(&parent.join("source")) {
-                return Ok(parent.join("source").to_path_buf());
-            }
-            else {
-                return Err(MyMakeError::from(format!("Cannot find source directory in project {:?}", self.get_project_name())));
-            }
-        }
-    }
-
 
     pub fn get_parent_directory(&self) -> &Path {
         self.path.parent().unwrap()
@@ -211,12 +179,24 @@ impl Dependency {
         Ok(mmk_data)
     }
 
+    
+    pub fn library_file_name(&self) -> String {
+        if self.mmk_data.has_library_label() {
+            return format!("lib{}.a", self.library_name());
+        }
+        else {
+            return self.library_name();
+        }
+    }
+
 
     pub fn add_library_name(self: &mut Self) {
         let library_name: String;
 
         if self.mmk_data.has_library_label() {
             library_name = self.mmk_data.to_string("MMK_LIBRARY_LABEL");
+            self.library_name = library_name;
+            return;
         }
         else {
             let root_path = self.path.parent().unwrap().parent().unwrap();
@@ -274,7 +254,7 @@ impl Dependency {
     }
 
 
-    pub fn print_ok(self: &Self) {
+    fn print_ok(self: &Self) {
         print!(".");
     }
 }
@@ -475,7 +455,24 @@ mod tests {
         let mut dependency = Dependency::from(&std::path::PathBuf::from("/some/directory/src/lib.mmk"));
         dependency.mmk_data_mut().data_mut().insert(String::from("MMK_LIBRARY_LABEL"), vec!["mylibrary".to_string()]);
         dependency.add_library_name();
-        assert_eq!(dependency.library_name(), String::from("libmylibrary.a"));
+        assert_eq!(dependency.library_name(), String::from("mylibrary"));
+    }
+
+
+    #[test]
+    fn library_file_name_test() {
+        let mut dependency = Dependency::from(&std::path::PathBuf::from("/some/directory/src/lib.mmk"));
+        dependency.add_library_name();
+        assert_eq!(dependency.library_file_name(), String::from("libdirectory.a"));
+    }
+
+
+    #[test]
+    fn library_file_name_from_label_test() {
+        let mut dependency = Dependency::from(&std::path::PathBuf::from("/some/directory/src/lib.mmk"));
+        dependency.mmk_data_mut().data_mut().insert(String::from("MMK_LIBRARY_LABEL"), vec!["mylibrary".to_string()]);
+        dependency.add_library_name();
+        assert_eq!(dependency.library_file_name(), String::from("libmylibrary.a"));
     }
 
 
@@ -834,20 +831,18 @@ mod tests {
 
 
     #[test]
-    fn get_source_directory_ok_test() {
-        let dir = TempDir::new("example").unwrap();
-        let source_dir = dir.path().join("source");
-        utility::create_dir(&source_dir).unwrap();
-
-        let dependency = Dependency::from(&dir.path().to_path_buf().join("run.mmk"));
-        assert!(dependency.get_source_directory().is_ok());
+    fn is_executable_test() {
+        let project_path = std::path::PathBuf::from("/some/path/name/for/MyProject/test/run.mmk");
+        let mut dependency = Dependency::from(&project_path);
+        dependency.mmk_data_mut().data_mut().insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
+        assert!(dependency.is_executable());
     }
 
 
     #[test]
-    fn get_source_directory_error_test() {
+    fn is_executable_false_test() {
         let project_path = std::path::PathBuf::from("/some/path/name/for/MyProject/test/run.mmk");
         let dependency = Dependency::from(&project_path);
-        assert!(dependency.get_source_directory().is_err());
+        assert!(!dependency.is_executable());
     }
 }

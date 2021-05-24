@@ -1,6 +1,6 @@
 use dependency::{Dependency, DependencyRegistry, DependencyNode};
 use error::MyMakeError;
-use generator::MmkGenerator;
+use generator::MakefileGenerator;
 use std::env;
 use colored::Colorize;
 use std::process::Output;
@@ -16,7 +16,7 @@ use make::Make;
 pub struct Builder {
     top_dependency: Option<DependencyNode>,
     dep_registry: DependencyRegistry,
-    generator: Option<MmkGenerator>,
+    generator: Option<MakefileGenerator>,
     debug: bool,
     verbose: bool,
     make: Make,
@@ -40,7 +40,7 @@ impl Builder {
 
     pub fn add_generator(&mut self) {
         if let Some(top_dependency) = &self.top_dependency {
-            self.generator = Some(MmkGenerator::new(&top_dependency, self.top_build_directory
+            self.generator = Some(MakefileGenerator::new(&top_dependency, self.top_build_directory
                                                                                         .as_ref()
                                                                                         .unwrap()
                                                                                         .to_owned())

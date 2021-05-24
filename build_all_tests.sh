@@ -143,7 +143,7 @@ cargo_test()
 {
    path=$1
    cd $path
-   echo "cargo test -p $path"
+   echo "cargo test -p $path -- test-threads=1"
    execute_command "$CARGO test"
    cd $ROOT_DIR
 }

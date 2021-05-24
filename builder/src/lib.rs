@@ -200,7 +200,7 @@ impl Builder {
         
         if dependency.borrow().is_executable() {
             dep_type = "executable";
-            dep_type_name = dependency.borrow().mmk_data().data["MMK_EXECUTABLE"][0].clone();
+            dep_type_name = dependency.borrow().mmk_data().data()["MMK_EXECUTABLE"][0].clone();
         }
         else {
             dep_type = "library";
@@ -251,11 +251,11 @@ mod tests {
             ").expect("make_mmk_file(): Something went wrong writing to file.");
 
         let mut mmk_data = Mmk::new();
-        mmk_data.data.insert(String::from("MMK_SOURCES"), 
+        mmk_data.data_mut().insert(String::from("MMK_SOURCES"), 
                              vec![String::from("some_file.cpp"), 
                                   String::from("some_other_file.cpp")]);
         
-        mmk_data.data.insert(String::from("MMK_HEADERS"), 
+        mmk_data.data_mut().insert(String::from("MMK_HEADERS"), 
                              vec![String::from("some_file.h"), 
                                   String::from("some_other_file.h")]);
 
@@ -273,7 +273,7 @@ mod tests {
             ")?;
         assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
         expected
-            .data
+            .data_mut()
             .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
         assert_eq!(builder.top_dependency.unwrap().borrow().mmk_data(), &expected);
         Ok(())

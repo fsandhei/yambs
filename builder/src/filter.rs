@@ -77,13 +77,9 @@ mod tests {
     }
 
     #[test]
-    fn is_warning_message_test() {
-        let input = "/sadfasdfsaf/fasdfdf sadfasf fsadf [-Wunused-variable]";
-        let input_narrowing = "/sadfasdfsaf/fasdfdf sadfasf fsadf [-Wnarrowing]";
-        let input_uninitialized = "/sadfasdfsaf/fasdfdf sadfasf fsadf [-Wuninitialized]";
-        assert!(is_warning_message(&input) == true);
-        assert!(is_warning_message(&input_narrowing) == true);
-        assert!(is_warning_message(&input_uninitialized) == true);
+    fn is_warning_message_false_test() {
+        let input = "/sadfasdfsaf/fasdfdf sadfasf fsadf this is not a warning!";
+        assert!(is_warning_message(&input) == false);
     }
 
     #[test]
@@ -92,5 +88,12 @@ mod tests {
         /home/user/Documents/Tests/AStarPathFinder/PlanGenerator/test/PlanGeneratorTest.cpp:32:13: error: ‘dfasdf’
         was not declared in this scope";
         assert!(is_error_message(&input) == true);
+    }
+
+    #[test]
+    fn is_error_message_false_test() {
+        let input = "\
+        This is not an error!";
+        assert!(is_error_message(&input) == false);
     }
 }

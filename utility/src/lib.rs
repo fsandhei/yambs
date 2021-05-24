@@ -59,6 +59,18 @@ pub fn get_head_directory(path: &Path) -> &Path {
 }
 
 
+// Add test for this function.
+pub fn get_project_top_directory(path: &Path) -> &Path {
+    let parent = path.parent().unwrap();
+    if is_source_directory(parent) || is_test_directory(parent) {
+        return parent.parent().unwrap();
+    }
+    else {
+        return parent;
+    }
+}
+
+
 pub fn directory_exists(path: &Path) -> bool {
     path.exists()
 }

@@ -18,13 +18,32 @@ extern crate pretty_assertions;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Mmk
 {
-    pub data: HashMap<String, Vec<String>>,
+    data: HashMap<String, Vec<String>>,
 }
 
 impl Mmk {
     pub fn new() -> Mmk
     {
         Mmk { data: HashMap::new() }
+    }
+
+    pub fn data(&self) -> &HashMap<String, Vec<String>> {
+        &self.data
+    }
+
+
+    pub fn data_mut(&mut self) -> &mut HashMap<String, Vec<String>> {
+        &mut self.data
+    }
+
+
+    pub fn has_executables(&self) -> bool {
+        self.data.contains_key("MMK_EXECUTABLE")
+    }
+
+
+    pub fn has_dependencies(&self) -> bool {
+        self.data.contains_key("MMK_DEPEND")
     }
 
 
@@ -35,10 +54,6 @@ impl Mmk {
             for item in &self.data[key] {
                 if item == "" {
                     break;
-                }
-
-                if key == "MMK_DEPEND" {
-                    formatted_string.push_str("-I");
                 }
 
                 if key == "MMK_SYS_INCLUDE" {
@@ -238,6 +253,37 @@ MMK_SOURCES:
 MMK_EXECUTABLE:
    x\n"));
     }
+
+
+    #[test]
+    fn test_to_string_mmk_sources() -> Result<(), MyMakeError> {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_SOURCES:\n\
+                                                filename.cpp\n\
+                                                otherfilename.cpp\n");
+
+        mmk_content.parse( &content)?;
+        let expected = "filename.cpp otherfilename.cpp";
+        let actual = mmk_content.to_string("MMK_SOURCES");
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+
+    #[test]
+    fn test_to_string_mmk_headers() -> Result<(), MyMakeError> {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_HEADERS:\n\
+                                                filename.h\n\
+                                                otherfilename.h\n");
+
+        mmk_content.parse( &content)?;
+        let expected = "filename.h otherfilename.h";
+        let actual = mmk_content.to_string("MMK_HEADERS");
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
     
     #[test]
     fn test_parse_mmk_sources() -> Result<(), MyMakeError>
@@ -399,6 +445,7 @@ MMK_EXECUTABLE:
         Ok(())
     }
 
+
     #[test]
     fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
@@ -412,6 +459,7 @@ MMK_EXECUTABLE:
                    result.unwrap_err().to_string());
         Ok(())
     }
+
 
     #[test]
     fn get_include_directories_for_make_test() -> std::io::Result<()> {

@@ -1,5 +1,5 @@
 #This is a comment.
-MMK_DEPEND:
+MMK_REQUIRE:
    /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/
 
 MMK_SOURCES:

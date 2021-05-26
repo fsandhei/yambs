@@ -72,7 +72,7 @@ int main()
 EOF
 
 cat << EOF > $TEST_DIR/run.mmk
-MMK_DEPEND:
+MMK_REQUIRE:
   $TEST_DIR_DEP/src 
 
 MMK_EXECUTABLE:

@@ -308,7 +308,7 @@ mod tests {
         write!(
             file,
             "\
-            MMK_DEPEND:
+            MMK_REQUIRE:
                 {}
         \n
         
@@ -335,7 +335,7 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
             {}
         
@@ -363,7 +363,7 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         MMK_EXECUTABLE:
@@ -373,7 +373,7 @@ mod tests {
         write!(
             file_dep,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         ",
@@ -398,7 +398,7 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
             {}
         \n
@@ -410,7 +410,7 @@ mod tests {
         write!(
             file_dep,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         ",
@@ -428,7 +428,7 @@ mod tests {
         write!(
             file,
             "\
-            MMK_DEPEND:
+            MMK_REQUIRE:
                 {}
         \n
         
@@ -440,7 +440,7 @@ mod tests {
         write!(
             file_dep,
             "\
-            MMK_DEPEND:
+            MMK_REQUIRE:
                 {}
         \n", &test_file_path.parent().unwrap().to_str().unwrap().to_string()
         ).unwrap();

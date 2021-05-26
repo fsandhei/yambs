@@ -81,7 +81,7 @@ impl Dependency {
     fn detect_dependency(&self, dep_registry: &mut DependencyRegistry) -> Result<Vec<DependencyNode>, MyMakeError> {
         let mut dep_vec : Vec<DependencyNode> = Vec::new();
         if self.mmk_data().has_dependencies() {
-            for path in self.mmk_data().data()["MMK_DEPEND"].clone() {
+            for path in self.mmk_data().data()["MMK_REQUIRE"].clone() {
                 if path == "" {
                     break;
                 }
@@ -399,7 +399,7 @@ mod tests {
         write!(
             file,
             "\
-            MMK_DEPEND:
+            MMK_REQUIRE:
                 {}
         \n
         
@@ -412,7 +412,7 @@ mod tests {
         let top_dependency = Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry).unwrap();
 
         expected_1.data_mut().insert(
-            String::from("MMK_DEPEND"),
+            String::from("MMK_REQUIRE"),
             vec![test_file_dep_path.parent().unwrap().to_str().unwrap().to_string()],
         );
         expected_1
@@ -486,7 +486,7 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
             {}
         
@@ -501,7 +501,7 @@ mod tests {
         let top_dependency = Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry).unwrap();
 
         expected_1.data_mut().insert(
-            String::from("MMK_DEPEND"),
+            String::from("MMK_REQUIRE"),
             vec![test_file_dep_path.parent().unwrap().to_str().unwrap().to_string(),
                  test_file_second_dep_path.parent().unwrap().to_str().unwrap().to_string()],
         );
@@ -552,7 +552,7 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         MMK_EXECUTABLE:
@@ -562,7 +562,7 @@ mod tests {
         write!(
             file_dep,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         ",
@@ -572,7 +572,7 @@ mod tests {
         let top_dependency = Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry).unwrap();
 
         expected_1.data_mut().insert(
-            String::from("MMK_DEPEND"),
+            String::from("MMK_REQUIRE"),
             vec![test_file_dep_path.parent().unwrap().to_str().unwrap().to_string()],
         );
         expected_1
@@ -581,7 +581,7 @@ mod tests {
 
         expected_2
             .data_mut()
-            .insert(String::from("MMK_DEPEND"),
+            .insert(String::from("MMK_REQUIRE"),
             vec![test_file_second_dep_path.parent().unwrap().to_str().unwrap().to_string()]);
 
         
@@ -629,7 +629,7 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
             {}
         \n
@@ -641,7 +641,7 @@ mod tests {
         write!(
             file_dep,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         ",
@@ -669,7 +669,7 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
             {}
         \n
@@ -681,7 +681,7 @@ mod tests {
         write!(
             file_dep,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         ",
@@ -691,7 +691,7 @@ mod tests {
         let top_dependency = Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry).unwrap();
 
         expected_1.data_mut().insert(
-            String::from("MMK_DEPEND"),
+            String::from("MMK_REQUIRE"),
             vec![test_file_third_dep_path.parent().unwrap().to_str().unwrap().to_string(),
                    test_file_dep_path.parent().unwrap().to_str().unwrap().to_string()],
         );
@@ -701,7 +701,7 @@ mod tests {
 
         expected_2
             .data_mut()
-            .insert(String::from("MMK_DEPEND"),
+            .insert(String::from("MMK_REQUIRE"),
             vec![test_file_second_dep_path.parent().unwrap().to_str().unwrap().to_string()]);
         
         
@@ -752,7 +752,7 @@ mod tests {
         write!(
             file,
             "\
-            MMK_DEPEND:
+            MMK_REQUIRE:
                 {}
         \n
         
@@ -764,7 +764,7 @@ mod tests {
         write!(
             file_dep,
             "\
-            MMK_DEPEND:
+            MMK_REQUIRE:
                 {}
         \n", &test_file_path.parent().unwrap().to_str().unwrap().to_string()
         ).unwrap();
@@ -788,7 +788,7 @@ mod tests {
         write!(
             file,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         MMK_EXECUTABLE:
@@ -798,7 +798,7 @@ mod tests {
         write!(
             file_dep,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         ",
@@ -807,7 +807,7 @@ mod tests {
         write!(
             file_second_file_dep,
             "\
-        MMK_DEPEND:
+        MMK_REQUIRE:
             {}
         \n
         ",

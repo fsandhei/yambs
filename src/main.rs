@@ -38,7 +38,7 @@ TODO:
     *                               Ved aggregering av tredjepart / pakker, skal det opprettes en lib/ - katalog under build-mappa.
     *                               Her ligger aggregert generat under hver sin mappe med prosjektnavn.
     *                               Tredje part skal kalles i .mmk på følgende måte:
-    *                               MMK_DEPEND:
+    *                               MMK_REQUIRE:
     *                                  /some/directory/to/mmk/file
 
 

@@ -571,7 +571,7 @@ mod tests {
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
         dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
         dependency.borrow_mut().add_library_name();
-        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_REQUIRE".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
                                                                                                dir_second_dep.path().to_str().unwrap().to_string()]);
 
         let mut gen = MakefileGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
@@ -622,7 +622,7 @@ mod tests {
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
         dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SOURCES".to_string(), vec!["filename.cpp".to_string(), "ofilename.cpp".to_string()]);
         dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_EXECUTABLE".to_string(), vec!["x".to_string()]);
-        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_REQUIRE".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
                                                                                                dir_second_dep.path().to_str().unwrap().to_string()]);
         let mut gen = MakefileGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
         gen.create_makefile();
@@ -741,7 +741,7 @@ mod tests {
         utility::create_dir(&second_dep_include_dir).unwrap();
         
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
-        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_REQUIRE".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string(),
                                                                                                dir_second_dep.path().to_str().unwrap().to_string()]);
 
         let gen = MakefileGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();
@@ -765,7 +765,7 @@ mod tests {
         utility::create_dir(&second_dep_include_dir).unwrap();
         
         let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
-        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_DEPEND".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string()]);
+        dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_REQUIRE".to_string(), vec![dir_first_dep.path().to_str().unwrap().to_string()]);
         dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_SYS_INCLUDE".to_string(), vec![dir_second_dep.path().to_str().unwrap().to_string()]);
 
         let gen = MakefileGenerator::new(&dependency, output_dir.path().to_path_buf()).unwrap();

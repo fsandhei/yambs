@@ -43,7 +43,7 @@ impl Mmk {
 
 
     pub fn has_dependencies(&self) -> bool {
-        self.data.contains_key("MMK_DEPEND")
+        self.data.contains_key("MMK_REQUIRE")
     }
 
 
@@ -68,9 +68,9 @@ impl Mmk {
 
 
     pub fn get_include_directories(&self) -> Result<String, MyMakeError> {
-        if self.data.contains_key("MMK_DEPEND") {
+        if self.data.contains_key("MMK_REQUIRE") {
             let mut formatted_string = String::new();
-            for dep_path_as_string in &self.data["MMK_DEPEND"] {
+            for dep_path_as_string in &self.data["MMK_REQUIRE"] {
                 formatted_string.push_str("-I");
                 let dep_path = utility::get_include_directory_from_path(&PathBuf::from(dep_path_as_string))?;
                 formatted_string.push_str(dep_path.to_str().unwrap());
@@ -85,7 +85,7 @@ impl Mmk {
     pub fn valid_keyword(self: &Self, keyword: & str) -> Result<(), MyMakeError>
     {
         let stripped_keyword = keyword.trim_end_matches(":");
-        if stripped_keyword == "MMK_DEPEND"
+        if stripped_keyword == "MMK_REQUIRE"
         || stripped_keyword == "MMK_SOURCES"
         || stripped_keyword == "MMK_HEADERS"
         || stripped_keyword == "MMK_EXECUTABLE"
@@ -224,7 +224,7 @@ pub mod tests
         let content = read_file(&path);        
         assert_eq!(content.unwrap(),("\
 #This is a comment.
-MMK_DEPEND:
+MMK_REQUIRE:
    /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/
 
 MMK_SOURCES:
@@ -242,7 +242,7 @@ MMK_EXECUTABLE:
         let path = std::path::Path::new("/home/fredrik/bin/mymake/mmk_parser/src/test.mmk");
         let content = read_file(&path).unwrap();     
         assert_eq!(remove_comments(&content),String::from("
-MMK_DEPEND:
+MMK_REQUIRE:
    /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/
 
 MMK_SOURCES:
@@ -324,8 +324,8 @@ MMK_EXECUTABLE:
 
 
     #[test]
-    fn test_valid_keyword_mmk_depend() {
-        assert!(Mmk::new().valid_keyword("MMK_DEPEND").is_ok());
+    fn test_valid_keyword_mmk_require() {
+        assert!(Mmk::new().valid_keyword("MMK_REQUIRE").is_ok());
     }
 
 
@@ -353,14 +353,14 @@ MMK_EXECUTABLE:
     }
 
     #[test]
-    fn test_parse_mmk_dependencies() -> Result<(), MyMakeError>
+    fn test_parse_dependencies() -> Result<(), MyMakeError>
     {
         let mut mmk_content = Mmk::new();
-        let content: String = String::from("MMK_DEPEND:\n\
+        let content: String = String::from("MMK_REQUIRE:\n\
                                                 /some/path/to/depend/on \n\
                                                 /another/path/to/depend/on\n");
         mmk_content.parse(&content)?;
-        assert_eq!(mmk_content.data["MMK_DEPEND"], ["/some/path/to/depend/on", "/another/path/to/depend/on"]);
+        assert_eq!(mmk_content.data["MMK_REQUIRE"], ["/some/path/to/depend/on", "/another/path/to/depend/on"]);
         Ok(())
     }
 
@@ -371,7 +371,7 @@ MMK_EXECUTABLE:
                                                 filename.cpp
                                                 otherfilename.cpp
                                             
-                                            MMK_DEPEND:
+                                            MMK_REQUIRE:
                                                 /some/path/to/depend/on
                                                 /another/path/
                                                          
@@ -379,7 +379,7 @@ MMK_EXECUTABLE:
                                                 main");
         mmk_content.parse(&content)?;
         assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp", "otherfilename.cpp"]);
-        assert_eq!(mmk_content.data["MMK_DEPEND"], ["/some/path/to/depend/on", "/another/path/"]);
+        assert_eq!(mmk_content.data["MMK_REQUIRE"], ["/some/path/to/depend/on", "/another/path/"]);
         assert_eq!(mmk_content.data["MMK_EXECUTABLE"], ["main"]);
         Ok(())
     }
@@ -436,12 +436,12 @@ MMK_EXECUTABLE:
     #[test]
     fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
-        let content: String = String::from("MMK_DEPENDS:\n\
+        let content: String = String::from("MMK_REQUIRES:\n\
                                                 /some/path/to/depend/on \n\
                                                 /another/path/to/depend/on\n");
         let result = mmk_content.parse(&content);                
         assert!(result.is_err());
-        assert_eq!(&String::from("MMK_DEPENDS is not a valid keyword."), result.unwrap_err().to_string());
+        assert_eq!(&String::from("MMK_REQUIRES is not a valid keyword."), result.unwrap_err().to_string());
         Ok(())
     }
 
@@ -449,7 +449,7 @@ MMK_EXECUTABLE:
     #[test]
     fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError> {
         let mut mmk_content = Mmk::new();
-        let content: String = String::from("MMK_DEPEND:\n\
+        let content: String = String::from("MMK_REQUIRE:\n\
                                                 /some/path/to/depend/on\n\
                                             MMK_SOURCES:\n\
                                                 some_file.cpp\n");
@@ -468,7 +468,7 @@ MMK_EXECUTABLE:
         let src_dir = dir.path().join("src");
         let include_dir = dir.path().join("include");
         utility::create_dir(&include_dir).unwrap();
-        let content: String = format!("MMK_DEPEND:\n\
+        let content: String = format!("MMK_REQUIRE:\n\
                                           {}", src_dir.to_str().unwrap());
 
         mmk_content.parse(&content).unwrap();

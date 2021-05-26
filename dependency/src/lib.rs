@@ -198,11 +198,9 @@ impl Dependency {
             self.library_name = library_name;
             return;
         }
-        else {
-            let root_path = self.path.parent().unwrap().parent().unwrap();
-            library_name = utility::get_head_directory(root_path)
-                                                        .to_str().unwrap().to_string();
-        }
+        let root_path = self.path.parent().unwrap().parent().unwrap();
+        library_name = utility::get_head_directory(root_path)
+                                                    .to_str().unwrap().to_string();
         self.library_name.push_str("lib");
         self.library_name.push_str(&library_name);
         self.library_name.push_str(".a");

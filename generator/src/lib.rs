@@ -182,18 +182,10 @@ impl MakefileGenerator {
 
     fn print_library_name(&self) -> String {
         let mut formatted_string = String::new();
-        if self.dependency.borrow().mmk_data().has_library_label() {
-            print_full_path(&mut formatted_string,
-                            self.output_directory.to_str().unwrap(),
-                            &self.dependency.borrow().library_file_name(),
-                            true);
-        }
-        else {
-            print_full_path(&mut formatted_string,
-                            self.output_directory.to_str().unwrap(),
-                            &self.dependency.borrow().library_name(),
-                            true);
-        }
+        print_full_path(&mut formatted_string,
+                        self.output_directory.to_str().unwrap(),
+                        &self.dependency.borrow().library_file_name(),
+                        true);
         
         formatted_string
     }

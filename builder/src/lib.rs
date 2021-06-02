@@ -1,22 +1,21 @@
 use dependency::{Dependency, DependencyRegistry, DependencyNode};
 use error::MyMakeError;
-use generator::MakefileGenerator;
+use generator::Generator;
 use std::env;
 use colored::Colorize;
 use std::process::Output;
 use std::rc::Rc;
 use std::path::PathBuf;
-
 mod filter;
 mod clean;
 mod make;
 use make::Make;
 
 
-pub struct Builder {
+pub struct Builder<'a> {
     top_dependency: Option<DependencyNode>,
     dep_registry: DependencyRegistry,
-    generator: Option<MakefileGenerator>,
+    generator: Box<&'a mut dyn Generator>,
     debug: bool,
     verbose: bool,
     make: Make,
@@ -24,27 +23,23 @@ pub struct Builder {
 }
 
 
-impl Builder {
-    pub fn new() -> Builder {
+impl<'a> Builder<'a> {
+    pub fn new(generator: &mut dyn Generator) -> Builder {
         Builder {
             top_dependency: None,
             dep_registry: DependencyRegistry::new(),
-            generator: None,
+            generator: Box::new(generator),
             debug: false,
             verbose: false,
             make: Make::new(),
-            top_build_directory: Some(env::current_dir().unwrap())
+            top_build_directory: Some(env::current_dir().unwrap()) //At the moment hardcoded as current working directory.
         }
     }
 
 
-    pub fn add_generator(&mut self) {
-        if let Some(top_dependency) = &self.top_dependency {
-            self.generator = Some(MakefileGenerator::new(&top_dependency, self.top_build_directory
-                                                                                        .as_ref()
-                                                                                        .unwrap()
-                                                                                        .to_owned())
-                                                                                        .unwrap())
+    pub fn add_generator(&mut self, generator: &'a mut dyn Generator) {
+        if let Some(_) = &self.top_dependency {
+            self.generator = Box::new(generator);
         }
     }
 
@@ -55,25 +50,18 @@ impl Builder {
 
 
     pub fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
-        if self.generator.is_some() {
-            return self.generator.as_mut().unwrap().use_std(version);
-        }
-        Ok(())
+            return self.generator.as_mut().use_std(version);
     }
 
     
     pub fn debug(&mut self) {
         self.debug = true;
-        if self.generator.is_some() {
-            self.generator.as_mut().unwrap().debug();
-        }
+        self.generator.as_mut().debug();
     }
 
 
-    pub fn release(&mut self) {
-        if self.generator.is_some() {
-            self.generator.as_mut().unwrap().release();
-        }
+    pub fn release(&mut self) {        
+        self.generator.as_mut().release();
     }
 
 
@@ -103,14 +91,20 @@ impl Builder {
 
     pub fn read_mmk_files_from_path(self: &mut Self, top_path: &std::path::PathBuf) -> Result<(), MyMakeError> {
         let top_dependency = Dependency::create_dependency_from_path(&top_path, &mut self.dep_registry)?;
-        self.top_dependency = Some(Rc::clone(&top_dependency));        
+        self.top_dependency = Some(Rc::clone(&top_dependency));
         Ok(())
     }
 
 
+    fn add_dependency_to_generator(&mut self, dependency: &DependencyNode) {
+        self.generator.as_mut().set_dependency(dependency);
+    }
+
+
     pub fn generate_makefiles(&mut self) -> Result<(), MyMakeError> {
-        if let Some(top_dependency) = &self.top_dependency {
-            return self.generator.as_mut().unwrap().generate_makefiles(&top_dependency);
+        if let Some(top_dependency) = self.top_dependency.clone() {
+            self.add_dependency_to_generator(&top_dependency);
+            return self.generator.as_mut().generate_makefiles(&top_dependency);
         }
         else {
             return Err(MyMakeError::from(String::from("builder.generate_builder(): Called in unexpected way.")));
@@ -139,7 +133,7 @@ impl Builder {
         Ok(())
     }
 
-    // Muligens skill ut funksjonalitet for å lage lib - directory.
+    
     pub fn build_dependency(&self, dependency: &DependencyNode,
                             build_path: &PathBuf, 
                             verbosity: bool) -> Result<Output, MyMakeError> {
@@ -227,10 +221,12 @@ impl Builder {
 mod tests {
     use super::*;
     use mmk_parser::Mmk;
+    use generator::generator_mock::GeneratorMock;
     use std::fs::File;
     use std::io::Write;
     use tempdir::TempDir;
     use utility;
+
 
     fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
         let dir: TempDir = TempDir::new(&dir_name).unwrap();
@@ -263,7 +259,8 @@ mod tests {
     }
     #[test]
     fn read_mmk_files_one_file() -> std::io::Result<()> {
-        let mut builder = Builder::new();
+        let mut generator = GeneratorMock::new();
+        let mut builder = Builder::new(&mut generator);
         let (_dir, test_file_path, mut file, mut expected) = make_mmk_file("example");
         
         write!(
@@ -301,7 +298,8 @@ mod tests {
 
     #[test]
     fn read_mmk_files_two_files() -> std::io::Result<()> {
-        let mut builder = Builder::new();
+        let mut generator = GeneratorMock::new();
+        let mut builder = Builder::new(&mut generator);
         let (_dir, test_file_path, mut file, _)     = make_mmk_file("example");
         let (_dir_dep, test_file_dep_path, _file_dep, _) = make_mmk_file("example_dep");
 
@@ -324,7 +322,8 @@ mod tests {
 
     #[test]
     fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
-        let mut builder = Builder::new();
+        let mut generator = GeneratorMock::new();
+        let mut builder = Builder::new(&mut generator);
         let (_dir, test_file_path, mut file, _) 
             = make_mmk_file("example");
         let (_dir_dep, test_file_dep_path, _file_dep, _) 
@@ -352,7 +351,8 @@ mod tests {
 
     #[test]
     fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
-        let mut builder = Builder::new();
+        let mut generator = GeneratorMock::new();
+        let mut builder = Builder::new(&mut generator);
         let (_dir, test_file_path, mut file, _) 
         = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, mut file_dep, _) 
@@ -385,7 +385,8 @@ mod tests {
 
     #[test]
     fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std::io::Result<()> {
-        let mut builder = Builder::new();
+        let mut generator = GeneratorMock::new();
+        let mut builder = Builder::new(&mut generator);
         let (_dir, test_file_path, mut file, _) 
         = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, mut file_dep, _) 
@@ -421,7 +422,8 @@ mod tests {
     }
     #[test]
     fn read_mmk_files_two_files_circulation() -> Result<(), MyMakeError> {
-        let mut builder = Builder::new();
+        let mut generator = GeneratorMock::new();
+        let mut builder = Builder::new(&mut generator);
         let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
         let (_dir_dep, test_file_dep_path, mut file_dep, _) = make_mmk_file("example_dep");
 
@@ -452,26 +454,28 @@ mod tests {
     }
 
 
-    #[test]
-    fn add_generator() -> std::io::Result<()> {
-        let mut builder = Builder::new();
-        let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
+    // #[test]
+    // fn add_generator() -> std::io::Result<()> {
+    //     let mut generator = GeneratorMock::new();
+    //     let mut builder = Builder::new(&mut generator);
+    //     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
         
-        write!(
-            file,
-            "MMK_EXECUTABLE:
-                x
-            ")?;
-        assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+    //     write!(
+    //         file,
+    //         "MMK_EXECUTABLE:
+    //             x
+    //         ")?;
+    //     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
 
-        builder.add_generator();
-        assert!(builder.generator.is_some());
-        Ok(())
-    }
+    //     builder.add_generator();
+    //     assert!(builder.generator.is_some());
+    //     Ok(())
+    // }
 
     #[test]
     fn resolve_build_directory_debug() {
-        let mut builder = Builder::new();
+        let mut generator = GeneratorMock::new();
+        let mut builder = Builder::new(&mut generator);
         builder.debug();
         let path = PathBuf::from("some/path");
         let expected = path.join("debug");
@@ -480,7 +484,8 @@ mod tests {
 
     #[test]
     fn resolve_build_directory_release() {
-        let builder = Builder::new();
+        let mut generator = GeneratorMock::new();
+        let builder = Builder::new(&mut generator);
         let path = PathBuf::from("some/path");
         let expected = path.join("release");
         assert_eq!(builder.resolve_build_directory(&path), expected);
@@ -489,7 +494,8 @@ mod tests {
 
     #[test]
     fn construct_build_message_executable() -> std::io::Result<()> {
-        let mut builder = Builder::new();
+        let mut generator = GeneratorMock::new();
+        let mut builder = Builder::new(&mut generator);
         let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
         
         write!(

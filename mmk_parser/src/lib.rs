@@ -494,5 +494,17 @@ MMK_EXECUTABLE:
         assert_eq!(&String::from("\"mymakeinfo.mmk\" is illegal name! File must be named lib.mmk or run.mmk."), 
                     result.unwrap_err().to_string());
     }
+
+    #[test]
+    fn test_to_string_mmk_sys_include() {
+        let mut mmk_content = Mmk::new();
+        let content: String = String::from("MMK_SYS_INCLUDE:\n\
+                                                /some/third/party/software/\n\
+                                                /second/third/party/thing");
+        mmk_content.parse(&content).unwrap();
+        let expected = String::from("-isystem /some/third/party/software/ -isystem /second/third/party/thing");
+        let actual = mmk_content.to_string("MMK_SYS_INCLUDE");
+        assert_eq!(expected, actual);
+    }
 }
 

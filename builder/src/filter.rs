@@ -16,6 +16,8 @@ pub fn filter_string(input: &String) -> String {
     let pattern_ar = Regex::new(r"^ar.*\n+");
     let pattern_ar_second = Regex::new(r"\nar:.*");
     let pattern_ar_open = Regex::new(r".*ar:.*");
+
+    
     filter_string_regex(input, pattern_ar.unwrap());
     filter_string_regex(input, pattern_ar_second.unwrap());
     filter_string_regex(input, pattern_ar_open.unwrap())

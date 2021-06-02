@@ -38,7 +38,7 @@ impl<'a> CommandLine<'a> {
                         .help("Toggles verbosity"))
             .arg(Arg::with_name("jobs")
                         .short("j")
-                        .default_value("1")
+                        .default_value("10")
                         .help("Make job parallelization"))
             .subcommand(SubCommand::with_name("extern")
                         .about("Run external programs from MyMake.")

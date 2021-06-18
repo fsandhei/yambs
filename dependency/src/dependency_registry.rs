@@ -1,9 +1,7 @@
 use std::path::PathBuf;
-use crate::Dependency;
+use crate::{Dependency, DependencyNode};
 use std::cell::RefCell;
 use std::rc::Rc;
-
-type DependencyNode = Rc<RefCell<Dependency>>;
 
 // LEGG TIL TESTER
 

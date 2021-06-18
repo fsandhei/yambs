@@ -22,18 +22,7 @@ pub struct Dependency {
 
 pub type DependencyNode = Rc<RefCell<Dependency>>;
 
-impl Dependency {    
-    pub fn new() -> Dependency {
-        Dependency {
-            path: std::path::PathBuf::new(),
-            mmk_data: mmk_parser::Mmk::new(),
-            requires: RefCell::new(Vec::new()),
-            library_name: String::new(),
-            state: DependencyState::new()
-        }
-    }
-
-
+impl Dependency {
     pub fn from(path: &std::path::PathBuf) -> Dependency {
         let source_path : PathBuf;
         if path.ends_with("run.mmk") || path.ends_with("lib.mmk") {
@@ -45,7 +34,7 @@ impl Dependency {
         
         Dependency {
             path: std::path::PathBuf::from(source_path),
-            mmk_data: mmk_parser::Mmk::new(),
+            mmk_data: mmk_parser::Mmk::new(&path),
             requires: RefCell::new(Vec::new()),
             library_name: String::new(),
             state: DependencyState::new()
@@ -173,7 +162,7 @@ impl Dependency {
             Ok(data) => data,
             Err(err) => return Err(MyMakeError::from(format!("Error parsing {:?}: {}", self.path, err))),
         };
-        let mut mmk_data = mmk_parser::Mmk::new();
+        let mut mmk_data = mmk_parser::Mmk::new(&self.path);
         mmk_data.parse(&file_content)?;
         self.mmk_data = mmk_data.clone();
         Ok(mmk_data)
@@ -294,7 +283,7 @@ mod tests {
         
         \n").expect("make_mmk_file(): Something went wrong writing to file.");
 
-        let mut mmk_data = Mmk::new();
+        let mut mmk_data = Mmk::new(&test_file_path);
         mmk_data.data_mut().insert(String::from("MMK_SOURCES"), 
                              vec![String::from("some_file.cpp"), 
                                   String::from("some_other_file.cpp")]);
@@ -307,68 +296,75 @@ mod tests {
     }
 
 
+    fn fixture_simple_dependency() -> DependencyNode {
+        let (_dir, lib_file_path, _file, _expected) = make_mmk_file("example");
+        let mut dep_registry = DependencyRegistry::new();
+        Dependency::create_dependency_from_path(&lib_file_path, &mut dep_registry).unwrap()
+    }
+
+    
     #[test]
     fn test_is_in_process_true() {
-        let mut dependency = Dependency::new();
-        dependency.change_state(DependencyState::InProcess);
-        assert!(dependency.is_in_process());
+        let dependency = fixture_simple_dependency();
+        dependency.borrow_mut().change_state(DependencyState::InProcess);
+        assert!(dependency.borrow().is_in_process());
     }
 
 
     #[test]
     fn test_is_in_process_false() {
-        let mut dependency = Dependency::new();
-        dependency.change_state(DependencyState::Registered);
-        assert!(!dependency.is_in_process());
+        let dependency = fixture_simple_dependency();
+        dependency.borrow_mut().change_state(DependencyState::Registered);
+        assert!(!dependency.borrow().is_in_process());
     }
 
 
     #[test]
     fn test_is_makefile_made_true() {
-        let mut dependency = Dependency::new();
-        dependency.change_state(DependencyState::MakefileMade);
-        assert!(dependency.is_makefile_made());
+        let dependency = fixture_simple_dependency();
+        dependency.borrow_mut().change_state(DependencyState::MakefileMade);
+        assert!(dependency.borrow().is_makefile_made());
     }
 
 
     #[test]
     fn test_is_makefile_made_false() {
-        let mut dependency = Dependency::new();
-        dependency.change_state(DependencyState::NotInProcess);
-        assert!(!dependency.is_makefile_made());
+        let dependency = fixture_simple_dependency();
+        dependency.borrow_mut().change_state(DependencyState::NotInProcess);
+        assert!(!dependency.borrow().is_makefile_made());
     }
 
 
 
     #[test]
     fn test_is_building_true() {
-        let mut dependency = Dependency::new();
-        dependency.change_state(DependencyState::Building);
-        assert!(dependency.is_building());
+        let dependency = fixture_simple_dependency();
+        dependency.borrow_mut().change_state(DependencyState::Building);
+        assert!(dependency.borrow().is_building());
     }
 
 
     #[test]
     fn test_is_building_false() {
-        let mut dependency = Dependency::new();
-        dependency.change_state(DependencyState::BuildComplete);
-        assert!(!dependency.is_building());
+        let dependency = fixture_simple_dependency();
+        dependency.borrow_mut().change_state(DependencyState::BuildComplete);
+        assert!(!dependency.borrow().is_building());
     }
 
 
     #[test]
     fn test_is_build_completed_true() {
-        let mut dependency = Dependency::new();
-        dependency.change_state(DependencyState::BuildComplete);
-        assert!(dependency.is_build_completed());
+        let dependency = fixture_simple_dependency();
+        dependency.borrow_mut().change_state(DependencyState::BuildComplete);
+        assert!(dependency.borrow().is_build_completed());
     }
 
 
     #[test]
     fn test_is_build_completed_false() {
-        let mut dependency = Dependency::new();
-        dependency.change_state(DependencyState::NotInProcess);
-        assert!(!dependency.is_build_completed());
+        let dependency = fixture_simple_dependency();
+        dependency.borrow_mut().change_state(DependencyState::NotInProcess);
+        assert!(!dependency.borrow().is_build_completed());
     }
 
 
@@ -717,7 +713,7 @@ mod tests {
                 mmk_data: expected_1,
                 requires: RefCell::new(vec![Rc::new(RefCell::new(Dependency {
                     path: test_file_third_dep_path,
-                    mmk_data: expected_3,
+                    mmk_data: expected_4,
                     requires: RefCell::new(vec![]),
                     library_name: expected_lib_name_third_dep,
                     state: DependencyState::Registered,
@@ -728,7 +724,7 @@ mod tests {
                     requires: RefCell::new(vec![
                         Rc::new(RefCell::new(Dependency {
                             path: test_file_second_dep_path,
-                            mmk_data: expected_4,
+                            mmk_data: expected_3,
                             requires: RefCell::new(vec![]),
                             library_name: expected_lib_name_second_dep,
                             state: DependencyState::Registered,

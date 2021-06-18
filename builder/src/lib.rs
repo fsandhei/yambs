@@ -11,7 +11,6 @@ mod clean;
 mod make;
 use make::Make;
 
-
 pub struct Builder<'a> {
     top_dependency: Option<DependencyNode>,
     dep_registry: DependencyRegistry,
@@ -246,7 +245,7 @@ mod tests {
         
             ").expect("make_mmk_file(): Something went wrong writing to file.");
 
-        let mut mmk_data = Mmk::new();
+        let mut mmk_data = Mmk::new(&test_file_path);
         mmk_data.data_mut().insert(String::from("MMK_SOURCES"), 
                              vec![String::from("some_file.cpp"), 
                                   String::from("some_other_file.cpp")]);

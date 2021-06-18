@@ -10,6 +10,9 @@ use error::MyMakeError;
 use regex::Regex;
 use utility;
 
+mod mmk_constants;
+use mmk_constants::{Constant, Constants};
+
 // Pretty assertions only for testing.
 #[cfg(test)]
 #[macro_use]
@@ -19,12 +22,17 @@ extern crate pretty_assertions;
 pub struct Mmk
 {
     data: HashMap<String, Vec<String>>,
+    constants: Constants
 }
 
 impl Mmk {
-    pub fn new() -> Mmk
+    pub fn new(path: &PathBuf) -> Mmk
     {
-        Mmk { data: HashMap::new() }
+        let source_path = utility::get_source_directory_from_path(utility::get_project_top_directory(path));
+
+        Mmk { data: HashMap::new(), 
+              constants: Constants::new(path, &source_path),
+         }
     }
 
     pub fn data(&self) -> &HashMap<String, Vec<String>> {
@@ -114,8 +122,8 @@ impl Mmk {
         let mut current_line = data_iter.next();
         while current_line != None {
             let line = current_line.unwrap().trim();
-            if line != "" && !self.valid_keyword(line).is_ok() {
-                let arg = current_line.unwrap().trim().to_string();
+            if line != "" && !self.valid_keyword(&line).is_ok() {
+                let arg = self.replace_constant_with_value(&line.to_string());
                 arg_vec.push(arg);
             }
             else if line == "" {
@@ -159,6 +167,16 @@ impl Mmk {
         Ok(())
     }
 
+    fn replace_constant_with_value(&self, mmk_keyword_value: &str) -> String {
+        if let Some(constant_string) = self.constants.get_constant(&mmk_keyword_value.to_string()) {
+            let item = self.constants.get_item(Constant::new(&constant_string)).unwrap();
+            let constant_reconstructed = format!("${{{}}}", constant_string);
+            return mmk_keyword_value.replace(&constant_reconstructed, &item);
+        }
+        else {
+            return mmk_keyword_value.to_string()
+        }
+    }
 
     pub fn source_file_path(&self, source: &String) -> Option<PathBuf> {
         let mut source_path = PathBuf::from(source);
@@ -213,9 +231,10 @@ pub fn remove_comments(data: &String) -> String {
 
 
 #[cfg(test)]
-pub mod tests
+mod tests
 {
     use super::*;
+    use mmk_constants::Constant;
     use tempdir::TempDir;
     #[test]
     fn test_mmk_file_reader()
@@ -257,7 +276,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_to_string_mmk_sources() -> Result<(), MyMakeError> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_SOURCES:\n\
                                                 filename.cpp\n\
                                                 otherfilename.cpp\n");
@@ -272,7 +292,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_to_string_mmk_headers() -> Result<(), MyMakeError> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_HEADERS:\n\
                                                 filename.h\n\
                                                 otherfilename.h\n");
@@ -288,7 +309,8 @@ MMK_EXECUTABLE:
     #[test]
     fn test_parse_mmk_sources() -> Result<(), MyMakeError>
     {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_SOURCES:\n\
                                                 filename.cpp\n\
                                                 otherfilename.cpp\n");
@@ -301,7 +323,8 @@ MMK_EXECUTABLE:
     #[test]
     fn test_parse_mmk_source() -> Result<(), MyMakeError>
     {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_SOURCES:\n\
                                                 filename.cpp");
         mmk_content.parse(&content)?;
@@ -313,49 +336,64 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_valid_keyword_mmk_sources() {
-        assert!(Mmk::new().valid_keyword("MMK_SOURCES").is_ok());
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mmk_content = Mmk::new(&path);
+        assert!(mmk_content.valid_keyword("MMK_SOURCES").is_ok());
     }
 
 
     #[test]
     fn test_valid_keyword_mmk_headers() {
-        assert!(Mmk::new().valid_keyword("MMK_HEADERS").is_ok());
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mmk_content = Mmk::new(&path);
+        assert!(mmk_content.valid_keyword("MMK_HEADERS").is_ok());
     }
 
 
     #[test]
     fn test_valid_keyword_mmk_require() {
-        assert!(Mmk::new().valid_keyword("MMK_REQUIRE").is_ok());
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mmk_content = Mmk::new(&path);
+        assert!(mmk_content.valid_keyword("MMK_REQUIRE").is_ok());
     }
 
 
     #[test]
     fn test_valid_keyword_mmk_executable() {
-        assert!(Mmk::new().valid_keyword("MMK_EXECUTABLE").is_ok());
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mmk_content = Mmk::new(&path);
+        assert!(mmk_content.valid_keyword("MMK_EXECUTABLE").is_ok());
     }
 
 
     #[test]
     fn test_valid_keyword_mmk_sys_include() {
-        assert!(Mmk::new().valid_keyword("MMK_SYS_INCLUDE").is_ok());
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mmk_content = Mmk::new(&path);
+        assert!(mmk_content.valid_keyword("MMK_SYS_INCLUDE").is_ok());
     }
 
 
     #[test]
     fn test_valid_keyword_mmk_cppflags_append() {
-        assert!(Mmk::new().valid_keyword("MMK_CPPFLAGS_APPEND").is_ok());
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mmk_content = Mmk::new(&path);
+        assert!(mmk_content.valid_keyword("MMK_CPPFLAGS_APPEND").is_ok());
     }
 
 
     #[test]
     fn test_valid_keyword_mmk_cxxflags_append() {
-        assert!(Mmk::new().valid_keyword("MMK_CXXFLAGS_APPEND").is_ok());
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mmk_content = Mmk::new(&path);
+        assert!(mmk_content.valid_keyword("MMK_CXXFLAGS_APPEND").is_ok());
     }
 
     #[test]
     fn test_parse_dependencies() -> Result<(), MyMakeError>
     {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_REQUIRE:\n\
                                                 /some/path/to/depend/on \n\
                                                 /another/path/to/depend/on\n");
@@ -366,7 +404,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_multiple_keywords() -> Result<(), MyMakeError> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_SOURCES:
                                                 filename.cpp
                                                 otherfilename.cpp
@@ -387,7 +426,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_has_library_label_true() -> Result<(), MyMakeError> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_LIBRARY_LABEL:\n\
                                                 myLib");
 
@@ -399,7 +439,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_has_library_label_false() -> Result<(), MyMakeError> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_SOURCES:\n\
                                                 my_source.cpp");
 
@@ -411,7 +452,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_has_system_include_true() -> Result<(), MyMakeError> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_SYS_INCLUDE:\n\
                                                 /some/third/party/software/");
 
@@ -423,7 +465,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_has_system_include_false() -> Result<(), MyMakeError> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_SOURCES:\n\
                                                 my_source.cpp");
 
@@ -435,11 +478,12 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_REQUIRES:\n\
                                                 /some/path/to/depend/on \n\
                                                 /another/path/to/depend/on\n");
-        let result = mmk_content.parse(&content);                
+        let result = mmk_content.parse(&content);
         assert!(result.is_err());
         assert_eq!(&String::from("MMK_REQUIRES is not a valid keyword."), result.unwrap_err().to_string());
         Ok(())
@@ -448,7 +492,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_REQUIRE:\n\
                                                 /some/path/to/depend/on\n\
                                             MMK_SOURCES:\n\
@@ -463,7 +508,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn get_include_directories_for_make_test() -> std::io::Result<()> {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let dir = TempDir::new("example")?;
         let src_dir = dir.path().join("src");
         let include_dir = dir.path().join("include");
@@ -497,7 +543,8 @@ MMK_EXECUTABLE:
 
     #[test]
     fn test_to_string_mmk_sys_include() {
-        let mut mmk_content = Mmk::new();
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
         let content: String = String::from("MMK_SYS_INCLUDE:\n\
                                                 /some/third/party/software/\n\
                                                 /second/third/party/thing");
@@ -505,6 +552,27 @@ MMK_EXECUTABLE:
         let expected = String::from("-isystem /some/third/party/software/ -isystem /second/third/party/thing");
         let actual = mmk_content.to_string("MMK_SYS_INCLUDE");
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_constant_has_top_path_variable() {
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mmk_content = Mmk::new(&path);
+        assert_eq!(mmk_content.constants.get_item(Constant::new("project_top")).unwrap(), "/some/path");
+    }
+
+    #[test]
+    fn test_constant_is_replaced_with_item() {
+        let path = PathBuf::from("/some/path/lib.mmk");
+        let mut mmk_content = Mmk::new(&path);
+        let content: String = String::from("MMK_REQUIRE:\n\
+                                                ${project_top}/depend/on \n\
+                                                ${project_top}/second/depend\n");
+        let result = mmk_content.parse(&content);
+        assert!(result.is_ok());
+        let expected = ["/some/path/depend/on", "/some/path/second/depend"];
+
+        assert_eq!(mmk_content.data["MMK_REQUIRE"], expected);
     }
 }
 

@@ -120,12 +120,15 @@ impl<'a> Builder<'a> {
             let output = self.build_dependency(&top_dependency,
                                                                         &build_directory, 
                                                                         self.verbose);
+            let build_status_message : String;
             if output.is_ok() && output.unwrap().status.success() {
-                println!("MyMake: {}", "Build SUCCESS".green());
+                build_status_message = format!("MyMake: {}", "Build SUCCESS".green());
             }
             else {
-                println!("MyMake: {}", "Build FAILED".red());
+                build_status_message = format!("MyMake: {}", "Build FAILED".red());
             }
+            println!("{}", build_status_message);
+            self.make.log_text(build_status_message)?;
             let log_path = self.top_build_directory.as_ref().unwrap().join("mymake_log.txt");
             println!("MyMake: Build log available at {:?}", log_path);
         }
@@ -287,7 +290,7 @@ mod tests {
     //             x
     //         ")?;
     
-    //     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+    //     assert!(builder.read_mmk_files_~/Documents/Tests/AStarPathFinderfrom_path(&test_file_path).is_ok());
     //     builder.add_generator();
 
     //     assert!(builder.generate_makefiles().is_ok());

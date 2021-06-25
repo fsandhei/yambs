@@ -121,6 +121,7 @@ impl<'a> CommandLine<'a> {
 
 
     pub fn validate_file_path(&self) -> PathBuf {
+        // Fix so the error message is explainable.
         let file_name = mmk_parser::validate_file_path(self.matches.value_of("mmk_file")
                                         .unwrap_or_terminate())
                                         .unwrap_or_terminate();

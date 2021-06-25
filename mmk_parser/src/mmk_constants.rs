@@ -1,7 +1,8 @@
 /* 
    * Konstanter som man burde ha:
-   * project_top: I praksis directory opp for .mmk - fila
-   * src_dir: src/source - dir
+   * project_top: I praksis directory opp for .mmk - fila. Burde være konstant for et prosjekt. Er det mulig å gjøre?
+   * src_dir: src/source - dir: Trengs denne?
+   * os : operativsystem.
 */
 use std::cmp::Eq;
 use std::hash::Hash;

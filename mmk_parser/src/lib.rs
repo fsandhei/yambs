@@ -1,6 +1,8 @@
 //!
 //#![warn(missing_debug_implementations, rust_2018_idioms_, missing_docs)]
 
+//TODO: Burde ha muligheten til å kunne bruke path som bruker relativ-path-direktiver (../)
+
 use std::collections::HashMap;
 use std::vec::Vec;
 use std::fs;

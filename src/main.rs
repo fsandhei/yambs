@@ -1,5 +1,4 @@
 extern crate mmk_parser;
-// extern crate generator;
 
 mod unwrap_or_terminate;
 mod command_line;

@@ -51,7 +51,9 @@ impl Make {
         }
         
         self.log_file.as_ref().unwrap().write(stdout.as_bytes())?;
+        self.log_file.as_ref().unwrap().write(b"\n\n")?;
         self.log_file.as_ref().unwrap().write(stderr.as_bytes())?;
+        self.log_file.as_ref().unwrap().write(b"\n\n")?;
         Ok(())
     }
 

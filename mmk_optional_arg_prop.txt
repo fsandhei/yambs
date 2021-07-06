@@ -1,0 +1,12 @@
+# Proposition nr.1
+# User has to add SYSTEM keyword to signify that third party software will be included by system.
+
+MMK_REQUIRE:
+   /some/project/dependency
+   /some/third_party/thingy SYSTEM
+
+
+# Proposition nr. 2: Instead of adding optional arguments to keyword, instead add a new keyword? It might be the easiest, I think, but is it more elegant?
+
+MMK_SYS_REQUIRE:
+   /some/third_party/thingy 

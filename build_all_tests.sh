@@ -18,6 +18,9 @@ build_mymake()
 test_mymake_minimal_build()
 {
    TEST_DIR="$ROOT_DIR/test_project"
+   if [ -d "$TEST_DIR" ]; then
+      rm -rf "$TEST_DIR"
+   fi
    mkdir $TEST_DIR && cd $TEST_DIR
    mkdir "$TEST_DIR/src"
 
@@ -55,6 +58,10 @@ test_mymake_with_one_dependency_build()
 {
    TEST_DIR="$ROOT_DIR/test_project"
    TEST_DIR_DEP="$ROOT_DIR/test_dependency_project"
+   
+   if [ -d "$TEST_DIR" ]; then
+      rm -rf "$TEST_DIR"
+   fi
    mkdir $TEST_DIR && cd $TEST_DIR
    mkdir "$TEST_DIR/src"
 
@@ -72,7 +79,7 @@ int main()
 EOF
 
 cat << EOF > $TEST_DIR/run.mmk
-MMK_DEPEND:
+MMK_REQUIRE:
   $TEST_DIR_DEP/src 
 
 MMK_EXECUTABLE:

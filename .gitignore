@@ -1,8 +1,14 @@
 # General ignores
 target
+
+# .dot file generate
 *.gv
+
+# Visual Studio
 .vscode/
-*.build
+
+# Build directory
+*build
 
 Cargo.lock
 

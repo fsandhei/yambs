@@ -342,3 +342,8 @@ fn test_constant_is_replaced_with_item() {
 
     assert_eq!(mmk_content.data["MMK_REQUIRE"], expected);
 }
+
+#[test]
+fn test_optional_arguments_to_keyword_arguments() {
+    
+}

@@ -19,7 +19,7 @@ impl<'a> CommandLine<'a> {
             GNU Make build system overlay for C++ projects. MyMake generates makefiles and builds the project with the \n\
             specifications written in the respective MyMake files.")
             .author("Written and maintained by Fredrik Sandhei <fredrik.sandhei@gmail.com>")        
-            .arg(Arg::with_name("mmk_file")
+            .arg(Arg::with_name("MyMake file")
                         .short("g")
                         .required(true)
                         .takes_value(true)
@@ -122,7 +122,7 @@ impl<'a> CommandLine<'a> {
 
     pub fn validate_file_path(&self) -> PathBuf {
         // Fix so the error message is explainable.
-        let file_name = mmk_parser::validate_file_path(self.matches.value_of("mmk_file")
+        let file_name = mmk_parser::validate_file_path(self.matches.value_of("MyMake file")
                                         .unwrap_or_terminate())
                                         .unwrap_or_terminate();
         mmk_parser::validate_file_name(&file_name).unwrap_or_terminate();

@@ -3,7 +3,6 @@ mod generator;
 pub mod generator_mock;
 
 pub use crate::generator::Generator;
-// pub use crate::include_file_generator::IncludeFileGenerator;
 
 use std::fs::File;
 use std::io::Write;
@@ -12,10 +11,8 @@ use std::path::PathBuf;
 
 use dependency::DependencyNode;
 use error::MyMakeError;
-use utility;
 use include_file_generator::IncludeFileGenerator;
 
-#[allow(dead_code)]
 pub struct MakefileGenerator
 {
     filename: Option<File>,

@@ -366,7 +366,7 @@ impl Generator for MakefileGenerator
         \n\
         .PHONY: {executable}\n\
         {executable}: {prerequisites}\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) {dependencies} $^ -o $@)\n\
+        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)\n\
         \n\
         {sources_to_objects}\n\
         \n\
@@ -411,6 +411,10 @@ impl Generator for MakefileGenerator
 
     fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
         self.include_file_generator.add_cpp_version(version)
+    }
+
+    fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
+        self.include_file_generator.set_sanitizers(sanitizers);
     }
 
 

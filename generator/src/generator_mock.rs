@@ -46,6 +46,8 @@ impl Generator for GeneratorMock {
         Ok(())
     }
 
+    fn set_sanitizers(&mut self, _sanitizers: Vec<&str>) {}
+
     fn print_ok(&self) {}
     
     fn set_dependency(&mut self, dependency: &DependencyNode) {

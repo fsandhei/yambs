@@ -10,7 +10,7 @@ use utility;
 pub struct IncludeFileGenerator {
     file: Option<File>,
     output_directory: PathBuf,
-    args: HashMap<&'static str, &'static str>,
+    args: HashMap<&'static str, String>,
 }
 
 
@@ -30,6 +30,43 @@ impl IncludeFileGenerator {
     }
 
 
+    pub fn get_sanitizers(&self) -> String {
+        let result = self.args.get("sanitizers");
+        if result.is_some() {
+            return format!("-fsanitize={}", result.unwrap());
+        }
+        String::new()
+    }
+
+
+    pub fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
+        let mut sanitizer_str = String::new();
+        for option in sanitizers {
+            match option {
+                "address"   => sanitizer_str.push_str("address "), // sanitizer_str.push_str("address kernel-adress hwaddress pointer-compare pointer-subtract"),
+                "thread"    => sanitizer_str.push_str("thread -fPIE -pie "),
+                "leak"      => sanitizer_str.push_str("leak "),
+                "undefined" => sanitizer_str.push_str("undefined "),
+                _           => ()
+            }
+        }
+        // let sanitizer_str = sanitizers.concat();
+        self.args.insert("sanitizers", sanitizer_str);
+    }
+
+
+    fn generate_flags_sanitizer(&mut self) -> String {
+        if self.args.contains_key("sanitizers") {
+            return format!("\
+            CXXFLAGS += {sanitizers}
+            \n\
+            LDFLAGS += {sanitizers}",
+            sanitizers = self.get_sanitizers());
+        }
+        String::new()
+    }
+
+
     pub fn add_cpp_version(&mut self, version: &str) -> Result<(), MyMakeError> {                
         let cpp_version_string = match version.to_lowercase().as_str() {
             "c++98" => "-std=c++98",
@@ -39,7 +76,7 @@ impl IncludeFileGenerator {
             "c++20" => "-std=c++20",
             _       => return Err(MyMakeError::from(format!("{} is not a valid C++ version.", version)))
         };
-        self.args.insert("C++", cpp_version_string);
+        self.args.insert("C++", cpp_version_string.to_string());
         Ok(())
     }
 
@@ -115,7 +152,10 @@ impl IncludeFileGenerator {
         CXXFLAGS += -g \\
                     -O0 \\
                     -gdwarf
-        ");
+        \n\
+        {flags_sanitizer}
+        ",
+        flags_sanitizer = self.generate_flags_sanitizer());
         match self.file.as_ref().unwrap().write(data.as_bytes()) {
             Ok(_) => (),
             Err(err) => return Err(MyMakeError::from(format!("Error creating debug.mk: {}", err))),

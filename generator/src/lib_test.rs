@@ -198,7 +198,7 @@ fn generate_executable_test() -> std::io::Result<()> {
     \t{directory}/filename.o \\\n\
     \t{directory}/ofilename.o \\\n\
     \t-lstdc++\n\
-    \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $^ -o $@)\n\
+    \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $^ -o $@)\n\
     \n\
     {directory}/filename.o: \\\n\
     \t{dep_directory}/filename.cpp\n\

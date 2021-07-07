@@ -141,6 +141,7 @@ fn generate_debug_mk_test() -> std::io::Result<()> {
         CXXFLAGS += -g \\
                     -O0 \\
                     -gdwarf
+        \n
         ",
         fs::read_to_string(file_name.to_str().unwrap()).unwrap()
     );

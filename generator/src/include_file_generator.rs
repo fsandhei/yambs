@@ -58,7 +58,7 @@ impl IncludeFileGenerator {
     fn generate_flags_sanitizer(&mut self) -> String {
         if self.args.contains_key("sanitizers") {
             return format!("\
-            CXXFLAGS += {sanitizers}
+            CXXFLAGS += {sanitizers}\n\
             \n\
             LDFLAGS += {sanitizers}",
             sanitizers = self.get_sanitizers());
@@ -153,7 +153,13 @@ impl IncludeFileGenerator {
                     -O0 \\
                     -gdwarf
         \n\
-        {flags_sanitizer}
+        {flags_sanitizer}\
+
+        # When building with sanitizer options, certain linker options must be added.\n\
+        # For thread sanitizers, -fPIE and -pie will be added to linker and C++ flag options.\n\
+        # This is done to support address space layout randomization (ASLR).\n\
+        # PIE enables C++ code to be compiled and linked as position-independent code.
+        # https://en.wikipedia.org/wiki/Address_space_layout_randomization\n\
         ",
         flags_sanitizer = self.generate_flags_sanitizer());
         match self.file.as_ref().unwrap().write(data.as_bytes()) {

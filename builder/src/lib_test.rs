@@ -342,8 +342,7 @@ fn construct_build_message_executable() -> std::io::Result<()> {
     write!(
         file,
         "MMK_EXECUTABLE:
-                x
-            "
+                x"
     )?;
     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
     let green_text = "Building".green();

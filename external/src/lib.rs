@@ -7,7 +7,7 @@ use std::env;
 pub fn dottie(top: &DependencyNode, recursive: bool, data: &mut String) -> std::io::Result<()>{
     let mut dottie_file = create_dottie_file(recursive)?;
     let borrowed_top = top.borrow();
-    let top_path = &borrowed_top.path();
+    let top_pretty_name = &borrowed_top.get_pretty_name();
     
     if recursive == false
     {
@@ -23,8 +23,8 @@ pub fn dottie(top: &DependencyNode, recursive: bool, data: &mut String) -> std::
     {
         data.push_str(&format!("\
         {:?} -> {:?}\n\
-        ", requirement.borrow().path()
-            , top_path));
+        ", requirement.borrow().get_pretty_name()
+            , top_pretty_name));
         dottie(&requirement, true, data)?;
     }
     Ok(())

@@ -220,6 +220,16 @@ impl Dependency {
     }
 
 
+    pub fn get_pretty_name(&self) -> String {
+        if self.is_executable() {
+            return self.mmk_data().to_string("MMK_EXECUTABLE");
+        }
+        else {
+            return self.print_library_name();
+        }
+    }
+
+
     pub fn requires(&self) -> &RefCell<Vec<DependencyNode>> {
         &self.requires
     }

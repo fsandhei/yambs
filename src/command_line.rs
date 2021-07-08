@@ -123,6 +123,10 @@ impl<'a> CommandLine<'a> {
                                                          Valid arguments are address, undefined, leak and thread."));
                 }
             }
+            if sanitizer_options.contains(&"address")
+             && sanitizer_options.contains(&"thread") {
+                return Err(MyMakeError::from_str("address cannot be used together with thread. Pick only one."));
+            }
             builder.set_sanitizers(sanitizer_options);
         }
         Ok(())

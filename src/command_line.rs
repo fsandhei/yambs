@@ -40,6 +40,11 @@ impl<'a> CommandLine<'a> {
                         .short("j")
                         .default_value("10")
                         .help("Make job parallelization"))
+            .arg(Arg::with_name("sanitizer")
+                        .value_delimiter(",")
+                        .long("sanitizer")
+                        .multiple(true)
+                        .help("Sets sanitizers to be used for debug build (address, undefined, leak, thread)."))
             .subcommand(SubCommand::with_name("extern")
                         .about("Run external programs from MyMake.")
                         .arg(Arg::with_name("dot")
@@ -99,10 +104,30 @@ impl<'a> CommandLine<'a> {
                                     println!("MyMake: Dependency graph made: dependency.gv");
                                     std::process::exit(0);
                                 },
-                        Err(_) => return Err(MyMakeError::from("Could not make dependency graph.".to_string())),
+                        Err(_) => return Err(MyMakeError::from_str("Could not make dependency graph.")),
                     };
                 }                 
             }
+        }
+        Ok(())
+    }
+
+
+    fn parse_sanitizer_options(&self, builder: &mut Builder) -> Result<(), MyMakeError> {
+        if self.matches.is_present("sanitizer") {
+            let valid_options = vec!["address", "undefined", "leak", "thread"];
+            let sanitizer_options: Vec<&str> = self.matches.values_of("sanitizer").unwrap().collect();
+            for option in &sanitizer_options {
+                if !valid_options.contains(&option) {
+                    return Err(MyMakeError::from_str("Invalid argument used for sanitizer.\n\
+                                                         Valid arguments are address, undefined, leak and thread."));
+                }
+            }
+            if sanitizer_options.contains(&"address")
+             && sanitizer_options.contains(&"thread") {
+                return Err(MyMakeError::from_str("address cannot be used together with thread. Pick only one."));
+            }
+            builder.set_sanitizers(sanitizer_options);
         }
         Ok(())
     }
@@ -115,6 +140,7 @@ impl<'a> CommandLine<'a> {
         }
         
         self.parse_runtime_configuration(builder)?;
+        self.parse_sanitizer_options(builder)?;
         self.parse_extern(builder)?;
         Ok(())
     }

@@ -75,7 +75,7 @@ impl Dependency {
                     break;
                 }
 
-                let mmk_path = std::path::PathBuf::from(path);
+                let mmk_path = std::path::PathBuf::from(path).canonicalize().unwrap();
                 let dep_path = &mmk_path.join("lib.mmk");
                 
                 if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {

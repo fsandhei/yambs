@@ -1,0 +1,53 @@
+TODO: 
+    *Builder: *Generere dependency graph. Finne ut hva som skal bygges i riktig rekkefølge
+              *Refakturere testene i Builder.
+    * Første inkrement: Ha kun én dependency som trengs for å vise konsept.
+    *Implementere unwrap_or_terminate() for Option / Result
+    *
+    * External: Legg til tester for external - innhold.
+    *
+    * Lag MyMake Utility-fil for filsystem (create_dir og create_file)
+    *Mmk_parser: Vurder å legge tilbake MMK_LIBRARY_LABEL for å kunne ha ulike library navn.
+    *            Legg inn validering på filnavn og extension. Tillatte navn skal være 
+                 "lib.mmk" og "build.mmk"             
+    *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en makefile.
+    *           Toolchain: Utrede hvordan MyMake skal finne informasjon om toolchain til sluttbruker.
+    *                      En liste med predefinerte pather blir søkt gjennom av MyMake til å finne de ulike nødvendige programmene
+    *                      (gcc, clang, AR...).
+    *                      Forslag: Nøkkelord etterfulgt av lokaliseringssti som leses av MyMake før kjøring?
+                                    Evt. la dette gå gjennom en JSON-fil.
+    *            Include: Generatoren lager include - filene som trengs til byggene. Da slippes det å lages spesifikke mapper for dette
+    *                     til sluttbrukeren.
+    *                     include-filene til et prosjekt skal legges i /file/to/project/.build/include/
+    *                     include-filene skal ligges i /file/to/project/.build/mymake_include/
+    *            Out of tree build: MyMake skal bygge basert på out of tree build. Dette fungerer foreløpig for enkeltprosjekt (16.05.2021)
+    *                               Ved aggregering av tredjepart / pakker, skal det opprettes en lib/ - katalog under build-mappa.
+    *                               Her ligger aggregert generat under hver sin mappe med prosjektnavn.
+    *                               Tredje part skal kalles i .mmk på følgende måte:
+    *                               MMK_REQUIRE:
+    *                                  /some/directory/to/mmk/file
+
+
+    * Overall: * Endre alle Error - meldinger som er relevant til å ta MyMakeError for Result.
+    *          * Ordne bedre feilhåndtering for mmk_parser. Feilhåndteringen der baserer seg
+    *            foreløpig på utviklerens feil og ikke brukerens feil. Feil skal oppdages fra
+    *            brukeren sin side.
+    *         * Dekke case der tre dependencies eksisterer: A avhenger av B, og C avhenger av B. Får alle samme B?
+
+    * Lag struct CommandLine som håndterer argumentene inn til MyMake. Bruk den til å passere ting videre til de riktige structene."
+
+    * Ha støtte for sanitizere. Burde muligens være støtte for riktig bruk også. Ordne testdekning for dette.
+    * Les opp på sanitizere og hvordan støtten er for de ulike kompilatorene. Tenk kun på GCC i starten.
+
+Proposition nr.1
+User has to add SYSTEM keyword to signify that third party software will be included by system.
+
+MMK_REQUIRE:
+   /some/project/dependency
+   /some/third_party/thingy SYSTEM
+
+
+Proposition nr. 2: Instead of adding optional arguments to keyword, instead add a new keyword? It might be the easiest, I think, but is it more elegant?
+
+MMK_SYS_REQUIRE:
+   /some/third_party/thingy 

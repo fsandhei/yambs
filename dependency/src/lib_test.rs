@@ -63,6 +63,27 @@ fn fixture_simple_dependency() -> DependencyNode {
 }
 
 #[test]
+fn test_get_pretty_name_executable() {
+    let dependency = fixture_simple_dependency();
+    dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_EXECUTABLE".to_string(), vec!["x".to_string()]);
+    let actual = dependency.borrow().get_pretty_name();
+    let expected = "x";
+    assert_eq!(expected, actual);
+}
+
+
+#[test]
+fn test_get_pretty_name_library_label() {
+    let dependency = fixture_simple_dependency();
+    dependency.borrow_mut().mmk_data_mut().data_mut().insert("MMK_LIBRARY_LABEL".to_string(), vec!["MYLIB".to_string()]);
+    dependency.borrow_mut().add_library_name();
+    let actual = dependency.borrow().get_pretty_name();
+    let expected = "MYLIB";
+    assert_eq!(expected, actual);
+}
+
+
+#[test]
 fn test_is_in_process_true() {
     let dependency = fixture_simple_dependency();
     dependency

@@ -250,6 +250,8 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
     Ok(())
 }
+
+
 #[test]
 fn read_mmk_files_two_files_circulation() -> Result<(), MyMakeError> {
     let mut generator = GeneratorMock::new();

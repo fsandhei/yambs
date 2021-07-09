@@ -298,6 +298,25 @@ fn get_include_directories_for_make_test() -> std::io::Result<()> {
 
 
 #[test]
+fn get_include_directories_for_make_system_option_set_test() -> std::io::Result<()> {
+    let path = PathBuf::from("/some/path/lib.mmk");
+    let mut mmk_content = Mmk::new(&path);
+    let dir = TempDir::new("example")?;
+    let src_dir = dir.path().join("src");
+    let include_dir = dir.path().join("include");
+    utility::create_dir(&include_dir).unwrap();
+    let content: String = format!("MMK_REQUIRE:\n\
+                                        {} SYSTEM", src_dir.to_str().unwrap());
+
+    mmk_content.parse(&content).unwrap();
+    let actual = mmk_content.get_include_directories();
+    assert!(actual.is_ok());
+    assert_eq!(actual.unwrap(), format!("-isystem {}", include_dir.to_str().unwrap()));
+    Ok(())
+}
+
+
+#[test]
 fn validate_file_name_test() {
     let some_valid_file_path = PathBuf::from("lib.mmk");
     assert!(validate_file_name(&some_valid_file_path).is_ok());

@@ -77,9 +77,15 @@ impl Mmk {
     pub fn get_include_directories(&self) -> Result<String, MyMakeError> {
         if self.data.contains_key("MMK_REQUIRE") {
             let mut formatted_string = String::new();
-            for dep_path_as_string in &self.data["MMK_REQUIRE"] {
-                formatted_string.push_str("-I");
-                let dep_path = utility::get_include_directory_from_path(&PathBuf::from(dep_path_as_string.argument()))?;
+            for keyword in &self.data["MMK_REQUIRE"] {
+                if keyword.option() == "SYSTEM" {
+                    formatted_string.push_str("-isystem");
+                    formatted_string.push_str(" ");
+                }
+                else {
+                    formatted_string.push_str("-I");
+                }
+                let dep_path = utility::get_include_directory_from_path(&PathBuf::from(keyword.argument()))?;
                 formatted_string.push_str(dep_path.to_str().unwrap());
                 formatted_string.push_str(" ");
             }

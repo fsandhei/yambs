@@ -12,13 +12,15 @@ use error::MyMakeError;
 use regex::Regex;
 use utility;
 
+mod keyword;
+use keyword::Keyword;
 mod mmk_constants;
 use mmk_constants::{Constant, Constants};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Mmk
 {
-    data: HashMap<String, Vec<String>>,
+    data: HashMap<String, Vec<Keyword>>,
     constants: Constants
 }
 
@@ -32,12 +34,12 @@ impl Mmk {
          }
     }
 
-    pub fn data(&self) -> &HashMap<String, Vec<String>> {
+    pub fn data(&self) -> &HashMap<String, Vec<Keyword>> {
         &self.data
     }
 
 
-    pub fn data_mut(&mut self) -> &mut HashMap<String, Vec<String>> {
+    pub fn data_mut(&mut self) -> &mut HashMap<String, Vec<Keyword>> {
         &mut self.data
     }
 
@@ -57,14 +59,14 @@ impl Mmk {
         let mut formatted_string = String::new();
         if self.data.contains_key(key) {
             for item in &self.data[key] {
-                if item == "" {
+                if item.argument() == "" {
                     break;
                 }
 
                 if key == "MMK_SYS_INCLUDE" {
                     formatted_string.push_str("-isystem ");
                 }
-                formatted_string.push_str(item);
+                formatted_string.push_str(&item.argument());
                 formatted_string.push_str(" ");
             }
         }
@@ -77,7 +79,7 @@ impl Mmk {
             let mut formatted_string = String::new();
             for dep_path_as_string in &self.data["MMK_REQUIRE"] {
                 formatted_string.push_str("-I");
-                let dep_path = utility::get_include_directory_from_path(&PathBuf::from(dep_path_as_string))?;
+                let dep_path = utility::get_include_directory_from_path(&PathBuf::from(dep_path_as_string.argument()))?;
                 formatted_string.push_str(dep_path.to_str().unwrap());
                 formatted_string.push_str(" ");
             }
@@ -115,13 +117,14 @@ impl Mmk {
 
     fn parse_mmk_expression(&mut self, mmk_keyword: &str, data_iter: &mut std::str::Lines) -> Result<(), MyMakeError> {
         self.valid_keyword(mmk_keyword)?;
-        let mut arg_vec: Vec<String> = Vec::new();
+        let mut arg_vec: Vec<Keyword> = Vec::new();
         let mut current_line = data_iter.next();
         while current_line != None {
             let line = current_line.unwrap().trim();
             if line != "" && !self.valid_keyword(&line).is_ok() {
-                let arg = self.replace_constant_with_value(&line.to_string());
-                arg_vec.push(arg);
+                let keyword = self.parse_and_create_keyword(line);
+                
+                arg_vec.push(keyword);
             }
             else if line == "" {
                 break;
@@ -133,6 +136,22 @@ impl Mmk {
         }
         self.data.insert(String::from(mmk_keyword), arg_vec);
         Ok(())
+    }
+
+
+    fn parse_and_create_keyword(&self, line: &str) -> Keyword {
+        let line_split: Vec<&str> = line.split(" ").collect();
+        let keyword: Keyword;
+        if line_split.len() == 1 {
+            let arg = line_split[0];
+            keyword = Keyword::from(&self.replace_constant_with_value(&arg.to_string()))
+        }
+        else {
+            let option = line_split[1];
+            let arg = line_split[0];
+            keyword = Keyword::from(&self.replace_constant_with_value(&arg.to_string())).with_option(option);
+        }
+        keyword
     }
 
 

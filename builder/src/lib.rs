@@ -201,7 +201,7 @@ impl<'a> Builder<'a> {
         
         if dependency.borrow().is_executable() {
             dep_type = "executable";
-            dep_type_name = dependency.borrow().mmk_data().data()["MMK_EXECUTABLE"][0].clone();
+            dep_type_name = dependency.borrow().mmk_data().data()["MMK_EXECUTABLE"][0].argument().clone();
         }
         else {
             dep_type = "library";

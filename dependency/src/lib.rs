@@ -70,12 +70,12 @@ impl Dependency {
     fn detect_dependency(&self, dep_registry: &mut DependencyRegistry) -> Result<Vec<DependencyNode>, MyMakeError> {
         let mut dep_vec : Vec<DependencyNode> = Vec::new();
         if self.mmk_data().has_dependencies() {
-            for path in self.mmk_data().data()["MMK_REQUIRE"].clone() {
-                if path == "" {
+            for keyword in self.mmk_data().data()["MMK_REQUIRE"].clone() {
+                if keyword.argument() == "" {
                     break;
                 }
 
-                let mmk_path = std::path::PathBuf::from(path).canonicalize().unwrap();
+                let mmk_path = std::path::PathBuf::from(keyword.argument()).canonicalize().unwrap();
                 let dep_path = &mmk_path.join("lib.mmk");
                 
                 if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {

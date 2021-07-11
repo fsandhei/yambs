@@ -3,17 +3,18 @@
 
 //TODO: Burde ha muligheten til å kunne bruke path som bruker relativ-path-direktiver (../)
 
+use error::MyMakeError;
+use utility;
+use regex::Regex;
 use std::collections::HashMap;
 use std::vec::Vec;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use error::MyMakeError;
-use regex::Regex;
-use utility;
 
 mod keyword;
-use keyword::Keyword;
+pub use keyword::Keyword;
+
 mod mmk_constants;
 use mmk_constants::{Constant, Constants};
 

@@ -2,10 +2,19 @@
 
 set -e # Bail on error.
 
+BIN_DIR="/usr/bin/"
 CARGO="/home/fredrik/.cargo/bin/cargo"
 ROOT_DIR="/home/fredrik/bin/mymake"
 MYMAKE="$ROOT_DIR/target/debug/mymake"
+MYMAKE_RELEASE="$ROOT_DIR/target/release/mymake"
 CWD=`pwd`
+
+install_mymake()
+{
+   echo "Installing release build of MyMake into $BIN_DIR."
+   cp -f -v $MYMAKE_RELEASE $BIN_DIR
+}
+
 
 build_mymake()
 {
@@ -154,6 +163,18 @@ cargo_test()
    execute_command "$CARGO test"
    cd $ROOT_DIR
 }
+
+while :; do
+   case $1 in
+      --install)
+         install_mymake
+         exit
+         ;;
+      *)
+         break
+   esac
+   shift
+done
 
 [ $CWD != $ROOT_DIR ] && cd $ROOT_DIR
 

@@ -90,15 +90,16 @@ impl MakefileGenerator {
         if mmk_data.data().contains_key("MMK_SOURCES") {
             let mut object = String::new();
             for source in &mmk_data.data()["MMK_SOURCES"] {
-                if let Some(source_path) = mmk_data.source_file_path(source) {
+                let source_name = source.argument();
+                if let Some(source_path) = mmk_data.source_file_path(source_name) {
                     self.create_subdir(source_path).unwrap();
                 }
 
-                if source.ends_with(".cpp") {
-                    object = source.replace(".cpp", ".o");
+                if source_name.ends_with(".cpp") {
+                    object = source_name.replace(".cpp", ".o");
                 }
-                if source.ends_with(".cc") {
-                    object = source.replace(".cc", ".o");
+                if source_name.ends_with(".cc") {
+                    object = source_name.replace(".cc", ".o");
                 }
 
                 formatted_string.push_str(self.output_directory.to_str().unwrap());
@@ -108,7 +109,7 @@ impl MakefileGenerator {
                 formatted_string.push_str("\t");
                 formatted_string.push_str(borrowed_dependency.get_parent_directory().to_str().unwrap());
                 formatted_string.push_str("/");
-                formatted_string.push_str(source);
+                formatted_string.push_str(source_name);
                 formatted_string.push_str("\n");
                 formatted_string.push_str(&format!("\t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) \
                                                           $(WARNINGS) {dependencies} $< -c -o $@)\n\n"
@@ -126,11 +127,12 @@ impl MakefileGenerator {
         let mut include_file = String::new();
         if mmk_data.data().contains_key("MMK_SOURCES") {
             for source in &mmk_data.data()["MMK_SOURCES"] {
-                if source.ends_with(".cpp") {
-                    include_file = source.replace(".cpp", ".d");
+                let source_name = source.argument();
+                if source_name.ends_with(".cpp") {
+                    include_file = source_name.replace(".cpp", ".d");
                 }
-                if source.ends_with(".cc") {
-                    include_file = source.replace(".cc", ".d");
+                if source_name.ends_with(".cc") {
+                    include_file = source_name.replace(".cc", ".d");
                 }
                 
                 formatted_string.push_str("sinclude ");
@@ -193,11 +195,12 @@ impl MakefileGenerator {
         if borrowed_dependency.mmk_data().data().contains_key("MMK_SOURCES") {
             formatted_string.push_str("\\\n");
             for source in &borrowed_dependency.mmk_data().data()["MMK_SOURCES"] {
-                if source.ends_with(".cpp") {
-                    object = source.replace(".cpp", ".o");
+                let source_name = source.argument();
+                if source_name.ends_with(".cpp") {
+                    object = source_name.replace(".cpp", ".o");
                 }
-                if source.ends_with(".cc") {
-                    object = source.replace(".cc", ".o");
+                if source_name.ends_with(".cc") {
+                    object = source_name.replace(".cc", ".o");
                 }
                 formatted_string.push_str("\t");
                 print_full_path(&mut formatted_string,

@@ -1,7 +1,7 @@
 //TODO: Skriv om testene for Builder slik at det stemmer med funksjonalitet.
 use super::*;
 use generator::generator_mock::GeneratorMock;
-use mmk_parser::Mmk;
+use mmk_parser::{Keyword, Mmk};
 use std::fs::File;
 use std::io::Write;
 use tempdir::TempDir;
@@ -32,16 +32,16 @@ fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
     mmk_data.data_mut().insert(
         String::from("MMK_SOURCES"),
         vec![
-            String::from("some_file.cpp"),
-            String::from("some_other_file.cpp"),
+            Keyword::from("some_file.cpp"),
+            Keyword::from("some_other_file.cpp"),
         ],
     );
 
     mmk_data.data_mut().insert(
         String::from("MMK_HEADERS"),
         vec![
-            String::from("some_file.h"),
-            String::from("some_other_file.h"),
+            Keyword::from("some_file.h"),
+            Keyword::from("some_other_file.h"),
         ],
     );
 
@@ -62,7 +62,7 @@ fn read_mmk_files_one_file() -> std::io::Result<()> {
     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
     expected
         .data_mut()
-        .insert(String::from("MMK_EXECUTABLE"), vec![String::from("x")]);
+        .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
     assert_eq!(
         builder.top_dependency.unwrap().borrow().mmk_data(),
         &expected

@@ -43,8 +43,8 @@ Proposition nr.1
 User has to add SYSTEM keyword to signify that third party software will be included by system.
 
 MMK_REQUIRE:
-   /some/project/dependency
-   /some/third_party/thingy SYSTEM
+   /some/project/dependency # This one follows the ordinary include system (-I)
+   /some/third_party/thingy SYSTEM # This one follows a system include instead of ordinary include (-isystem)
 
 
 Proposition nr. 2: Instead of adding optional arguments to keyword, instead add a new keyword? It might be the easiest, I think, but is it more elegant?

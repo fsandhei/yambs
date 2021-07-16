@@ -1,6 +1,7 @@
 
 use super::*;
 use mmk_constants::Constant;
+use keyword::Keyword;
 use pretty_assertions::assert_eq;
 use tempdir::TempDir;
 
@@ -84,7 +85,7 @@ fn test_parse_mmk_sources() -> Result<(), MyMakeError>
                                             otherfilename.cpp\n");
 
     mmk_content.parse( &content)?;
-    assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp", "otherfilename.cpp"]);
+    assert_eq!(mmk_content.data["MMK_SOURCES"], [Keyword::from("filename.cpp"), Keyword::from("otherfilename.cpp")]);
     Ok(())
 }
 
@@ -96,7 +97,7 @@ fn test_parse_mmk_source() -> Result<(), MyMakeError>
     let content: String = String::from("MMK_SOURCES:\n\
                                             filename.cpp");
     mmk_content.parse(&content)?;
-    assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp"]);
+    assert_eq!(mmk_content.data["MMK_SOURCES"], [Keyword::from("filename.cpp")]);
     Ok(())
 }
 
@@ -166,7 +167,8 @@ fn test_parse_dependencies() -> Result<(), MyMakeError>
                                             /some/path/to/depend/on \n\
                                             /another/path/to/depend/on\n");
     mmk_content.parse(&content)?;
-    assert_eq!(mmk_content.data["MMK_REQUIRE"], ["/some/path/to/depend/on", "/another/path/to/depend/on"]);
+    assert_eq!(mmk_content.data["MMK_REQUIRE"], [Keyword::from("/some/path/to/depend/on"), 
+                                                 Keyword::from("/another/path/to/depend/on")]);
     Ok(())
 }
 
@@ -185,9 +187,11 @@ fn test_multiple_keywords() -> Result<(), MyMakeError> {
                                         MMK_EXECUTABLE:
                                             main");
     mmk_content.parse(&content)?;
-    assert_eq!(mmk_content.data["MMK_SOURCES"], ["filename.cpp", "otherfilename.cpp"]);
-    assert_eq!(mmk_content.data["MMK_REQUIRE"], ["/some/path/to/depend/on", "/another/path/"]);
-    assert_eq!(mmk_content.data["MMK_EXECUTABLE"], ["main"]);
+    assert_eq!(mmk_content.data["MMK_SOURCES"], [Keyword::from("filename.cpp"), 
+                                                 Keyword::from("otherfilename.cpp")]);
+    assert_eq!(mmk_content.data["MMK_REQUIRE"], [Keyword::from("/some/path/to/depend/on"), 
+                                                 Keyword::from("/another/path/")]);
+    assert_eq!(mmk_content.data["MMK_EXECUTABLE"], [Keyword::from("main")]);
     Ok(())
 }
 
@@ -294,6 +298,25 @@ fn get_include_directories_for_make_test() -> std::io::Result<()> {
 
 
 #[test]
+fn get_include_directories_for_make_system_option_set_test() -> std::io::Result<()> {
+    let path = PathBuf::from("/some/path/lib.mmk");
+    let mut mmk_content = Mmk::new(&path);
+    let dir = TempDir::new("example")?;
+    let src_dir = dir.path().join("src");
+    let include_dir = dir.path().join("include");
+    utility::create_dir(&include_dir).unwrap();
+    let content: String = format!("MMK_REQUIRE:\n\
+                                        {} SYSTEM", src_dir.to_str().unwrap());
+
+    mmk_content.parse(&content).unwrap();
+    let actual = mmk_content.get_include_directories();
+    assert!(actual.is_ok());
+    assert_eq!(actual.unwrap(), format!("-isystem {}", include_dir.to_str().unwrap()));
+    Ok(())
+}
+
+
+#[test]
 fn validate_file_name_test() {
     let some_valid_file_path = PathBuf::from("lib.mmk");
     assert!(validate_file_name(&some_valid_file_path).is_ok());
@@ -338,12 +361,20 @@ fn test_constant_is_replaced_with_item() {
                                             ${project_top}/second/depend\n");
     let result = mmk_content.parse(&content);
     assert!(result.is_ok());
-    let expected = ["/some/path/depend/on", "/some/path/second/depend"];
+    let expected = [Keyword::from("/some/path/depend/on"),
+                    Keyword::from("/some/path/second/depend")];
 
     assert_eq!(mmk_content.data["MMK_REQUIRE"], expected);
 }
 
 #[test]
 fn test_optional_arguments_to_keyword_arguments() {
-    
+    let path = PathBuf::from("/some/path/lib.mmk");
+    let mut mmk_content = Mmk::new(&path);
+    let content: String = String::from("MMK_REQUIRE:\n\
+                                            ${project_top}/depend/on SYSTEM");
+    let result = mmk_content.parse(&content);
+    assert!(result.is_ok());
+    let expected = [Keyword::from("/some/path/depend/on").with_option("SYSTEM")];
+    assert_eq!(mmk_content.data["MMK_REQUIRE"], expected);
 }

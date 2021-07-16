@@ -4,13 +4,9 @@ use error::MyMakeError;
 pub use crate::generator::Generator;
 
 pub struct GeneratorMock {
-    dependency: Option<DependencyNode>,
 }
 
 impl GeneratorMock {
-    pub fn new() -> Self {
-        Self{ dependency: None }
-    }
 }
 
 impl Generator for GeneratorMock {
@@ -46,18 +42,5 @@ impl Generator for GeneratorMock {
         Ok(())
     }
 
-    fn set_sanitizers(&mut self, _sanitizers: Vec<&str>) {}
-
     fn print_ok(&self) {}
-    
-    fn set_dependency(&mut self, dependency: &DependencyNode) {
-        self.dependency = Some(dependency.clone());
-    }
-
-    fn get_dependency(&self) -> Result<&DependencyNode, MyMakeError> {
-        if let Some(dep) = &self.dependency {
-            return Ok(dep);
-        }
-        return Err(MyMakeError::from_str("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!"));
-    }
 }

@@ -1,6 +1,7 @@
 mod include_file_generator;
 mod generator;
 pub mod generator_mock;
+mod sanitizer;
 
 pub use crate::generator::Generator;
 
@@ -9,9 +10,10 @@ use std::io::Write;
 use std::rc::Rc;
 use std::path::PathBuf;
 
-use dependency::DependencyNode;
+use dependency::{DependencyNode, DependencyAccessor};
 use error::MyMakeError;
 use include_file_generator::IncludeFileGenerator;
+use sanitizer::Sanitizer;
 
 pub struct MakefileGenerator
 {
@@ -416,10 +418,6 @@ impl Generator for MakefileGenerator
         self.include_file_generator.add_cpp_version(version)
     }
 
-    fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
-        self.include_file_generator.set_sanitizers(sanitizers);
-    }
-
 
     fn debug(&mut self) {
         self.debug = true;
@@ -437,8 +435,10 @@ impl Generator for MakefileGenerator
     fn print_ok(self: &Self) -> () {
         print!(".");
     }
+}
 
 
+impl DependencyAccessor for MakefileGenerator {
     fn set_dependency(&mut self, dependency: &DependencyNode) {
         self.dependency = Some(dependency.clone());
     }
@@ -449,6 +449,13 @@ impl Generator for MakefileGenerator
             return Ok(dep);
         }
         return Err(MyMakeError::from_str("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!"));
+    }
+}
+
+
+impl Sanitizer for MakefileGenerator {
+    fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
+        self.include_file_generator.set_sanitizers(sanitizers);
     }
 }
 

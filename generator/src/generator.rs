@@ -14,11 +14,6 @@ pub trait Generator {
     fn debug(&mut self);
     fn release(&mut self);
     fn use_std(&mut self, version: &str) -> Result<(), MyMakeError>;
-    fn set_sanitizers(&mut self, sanitizers: Vec<&str>);
-
-    // Dependency accessors
-    fn set_dependency(&mut self, dependency: &DependencyNode);
-    fn get_dependency(&self) -> Result<&DependencyNode, MyMakeError>;
 
     // Finish status: Just for display purposes. Will be removed.
     fn print_ok(&self);

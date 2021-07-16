@@ -7,8 +7,11 @@ use std::rc::Rc;
 
 mod dependency_registry;
 mod dependency_state;
+mod dependency_accessor;
+
 pub use crate::dependency_registry::DependencyRegistry;
 pub use crate::dependency_state::DependencyState;
+pub use crate::dependency_accessor::DependencyAccessor;
 
 
 #[derive(Debug, PartialEq, Eq, Clone)]

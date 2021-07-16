@@ -9,17 +9,22 @@ TODO:
     * Lag MyMake Utility-fil for filsystem (create_dir og create_file)
     *Mmk_parser: Vurder å legge tilbake MMK_LIBRARY_LABEL for å kunne ha ulike library navn.
     *            Legg inn validering på filnavn og extension. Tillatte navn skal være 
-                 "lib.mmk" og "build.mmk"             
+                 "lib.mmk" og "run.mmk"             
     *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en makefile.
     *           Toolchain: Utrede hvordan MyMake skal finne informasjon om toolchain til sluttbruker.
     *                      En liste med predefinerte pather blir søkt gjennom av MyMake til å finne de ulike nødvendige programmene
     *                      (gcc, clang, AR...).
     *                      Forslag: Nøkkelord etterfulgt av lokaliseringssti som leses av MyMake før kjøring?
                                     Evt. la dette gå gjennom en JSON-fil.
+                                    Evt bruk minimal syntaks for tilordning:
+                                       compiler=<path/til/compiler{gcc, clang, msvc}
+                                       linker=<path/til/linker>
+                                    La fila hete "toolchain.txt"
     *            Include: Generatoren lager include - filene som trengs til byggene. Da slippes det å lages spesifikke mapper for dette
     *                     til sluttbrukeren.
     *                     include-filene til et prosjekt skal legges i /file/to/project/.build/include/
     *                     include-filene skal ligges i /file/to/project/.build/mymake_include/
+    *                     Det lages for mange make-includes av MyMake. Det bør kanskje kun være make-includes fra toppen i stedet for rekursivt nedover?
     *            Out of tree build: MyMake skal bygge basert på out of tree build. Dette fungerer foreløpig for enkeltprosjekt (16.05.2021)
     *                               Ved aggregering av tredjepart / pakker, skal det opprettes en lib/ - katalog under build-mappa.
     *                               Her ligger aggregert generat under hver sin mappe med prosjektnavn.
@@ -39,15 +44,3 @@ TODO:
     * Ha støtte for sanitizere. Burde muligens være støtte for riktig bruk også. Ordne testdekning for dette.
     * Les opp på sanitizere og hvordan støtten er for de ulike kompilatorene. Tenk kun på GCC i starten.
 
-Proposition nr.1
-User has to add SYSTEM keyword to signify that third party software will be included by system.
-
-MMK_REQUIRE:
-   /some/project/dependency # This one follows the ordinary include system (-I)
-   /some/third_party/thingy SYSTEM # This one follows a system include instead of ordinary include (-isystem)
-
-
-Proposition nr. 2: Instead of adding optional arguments to keyword, instead add a new keyword? It might be the easiest, I think, but is it more elegant?
-
-MMK_SYS_REQUIRE:
-   /some/third_party/thingy 

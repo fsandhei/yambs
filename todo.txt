@@ -48,7 +48,10 @@ TODO:
     *                               Tredje part skal kalles i .mmk på følgende måte:
     *                               MMK_REQUIRE:
     *                                  /some/directory/to/mmk/file
-
+    * Defines.mk:
+         - Makefile som inneholder ulike definisjoner?
+         - Muligheten for å definere CC, CC_COMPILER_IS_CLANG, CC_COMPILER_IS_GCC, osv.
+         
 
     * Overall: * Endre alle Error - meldinger som er relevant til å ta MyMakeError for Result.
     *          * Ordne bedre feilhåndtering for mmk_parser. Feilhåndteringen der baserer seg

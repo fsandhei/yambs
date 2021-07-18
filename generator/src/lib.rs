@@ -3,7 +3,7 @@ mod generator;
 pub mod generator_mock;
 mod sanitizer;
 
-pub use crate::generator::Generator;
+pub use crate::generator::{Generator, Sanitizer, RuntimeSettings};
 
 use std::fs::File;
 use std::io::Write;
@@ -13,7 +13,6 @@ use std::path::PathBuf;
 use dependency::{DependencyNode, DependencyAccessor};
 use error::MyMakeError;
 use include_file_generator::IncludeFileGenerator;
-use sanitizer::Sanitizer;
 
 pub struct MakefileGenerator
 {
@@ -413,25 +412,6 @@ impl Generator for MakefileGenerator
         Ok(())
     }
 
-
-    fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
-        self.include_file_generator.add_cpp_version(version)
-    }
-
-
-    fn debug(&mut self) {
-        self.debug = true;
-        self.use_subdir(std::path::PathBuf::from("debug")).unwrap();
-    }
-
-
-    fn release(&mut self) {
-        if !self.debug {
-            self.use_subdir(std::path::PathBuf::from("release")).unwrap();
-        }
-    }
-
-
     fn print_ok(self: &Self) -> () {
         print!(".");
     }
@@ -456,6 +436,26 @@ impl DependencyAccessor for MakefileGenerator {
 impl Sanitizer for MakefileGenerator {
     fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
         self.include_file_generator.set_sanitizers(sanitizers);
+    }
+}
+
+
+impl RuntimeSettings for MakefileGenerator {
+    fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
+        self.include_file_generator.add_cpp_version(version)
+    }
+
+
+    fn debug(&mut self) {
+        self.debug = true;
+        self.use_subdir(std::path::PathBuf::from("debug")).unwrap();
+    }
+
+
+    fn release(&mut self) {
+        if !self.debug {
+            self.use_subdir(std::path::PathBuf::from("release")).unwrap();
+        }
     }
 }
 

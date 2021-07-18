@@ -1,7 +1,6 @@
 mod include_file_generator;
 mod generator;
 pub mod generator_mock;
-mod sanitizer;
 
 pub use crate::generator::{Generator, Sanitizer, RuntimeSettings};
 

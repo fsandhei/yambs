@@ -7,10 +7,12 @@ TODO:
     * External: Legg til tester for external - innhold.
     *
     * Lag MyMake Utility-fil for filsystem (create_dir og create_file)
+    * Keyboard interrupt: Ved avbrudd av bygg (i form av f.eks Ctrl-C), burde bygget eller andre MyMake-prosesser stoppes på riktig måte.
     *Mmk_parser: Vurder å legge tilbake MMK_LIBRARY_LABEL for å kunne ha ulike library navn.
     *            Legg inn validering på filnavn og extension. Tillatte navn skal være 
                  "lib.mmk" og "run.mmk"             
     *Generator::new tar inn path i stedet for filnavn. Automatisk skal output bli en makefile.
+    *Generator::new: er det mulig å skrive om denne funksjonen slik at Dependency er med fra starten, og ikke som Option?
     *           Toolchain: Utrede hvordan MyMake skal finne informasjon om toolchain til sluttbruker.
     *                      En liste med predefinerte pather blir søkt gjennom av MyMake til å finne de ulike nødvendige programmene
     *                      (gcc, clang, AR...).

@@ -161,7 +161,7 @@ impl<'a> Builder<'a> {
                 
                 // Se eventuelt etter annen løsning.
                 continue;
-            }            
+            }
             
             required_dependency.borrow_mut().building();
             let dep_output = self.build_dependency(&required_dependency,

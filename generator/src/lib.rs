@@ -47,7 +47,7 @@ impl MakefileGenerator {
         }
     }
 
-    // Må testes
+
     pub fn replace_generator(&mut self, dependency: &DependencyNode, build_directory: std::path::PathBuf) {
         let gen = MakefileGenerator::new(build_directory);
         self.set_dependency(dependency);
@@ -315,11 +315,6 @@ impl Generator for MakefileGenerator
         include {build_path}/strict.mk\n\
         include {build_path}/default_make.mk\n\
         include {debug}\n\
-        \n\
-        # ----- DEFINITIONS -----\n\
-        CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
-        CP       := /usr/bin/cp  \n\
-        CP_FORCE := -f \n\
         \n\
         # ----- DEFAULT PHONIES -----\n\
         \n\

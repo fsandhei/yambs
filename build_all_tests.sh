@@ -11,7 +11,7 @@ CWD=`pwd`
 
 install_mymake()
 {
-   echo "Installing release build of MyMake into $BIN_DIR."
+   echo "Installing release build of MyMake into $BIN_DIR"
    cp -f -v $MYMAKE_RELEASE $BIN_DIR
 }
 

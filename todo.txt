@@ -1,4 +1,19 @@
 TODO: 
+    *Dokumentasjon: * Finn ut hvordan en skriver README-filer for GitHub (hint: Jeg tror det er Markdown.)
+                    * Dokumentér hva MyMake er for noe og hva hensikten med det er
+                    * Er det noe formål for hvorfor MyMake ble laget (se på CMake / makefile som inspirasjon.)?
+                       * CMake forfølger flere ulike C/C++ - standarder og forsøker å "fortone" seg med alle.
+                       * Dette har sine klare ulemper og har ført til det relativt komplekse systemet CMake er.
+                       * MyMake går i en annen retning; MyMake skal følge én standard og kun det: MyMake setter standarden.
+                       * Mengden med konfigurasjoner en må gjøre for å få et godt produksjons- og utviklingsmiljø med CMake er unødvendig vanskelig.
+                       * Med MyMake skal dette komme "out of the box".
+                    * Syntaks for MyMake 
+                       * Hvert MyMake - keyword og hva disse gjør.
+                    * Filosofi om bruk (kommandolinjebasert i stedet for konfigurasjonsfiler slik CMake er lagt opp.)
+                  
+                    * Directed Acyclic Graph generation (Dependency Generation).
+                    * Foreslått mappestruktur og arbeidsflyt.
+                    
     *Builder: *Generere dependency graph. Finne ut hva som skal bygges i riktig rekkefølge
               *Refakturere testene i Builder.
     * Første inkrement: Ha kun én dependency som trengs for å vise konsept.

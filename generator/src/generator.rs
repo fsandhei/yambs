@@ -5,7 +5,6 @@ pub trait Generator
     : DependencyAccessor
     + Sanitizer
     + RuntimeSettings {
-    // Generate functions
     fn generate_makefiles(&mut self, dependency: &DependencyNode) -> Result<(), MyMakeError>;
     fn generate_makefile(&mut self)                               -> Result<(), MyMakeError>;
     fn generate_header(&mut self)                                 -> Result<(), MyMakeError>;
@@ -23,7 +22,6 @@ pub trait Sanitizer {
 
 
 pub trait RuntimeSettings {
-    // Runtime settings
     fn debug(&mut self);
     fn release(&mut self);
     fn use_std(&mut self, version: &str) -> Result<(), MyMakeError>;

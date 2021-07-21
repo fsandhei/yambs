@@ -84,3 +84,29 @@ fn get_head_directory_gets_head_test() {
     let expected = PathBuf::from("head");
     assert_eq!(get_head_directory(&dir), &expected);
 }
+
+
+#[test]
+fn print_full_path_no_newline_test() {
+    let mut formatted_string = String::new();
+    let filename = "filename.rs";
+    let dir_path = "/this/is/some/str/path";
+    let no_newline = true;
+    let expected = String::from("/this/is/some/str/path/filename.rs");
+
+    print_full_path(&mut formatted_string, dir_path, filename, no_newline);
+    assert_eq!(formatted_string, expected);
+}
+
+
+#[test]
+fn print_full_path_with_newline_test() {
+    let mut formatted_string = String::new();
+    let filename = "filename.rs";
+    let dir_path = "/this/is/some/str/path";
+    let no_newline = false;
+    let expected = String::from("/this/is/some/str/path/filename.rs \\\n");
+    
+    print_full_path(&mut formatted_string, dir_path, filename, no_newline);
+    assert_eq!(formatted_string, expected);
+}

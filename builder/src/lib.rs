@@ -112,8 +112,7 @@ impl<'a> Builder<'a> {
         }
         else {
             return Err(MyMakeError::from(String::from("builder.generate_builder(): Called in unexpected way.")));
-        }
-        
+        }        
     }
 
 

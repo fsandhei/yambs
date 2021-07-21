@@ -114,6 +114,16 @@ pub fn create_file(dir: &PathBuf, filename: &str) -> Result<File, MyMakeError> {
     Ok(filename)
 }
 
+// This should be separated into its own "Make" mod.
+pub fn print_full_path(os: &mut String, dir: &str, filename: &str, no_newline: bool) {
+    os.push_str(dir);
+    os.push_str("/");
+    os.push_str(filename);
+    if !no_newline {
+        os.push_str(" \\\n");
+    }    
+}
+
 #[cfg(test)]
 #[path = "./lib_test.rs"]
 mod lib_test;

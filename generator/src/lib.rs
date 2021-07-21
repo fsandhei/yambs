@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use dependency::{DependencyNode, DependencyAccessor};
 use error::MyMakeError;
 use include_file_generator::IncludeFileGenerator;
+use utility;
 
 pub struct MakefileGenerator
 {
@@ -22,15 +23,6 @@ pub struct MakefileGenerator
     include_file_generator: IncludeFileGenerator,
 }
 
-
-fn print_full_path(os: &mut String, dir: &str, filename: &str, no_newline: bool) {
-    os.push_str(dir);
-    os.push_str("/");
-    os.push_str(filename);
-    if !no_newline {
-        os.push_str(" \\\n");
-    }
-}
 
 impl MakefileGenerator {
     pub fn new(build_directory: std::path::PathBuf) -> MakefileGenerator {
@@ -160,10 +152,10 @@ impl MakefileGenerator {
                     output_directory = output_directory.join("release");
                 }
                 formatted_string.push_str("\t");
-                print_full_path(&mut formatted_string, 
-                                output_directory.to_str().unwrap(),
-                                &required_dep.library_file_name(),
-                                false);
+                utility::print_full_path(&mut formatted_string, 
+                                         output_directory.to_str().unwrap(),
+                                         &required_dep.library_file_name(),
+                                         false);
             }
         }
         Ok(formatted_string)
@@ -179,10 +171,10 @@ impl MakefileGenerator {
 
     fn print_library_name(&self) -> Result<String, MyMakeError> {
         let mut formatted_string = String::new();
-        print_full_path(&mut formatted_string,
-                        self.output_directory.to_str().unwrap(),
-                        &self.get_dependency()?.borrow().library_file_name(),
-                        true);
+        utility::print_full_path(&mut formatted_string,
+                                 self.output_directory.to_str().unwrap(),
+                                 &self.get_dependency()?.borrow().library_file_name(),
+                                 true);
         
         Ok(formatted_string)
     }
@@ -203,10 +195,10 @@ impl MakefileGenerator {
                     object = source_name.replace(".cc", ".o");
                 }
                 formatted_string.push_str("\t");
-                print_full_path(&mut formatted_string,
-                                self.output_directory.to_str().unwrap(),
-                                &object,
-                                false);
+                utility::print_full_path(&mut formatted_string,
+                                         self.output_directory.to_str().unwrap(),
+                                         &object,
+                                         false);
             }
         }
         formatted_string.push_str(&self.print_required_dependencies_libraries()?);

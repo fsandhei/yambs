@@ -78,11 +78,6 @@ fn generate_header_release_test() -> std::io::Result<()> {
     include {directory}/make_include/default_make.mk\n\
     include {directory}/make_include/release.mk\n\
     \n\
-    # ----- DEFINITIONS -----\n\
-    CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
-    CP       := /usr/bin/cp  \n\
-    CP_FORCE := -f \n\
-    \n\
     # ----- DEFAULT PHONIES -----\n\
     \n\
     .SUFFIXES:         # We do not use suffixes on makefiles.\n\
@@ -118,11 +113,6 @@ fn generate_header_debug_test() -> std::io::Result<()> {
     include {directory}/make_include/strict.mk\n\
     include {directory}/make_include/default_make.mk\n\
     include {directory}/make_include/debug.mk\n\
-    \n\
-    # ----- DEFINITIONS -----\n\
-    CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
-    CP       := /usr/bin/cp  \n\
-    CP_FORCE := -f \n\
     \n\
     # ----- DEFAULT PHONIES -----\n\
     \n\

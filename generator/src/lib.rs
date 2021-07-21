@@ -2,16 +2,17 @@ mod include_file_generator;
 mod generator;
 pub mod generator_mock;
 
-pub use crate::generator::Generator;
+pub use crate::generator::{Generator, Sanitizer, RuntimeSettings};
 
 use std::fs::File;
 use std::io::Write;
 use std::rc::Rc;
 use std::path::PathBuf;
 
-use dependency::DependencyNode;
+use dependency::{DependencyNode, DependencyAccessor};
 use error::MyMakeError;
 use include_file_generator::IncludeFileGenerator;
+use utility;
 
 pub struct MakefileGenerator
 {
@@ -22,15 +23,6 @@ pub struct MakefileGenerator
     include_file_generator: IncludeFileGenerator,
 }
 
-
-fn print_full_path(os: &mut String, dir: &str, filename: &str, no_newline: bool) {
-    os.push_str(dir);
-    os.push_str("/");
-    os.push_str(filename);
-    if !no_newline {
-        os.push_str(" \\\n");
-    }
-}
 
 impl MakefileGenerator {
     pub fn new(build_directory: std::path::PathBuf) -> MakefileGenerator {
@@ -47,7 +39,7 @@ impl MakefileGenerator {
         }
     }
 
-    // Må testes
+
     pub fn replace_generator(&mut self, dependency: &DependencyNode, build_directory: std::path::PathBuf) {
         let gen = MakefileGenerator::new(build_directory);
         self.set_dependency(dependency);
@@ -160,10 +152,10 @@ impl MakefileGenerator {
                     output_directory = output_directory.join("release");
                 }
                 formatted_string.push_str("\t");
-                print_full_path(&mut formatted_string, 
-                                output_directory.to_str().unwrap(),
-                                &required_dep.library_file_name(),
-                                false);
+                utility::print_full_path(&mut formatted_string, 
+                                         output_directory.to_str().unwrap(),
+                                         &required_dep.library_file_name(),
+                                         false);
             }
         }
         Ok(formatted_string)
@@ -179,10 +171,10 @@ impl MakefileGenerator {
 
     fn print_library_name(&self) -> Result<String, MyMakeError> {
         let mut formatted_string = String::new();
-        print_full_path(&mut formatted_string,
-                        self.output_directory.to_str().unwrap(),
-                        &self.get_dependency()?.borrow().library_file_name(),
-                        true);
+        utility::print_full_path(&mut formatted_string,
+                                 self.output_directory.to_str().unwrap(),
+                                 &self.get_dependency()?.borrow().library_file_name(),
+                                 true);
         
         Ok(formatted_string)
     }
@@ -203,10 +195,10 @@ impl MakefileGenerator {
                     object = source_name.replace(".cc", ".o");
                 }
                 formatted_string.push_str("\t");
-                print_full_path(&mut formatted_string,
-                                self.output_directory.to_str().unwrap(),
-                                &object,
-                                false);
+                utility::print_full_path(&mut formatted_string,
+                                         self.output_directory.to_str().unwrap(),
+                                         &object,
+                                         false);
             }
         }
         formatted_string.push_str(&self.print_required_dependencies_libraries()?);
@@ -316,11 +308,6 @@ impl Generator for MakefileGenerator
         include {build_path}/default_make.mk\n\
         include {debug}\n\
         \n\
-        # ----- DEFINITIONS -----\n\
-        CC       := /usr/bin/gcc        # GCC is the default compiler.\n\
-        CP       := /usr/bin/cp  \n\
-        CP_FORCE := -f \n\
-        \n\
         # ----- DEFAULT PHONIES -----\n\
         \n\
         .SUFFIXES:         # We do not use suffixes on makefiles.\n\
@@ -411,13 +398,37 @@ impl Generator for MakefileGenerator
         Ok(())
     }
 
+    fn print_ok(self: &Self) -> () {
+        print!(".");
+    }
+}
 
-    fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
-        self.include_file_generator.add_cpp_version(version)
+
+impl DependencyAccessor for MakefileGenerator {
+    fn set_dependency(&mut self, dependency: &DependencyNode) {
+        self.dependency = Some(dependency.clone());
     }
 
+
+    fn get_dependency(&self) -> Result<&DependencyNode, MyMakeError> {
+        if let Some(dep) = &self.dependency {
+            return Ok(dep);
+        }
+        return Err(MyMakeError::from_str("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!"));
+    }
+}
+
+
+impl Sanitizer for MakefileGenerator {
     fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
         self.include_file_generator.set_sanitizers(sanitizers);
+    }
+}
+
+
+impl RuntimeSettings for MakefileGenerator {
+    fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
+        self.include_file_generator.add_cpp_version(version)
     }
 
 
@@ -431,24 +442,6 @@ impl Generator for MakefileGenerator
         if !self.debug {
             self.use_subdir(std::path::PathBuf::from("release")).unwrap();
         }
-    }
-
-
-    fn print_ok(self: &Self) -> () {
-        print!(".");
-    }
-
-
-    fn set_dependency(&mut self, dependency: &DependencyNode) {
-        self.dependency = Some(dependency.clone());
-    }
-
-
-    fn get_dependency(&self) -> Result<&DependencyNode, MyMakeError> {
-        if let Some(dep) = &self.dependency {
-            return Ok(dep);
-        }
-        return Err(MyMakeError::from_str("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!"));
     }
 }
 

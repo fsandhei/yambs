@@ -126,8 +126,7 @@ impl Dependency {
     }
 
 
-    pub fn makefile_made(self: &mut Self)
-    {
+    pub fn makefile_made(self: &mut Self) {
         self.change_state(DependencyState::MakefileMade);
     }
 
@@ -160,11 +159,7 @@ impl Dependency {
 
 
     pub fn read_and_add_mmk_data(self: &mut Self) -> Result<mmk_parser::Mmk, MyMakeError>{
-        let file_content = match mmk_parser::read_file(&self.path)
-        {
-            Ok(data) => data,
-            Err(err) => return Err(MyMakeError::from(format!("Error parsing {:?}: {}", self.path, err))),
-        };
+        let file_content = utility::read_file(&self.path)?;
         let mut mmk_data = mmk_parser::Mmk::new(&self.path);
         mmk_data.parse(&file_content)?;
         self.mmk_data = mmk_data.clone();

@@ -124,6 +124,15 @@ pub fn print_full_path(os: &mut String, dir: &str, filename: &str, no_newline: b
     }    
 }
 
+
+pub fn read_file(file_path: &Path) -> Result<String, MyMakeError>
+{
+    match std::fs::read_to_string(&file_path) {
+        Ok(content) => Ok(content),
+        Err(err) => Err(MyMakeError::from(format!("Error reading from {:?}: {}", file_path, err))),
+    }
+}
+
 #[cfg(test)]
 #[path = "./lib_test.rs"]
 mod lib_test;

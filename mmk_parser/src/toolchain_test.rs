@@ -1,4 +1,3 @@
-
 use super::*;
 
 #[test]
@@ -30,4 +29,28 @@ fn parse_compiler_and_linker_test() {
     assert!(result.is_ok());
     assert_eq!(toolchain.config[&Constant::new("linker")], PathBuf::from("/some/path/to/ld_gold"));
     assert_eq!(toolchain.config[&Constant::new("compiler")], PathBuf::from("/some/path/to/gcc"));
+}
+
+
+#[test]
+fn verify_keyword_compiler_test() {
+    let toolchain = Toolchain::new();
+    assert!(toolchain.verify_keyword("compiler").is_ok());
+}
+
+
+#[test]
+fn verify_keyword_linker_test() {
+    let toolchain = Toolchain::new();
+    assert!(toolchain.verify_keyword("linker").is_ok());
+}
+
+
+#[test]
+fn verify_keyword_incorrect_word_test() {
+    let toolchain = Toolchain::new();
+    let result = toolchain.verify_keyword("derp");
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().to_string(), 
+               &String::from("Error: derp is not allowed as keyword for toolchain."));
 }

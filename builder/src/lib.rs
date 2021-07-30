@@ -1,6 +1,6 @@
 use dependency::{Dependency, DependencyRegistry, DependencyNode};
 use error::MyMakeError;
-use generator::Generator;
+use generator::GeneratorExecutor;
 use std::env;
 use colored::Colorize;
 use std::process::Output;
@@ -14,7 +14,7 @@ use make::Make;
 pub struct Builder<'a> {
     top_dependency: Option<DependencyNode>,
     dep_registry: DependencyRegistry,
-    generator: Box<&'a mut dyn Generator>,
+    generator: Box<&'a mut dyn GeneratorExecutor>,
     debug: bool,
     verbose: bool,
     make: Make,
@@ -23,7 +23,7 @@ pub struct Builder<'a> {
 
 
 impl<'a> Builder<'a> {
-    pub fn new(generator: &mut dyn Generator) -> Builder {
+    pub fn new(generator: &mut dyn GeneratorExecutor) -> Builder {
         Builder {
             top_dependency: None,
             dep_registry: DependencyRegistry::new(),
@@ -36,7 +36,7 @@ impl<'a> Builder<'a> {
     }
 
 
-    pub fn add_generator(&mut self, generator: &'a mut dyn Generator) {
+    pub fn add_generator(&mut self, generator: &'a mut dyn GeneratorExecutor) {
         if let Some(_) = &self.top_dependency {
             self.generator = Box::new(generator);
         }

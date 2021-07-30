@@ -17,7 +17,7 @@ mod mmk_constants;
 use mmk_constants::{Constant, Constants};
 
 mod toolchain;
-use toolchain::Toolchain;
+pub use toolchain::Toolchain;
 
 pub fn read_toolchain(path: &PathBuf) -> Result<Toolchain, MyMakeError> {
     let mut toolchain = Toolchain::new();

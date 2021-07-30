@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use error::MyMakeError;
 use utility;
+use crate::generator::{Sanitizer, UtilityGenerator};
 
 #[allow(dead_code)]
 pub struct IncludeFileGenerator {
@@ -15,7 +16,7 @@ pub struct IncludeFileGenerator {
 
 
 #[allow(dead_code)]
-impl IncludeFileGenerator {    
+impl IncludeFileGenerator {
     pub fn new(output_directory: &std::path::PathBuf) -> Self {
         utility::create_dir(&output_directory).unwrap();
         IncludeFileGenerator{ file: None, output_directory: output_directory.clone(), args: HashMap::new()}
@@ -39,57 +40,16 @@ impl IncludeFileGenerator {
     }
 
 
-    pub fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
-        let mut sanitizer_str = String::new();
-        for option in sanitizers {
-            match option {
-                "address"   => sanitizer_str.push_str("address "), // sanitizer_str.push_str("address kernel-adress hwaddress pointer-compare pointer-subtract"),
-                "thread"    => sanitizer_str.push_str("thread -fPIE -pie "),
-                "leak"      => sanitizer_str.push_str("leak "),
-                "undefined" => sanitizer_str.push_str("undefined "),
-                _           => ()
-            }
-        }
-        // let sanitizer_str = sanitizers.concat();
-        self.args.insert("sanitizers", sanitizer_str);
+    pub fn print_build_directory(&self) -> &str {
+        self.output_directory.to_str().unwrap()
     }
 
 
-    fn generate_flags_sanitizer(&mut self) -> String {
-        if self.args.contains_key("sanitizers") {
-            return format!("\
-            CXXFLAGS += {sanitizers}\n\
-            \n\
-            LDFLAGS += {sanitizers}",
-            sanitizers = self.get_sanitizers());
-        }
-        String::new()
+    pub fn change_directory(&mut self, directory: std::path::PathBuf) {
+        self.output_directory = directory;
+        utility::create_dir(&self.output_directory).unwrap()
     }
-
-
-    pub fn add_cpp_version(&mut self, version: &str) -> Result<(), MyMakeError> {                
-        let cpp_version_string = match version.to_lowercase().as_str() {
-            "c++98" => "-std=c++98",
-            "c++11" => "-std=c++11",
-            "c++14" => "-std=c++14",
-            "c++17" => "-std=c++17",
-            "c++20" => "-std=c++20",
-            _       => return Err(MyMakeError::from(format!("{} is not a valid C++ version.", version)))
-        };
-        self.args.insert("C++", cpp_version_string.to_string());
-        Ok(())
-    }
-
-
-    fn print_cpp_version(&self) -> &str {
-        if self.args.contains_key("C++") {
-            self.args.get("C++").unwrap()
-        }
-        else {
-            "-std=c++20"
-        }
-    }
-
+    
 
     fn generate_strict_mk(&mut self) -> Result<(), MyMakeError> {
         self.create_mk_file("strict");
@@ -237,9 +197,11 @@ impl IncludeFileGenerator {
             Err(err) => return Err(MyMakeError::from(format!("Error creating defines.mk: {}", err))),
         }
     }
+}
 
 
-    pub fn generate_makefiles(&mut self) -> Result<(), MyMakeError> {
+impl UtilityGenerator for IncludeFileGenerator {
+    fn generate_makefiles(&mut self) -> Result<(), MyMakeError> {
         self.generate_strict_mk()?;
         self.generate_debug_mk()?;
         self.generate_default_mk()?;
@@ -247,17 +209,58 @@ impl IncludeFileGenerator {
         self.generate_release_mk()
     }
 
-
-    pub fn print_build_directory(&self) -> &str {
-        self.output_directory.to_str().unwrap()
+    fn add_cpp_version(&mut self, version: &str) -> Result<(), MyMakeError> {                
+        let cpp_version_string = match version.to_lowercase().as_str() {
+            "c++98" => "-std=c++98",
+            "c++11" => "-std=c++11",
+            "c++14" => "-std=c++14",
+            "c++17" => "-std=c++17",
+            "c++20" => "-std=c++20",
+            _       => return Err(MyMakeError::from(format!("{} is not a valid C++ version.", version)))
+        };
+        self.args.insert("C++", cpp_version_string.to_string());
+        Ok(())
     }
 
 
-    pub fn change_directory(&mut self, directory: std::path::PathBuf) {
-        self.output_directory = directory;
-        utility::create_dir(&self.output_directory).unwrap()
+    fn print_cpp_version(&self) -> &str {
+        if self.args.contains_key("C++") {
+            self.args.get("C++").unwrap()
+        }
+        else {
+            "-std=c++20"
+        }
+    }
+
+    fn generate_flags_sanitizer(&self) -> String {
+        if self.args.contains_key("sanitizers") {
+            return format!("\
+            CXXFLAGS += {sanitizers}\n\
+            \n\
+            LDFLAGS += {sanitizers}",
+            sanitizers = self.get_sanitizers());
+        }
+        String::new()
     }
 }
+
+
+impl Sanitizer for IncludeFileGenerator {
+    fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
+        let mut sanitizer_str = String::new();
+        for option in sanitizers {
+            match option {
+                "address"   => sanitizer_str.push_str("address "), // sanitizer_str.push_str("address kernel-adress hwaddress pointer-compare pointer-subtract"),
+                "thread"    => sanitizer_str.push_str("thread -fPIE -pie "),
+                "leak"      => sanitizer_str.push_str("leak "),
+                "undefined" => sanitizer_str.push_str("undefined "),
+                _           => ()
+            }
+        }
+        self.args.insert("sanitizers", sanitizer_str);
+    }
+}
+
 
 #[cfg(test)]
 #[path = "./include_file_generator_test.rs"]

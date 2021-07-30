@@ -1,7 +1,7 @@
 use dependency::{DependencyNode, DependencyAccessor};
 use error::MyMakeError;
 
-pub use crate::generator::{Generator, Sanitizer, RuntimeSettings};
+pub use crate::generator::{Generator, GeneratorExecutor, Sanitizer, RuntimeSettings};
 
 pub struct GeneratorMock {
     dep: Option<DependencyNode>
@@ -13,16 +13,16 @@ impl GeneratorMock {
     }
 }
 
-impl Generator for GeneratorMock {
+
+impl GeneratorExecutor for GeneratorMock {
     fn generate_makefiles(&mut self, _dependency: &DependencyNode) -> Result<(), MyMakeError> {
         Ok(())
     }
+}
 
+
+impl Generator for GeneratorMock {
     fn generate_makefile(&mut self) -> Result<(), MyMakeError> {
-        Ok(())
-    }
-
-    fn generate_header(&mut self) -> Result<(), MyMakeError> {
         Ok(())
     }
 
@@ -40,6 +40,7 @@ impl Generator for GeneratorMock {
 
     fn print_ok(&self) {}
 }
+
 
 impl Sanitizer for GeneratorMock {
     fn set_sanitizers(&mut self, _: Vec<&str>) {}

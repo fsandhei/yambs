@@ -67,7 +67,7 @@ fn generate_header_release_test() -> std::io::Result<()> {
     gen.set_dependency(&dependency);
     gen.create_makefile();
     let test_file = gen.output_directory.join("makefile");
-    assert!(Generator::generate_header(&mut gen).is_ok());
+    assert!(gen.generate_header().is_ok());
     assert_eq!(
         format!(
             "\
@@ -103,7 +103,7 @@ fn generate_header_debug_test() -> std::io::Result<()> {
     gen.debug();
     gen.create_makefile();
     let test_file = gen.output_directory.join("makefile");
-    assert!(Generator::generate_header(&mut gen).is_ok());
+    assert!(gen.generate_header().is_ok());
     assert_eq!(
         format!(
             "\

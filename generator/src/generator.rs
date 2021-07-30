@@ -5,9 +5,7 @@ pub trait Generator
     : DependencyAccessor
     + Sanitizer
     + RuntimeSettings {
-    fn generate_makefiles(&mut self, dependency: &DependencyNode) -> Result<(), MyMakeError>;
     fn generate_makefile(&mut self)                               -> Result<(), MyMakeError>;
-    fn generate_header(&mut self)                                 -> Result<(), MyMakeError>;
     fn generate_rule_executable(&mut self)                        -> Result<(), MyMakeError>;
     fn generate_rule_package(&mut self)                           -> Result<(), MyMakeError>;
     fn generate_appending_flags(&mut self)                        -> Result<(), MyMakeError>;
@@ -25,4 +23,17 @@ pub trait RuntimeSettings {
     fn debug(&mut self);
     fn release(&mut self);
     fn use_std(&mut self, version: &str) -> Result<(), MyMakeError>;
+}
+
+
+pub trait GeneratorExecutor : Generator {
+    fn generate_makefiles(&mut self, dependency: &DependencyNode) -> Result<(), MyMakeError>;
+}
+
+
+pub trait UtilityGenerator {
+    fn generate_makefiles(&mut self) -> Result<(), MyMakeError>;
+    fn add_cpp_version(&mut self, version: &str) -> Result<(), MyMakeError>;
+    fn print_cpp_version(&self) -> &str;
+    fn generate_flags_sanitizer(&self) -> String;
 }

@@ -283,7 +283,7 @@ fn change_directory_test() -> std::io::Result<()> {
 #[test]
 fn generate_flags_sanitizer_no_sanitizers_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let mut gen = IncludeFileGenerator::new(&output_directory);
+    let gen = IncludeFileGenerator::new(&output_directory);
     let actual = gen.generate_flags_sanitizer();
     let expected = String::new();
     assert_eq!(expected, actual);

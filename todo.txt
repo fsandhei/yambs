@@ -68,4 +68,5 @@ TODO:
 
     * Ha støtte for sanitizere. Burde muligens være støtte for riktig bruk også. Ordne testdekning for dette.
     * Les opp på sanitizere og hvordan støtten er for de ulike kompilatorene. Tenk kun på GCC i starten.
+    * Release-makefile-bygg: Mangler flagget -DNDEBUG. Legg dette til release-config.
 

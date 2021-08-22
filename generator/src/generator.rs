@@ -5,10 +5,10 @@ pub trait Generator
     : DependencyAccessor
     + Sanitizer
     + RuntimeSettings {
-    fn generate_makefile(&mut self)                               -> Result<(), MyMakeError>;
-    fn generate_rule_executable(&mut self)                        -> Result<(), MyMakeError>;
-    fn generate_rule_package(&mut self)                           -> Result<(), MyMakeError>;
-    fn generate_appending_flags(&mut self)                        -> Result<(), MyMakeError>;
+    fn generate_makefile(&mut self)        -> Result<(), MyMakeError>;
+    fn generate_rule_executable(&mut self) -> Result<(), MyMakeError>;
+    fn generate_rule_package(&mut self)    -> Result<(), MyMakeError>;
+    fn generate_appending_flags(&mut self) -> Result<(), MyMakeError>;
 
     // Finish status: Just for display purposes. Will be removed.
     fn print_ok(&self);

@@ -18,13 +18,16 @@ use error::MyMakeError;
 use include_file_generator::IncludeFileGenerator;
 use utility;
 
+// May need to be able to separate IncludeFileGenerator out as a field from MakefileGenerator.
+// This may be needed to achieve only generating one set of utility makefiles instead of N times (N = number of total projects).
 pub struct MakefileGenerator
 {
     filename: Option<File>,
     dependency: Option<DependencyNode>,
-    output_directory: std::path::PathBuf,
+    build_directory: PathBuf,
+    output_directory: PathBuf,
     debug: bool,
-    include_file_generator: IncludeFileGenerator,
+    include_file_generator: Option<IncludeFileGenerator>,
 }
 
 
@@ -34,13 +37,21 @@ impl MakefileGenerator {
         let include_output_directory = output_directory.join("make_include");
         utility::create_dir(&output_directory).unwrap();
 
-        MakefileGenerator{ 
+        MakefileGenerator { 
             filename: None, 
-            dependency: None, 
+            dependency: None,
+            build_directory: output_directory.clone(),
             output_directory, 
             debug: false,
-            include_file_generator: IncludeFileGenerator::new(&include_output_directory)
+            include_file_generator: Some(IncludeFileGenerator::new(&include_output_directory))
         }
+    }
+
+
+    fn generate_include_files(&mut self) -> Result<(), MyMakeError> {
+        let include_output_directory = self.output_directory.join("make_include");
+        let mut include_file_generator = IncludeFileGenerator::new(&include_output_directory);
+        include_file_generator.generate_makefiles()
     }
 
 
@@ -48,8 +59,9 @@ impl MakefileGenerator {
         let gen = MakefileGenerator::new(build_directory);
         self.set_dependency(dependency);
         self.output_directory = gen.output_directory;
+        // self.include_file_generator = None;
         let include_output_directory = self.output_directory.parent().unwrap().join("make_include");
-        self.include_file_generator.change_directory(include_output_directory);
+        self.include_file_generator.as_mut().unwrap().change_directory(include_output_directory);
         self.create_makefile();
     }
 
@@ -184,7 +196,7 @@ impl MakefileGenerator {
     }
 
 
-    fn print_prerequisites(self: &Self) ->Result<String, MyMakeError> {
+    fn print_prerequisites(self: &Self) -> Result<String, MyMakeError> {
         let mut formatted_string = String::new();
         let mut object = String::new();
         let borrowed_dependency = self.get_dependency()?.borrow();
@@ -233,7 +245,7 @@ impl MakefileGenerator {
 
     fn print_release(&self) -> String {
         let release_include = format!("{build_path}/release.mk",
-        build_path = self.include_file_generator.print_build_directory());
+        build_path = self.include_file_generator.as_ref().unwrap().print_build_directory());
         release_include
     }
 
@@ -241,7 +253,7 @@ impl MakefileGenerator {
     fn print_debug(&self) -> String {
         if self.debug {
             let debug_include = format!("{build_path}/debug.mk",
-            build_path = self.include_file_generator.print_build_directory());
+            build_path = self.include_file_generator.as_ref().unwrap().print_build_directory());
             debug_include
         }
         else {
@@ -268,7 +280,7 @@ impl MakefileGenerator {
         .PHONY: uninstall\n\
         .PHONY: clean\n", 
         debug = self.print_debug(),
-        build_path = self.include_file_generator.print_build_directory());
+        build_path = self.include_file_generator.as_ref().unwrap().print_build_directory());
         
         match self.filename.as_ref().unwrap().write(data.as_bytes()) {
             Ok(_) => (),
@@ -285,6 +297,10 @@ impl GeneratorExecutor for MakefileGenerator {
         {
             dependency.borrow_mut().makefile_made();
             self.generate_makefile()?;
+        }
+
+        if self.build_directory == self.output_directory {
+            self.generate_include_files()?;
         }
 
         let dependency_output_library_head = self.get_required_project_lib_dir();
@@ -319,7 +335,6 @@ impl GeneratorExecutor for MakefileGenerator {
 impl Generator for MakefileGenerator
 {
     fn generate_makefile(self: &mut Self) -> Result<(), MyMakeError> {
-        self.include_file_generator.generate_makefiles()?;
         self.create_makefile();
         self.generate_header()?;
         self.generate_appending_flags()?;
@@ -428,14 +443,14 @@ impl DependencyAccessor for MakefileGenerator {
 
 impl Sanitizer for MakefileGenerator {
     fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
-        self.include_file_generator.set_sanitizers(sanitizers);
+        self.include_file_generator.as_mut().unwrap().set_sanitizers(sanitizers);
     }
 }
 
 
 impl RuntimeSettings for MakefileGenerator {
     fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
-        self.include_file_generator.add_cpp_version(version)
+        self.include_file_generator.as_mut().unwrap().add_cpp_version(version)
     }
 
 

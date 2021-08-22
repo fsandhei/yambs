@@ -37,7 +37,7 @@ impl Generator for GeneratorMock {
     fn generate_appending_flags(&mut self) -> Result<(), MyMakeError> {
         Ok(())
     }
-
+    
     fn print_ok(&self) {}
 }
 

@@ -176,7 +176,7 @@ fn generate_debug_mk_with_address_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let mut gen = IncludeFileGenerator::new(&output_directory);
     let file_name = output_directory.join("debug.mk");
-    gen.set_sanitizers(vec!["address"]);
+    gen.set_sanitizers(&[String::from("address")]);
     gen.generate_debug_mk().unwrap();
     assert_eq!(
         "\
@@ -207,7 +207,7 @@ fn generate_debug_mk_with_thread_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let mut gen = IncludeFileGenerator::new(&output_directory);
     let file_name = output_directory.join("debug.mk");
-    gen.set_sanitizers(vec!["thread"]);
+    gen.set_sanitizers(&[String::from("thread")]);
     gen.generate_debug_mk().unwrap();
     assert_eq!(
         "\
@@ -295,7 +295,7 @@ fn generate_flags_sanitizer_no_sanitizers_test() -> std::io::Result<()> {
 fn generate_flags_sanitizer_address_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let mut gen = IncludeFileGenerator::new(&output_directory);
-    gen.set_sanitizers(vec!["address"]);
+    gen.set_sanitizers(&[String::from("address")]);
     let actual = gen.generate_flags_sanitizer();
     let expected = String::from("\
                                     CXXFLAGS += -fsanitize=address \n\
@@ -310,7 +310,7 @@ fn generate_flags_sanitizer_address_sanitizer_test() -> std::io::Result<()> {
 fn generate_flags_sanitizer_thread_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let mut gen = IncludeFileGenerator::new(&output_directory);
-    gen.set_sanitizers(vec!["thread"]);
+    gen.set_sanitizers(&[String::from("thread")]);
     let actual = gen.generate_flags_sanitizer();
     let expected = String::from("\
                                     CXXFLAGS += -fsanitize=thread -fPIE -pie \n\

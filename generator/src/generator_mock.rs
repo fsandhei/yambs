@@ -43,7 +43,7 @@ impl Generator for GeneratorMock {
 
 
 impl Sanitizer for GeneratorMock {
-    fn set_sanitizers(&mut self, _: Vec<&str>) {}
+    fn set_sanitizers(&mut self, _: &[String]) {}
 }
 
 

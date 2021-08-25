@@ -246,10 +246,10 @@ impl UtilityGenerator for IncludeFileGenerator {
 
 
 impl Sanitizer for IncludeFileGenerator {
-    fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
+    fn set_sanitizers(&mut self, sanitizers: &[String]) {
         let mut sanitizer_str = String::new();
         for option in sanitizers {
-            match option {
+            match option.as_str() {
                 "address"   => sanitizer_str.push_str("address "), // sanitizer_str.push_str("address kernel-adress hwaddress pointer-compare pointer-subtract"),
                 "thread"    => sanitizer_str.push_str("thread -fPIE -pie "),
                 "leak"      => sanitizer_str.push_str("leak "),

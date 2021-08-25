@@ -18,39 +18,100 @@ use error::MyMakeError;
 use include_file_generator::IncludeFileGenerator;
 use utility;
 
-// May need to be able to separate IncludeFileGenerator out as a field from MakefileGenerator.
-// This may be needed to achieve only generating one set of utility makefiles instead of N times (N = number of total projects).
+#[derive(PartialEq, Eq)]
+enum Configuration {
+    Debug,
+    Release,
+    Sanitizer(Vec<String>),
+    CppVersion(String),
+}
+
+#[derive(PartialEq, Eq)]
+enum GeneratorState {
+    IncludeGenerated,
+    IncludeNotGenerated,
+}
+
+struct BuildConfigurations {
+    configurations: Vec<Configuration>,
+}
+
+impl BuildConfigurations {
+    pub fn new() -> Self {
+        Self {
+            configurations: Vec::new()
+        }
+    }
+
+    pub fn add_configuration(&mut self, configuration: Configuration) {
+        self.configurations.push(configuration);
+    }
+
+    pub fn is_debug_build(&self) -> bool {
+        self.configurations.contains(&Configuration::Debug)
+    }
+}
+
+
+impl IntoIterator for BuildConfigurations {
+    type Item = Configuration;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        self.configurations.into_iter()
+    }
+}
+
+
+impl<'a> IntoIterator for &'a BuildConfigurations {
+    type Item = &'a Configuration;
+    type IntoIter = std::slice::Iter<'a, Configuration>;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        self.configurations.iter()
+    }
+}
+
+
 pub struct MakefileGenerator
 {
     filename: Option<File>,
     dependency: Option<DependencyNode>,
     build_directory: PathBuf,
     output_directory: PathBuf,
-    debug: bool,
-    include_file_generator: Option<IncludeFileGenerator>,
+    build_configurations: BuildConfigurations,
+    state: GeneratorState,
 }
 
 
 impl MakefileGenerator {
     pub fn new(build_directory: std::path::PathBuf) -> MakefileGenerator {
         let output_directory = build_directory;
-        let include_output_directory = output_directory.join("make_include");
         utility::create_dir(&output_directory).unwrap();
 
         MakefileGenerator { 
-            filename: None, 
+            filename: None,
             dependency: None,
             build_directory: output_directory.clone(),
-            output_directory, 
-            debug: false,
-            include_file_generator: Some(IncludeFileGenerator::new(&include_output_directory))
+            output_directory,
+            build_configurations: BuildConfigurations::new(),
+            state: GeneratorState::IncludeNotGenerated,
         }
     }
 
 
     fn generate_include_files(&mut self) -> Result<(), MyMakeError> {
-        let include_output_directory = self.output_directory.join("make_include");
-        let mut include_file_generator = IncludeFileGenerator::new(&include_output_directory);
+        let include_output_directory = self.build_directory.join("make_include");
+        let mut include_file_generator = IncludeFileGenerator::new(&include_output_directory);        
+
+        for build_configuration in &self.build_configurations {
+                match build_configuration {
+                    Configuration::Sanitizer(sanitizers) => include_file_generator.set_sanitizers(sanitizers),
+                    Configuration::CppVersion(version) => include_file_generator.add_cpp_version(version)?,
+                    _ => (),
+                };
+        }
+
         include_file_generator.generate_makefiles()
     }
 
@@ -59,9 +120,6 @@ impl MakefileGenerator {
         let gen = MakefileGenerator::new(build_directory);
         self.set_dependency(dependency);
         self.output_directory = gen.output_directory;
-        // self.include_file_generator = None;
-        let include_output_directory = self.output_directory.parent().unwrap().join("make_include");
-        self.include_file_generator.as_mut().unwrap().change_directory(include_output_directory);
         self.create_makefile();
     }
 
@@ -87,6 +145,11 @@ impl MakefileGenerator {
 
     fn get_required_project_lib_dir(&self) -> PathBuf {
         self.output_directory.join("libs")
+    }
+
+
+    fn is_debug_build(&self) -> bool {
+        self.build_configurations.is_debug_build()
     }
 
 
@@ -161,7 +224,7 @@ impl MakefileGenerator {
                 let required_dep = dependency.borrow();
                 let mut output_directory = self.get_required_project_lib_dir()
                                                   .join(required_dep.get_project_name());
-                if self.debug {
+                if self.is_debug_build() {
                     output_directory = output_directory.join("debug");
                 }
                 else {
@@ -244,16 +307,16 @@ impl MakefileGenerator {
 
 
     fn print_release(&self) -> String {
-        let release_include = format!("{build_path}/release.mk",
-        build_path = self.include_file_generator.as_ref().unwrap().print_build_directory());
+        let release_include = format!("{build_path}/make_include/release.mk",
+        build_path = self.build_directory.to_str().unwrap());
         release_include
     }
 
 
     fn print_debug(&self) -> String {
-        if self.debug {
-            let debug_include = format!("{build_path}/debug.mk",
-            build_path = self.include_file_generator.as_ref().unwrap().print_build_directory());
+        if self.is_debug_build() {
+            let debug_include = format!("{build_path}/make_include/debug.mk",
+            build_path = self.build_directory.to_str().unwrap());
             debug_include
         }
         else {
@@ -267,8 +330,8 @@ impl MakefileGenerator {
         # Generated by MmkGenerator.generate_header(). DO NOT EDIT THIS FILE.\n\
         \n\
         # ----- INCLUDES -----\n\
-        include {build_path}/strict.mk\n\
-        include {build_path}/default_make.mk\n\
+        include {build_path}/make_include/strict.mk\n\
+        include {build_path}/make_include/default_make.mk\n\
         include {debug}\n\
         \n\
         # ----- DEFAULT PHONIES -----\n\
@@ -280,7 +343,7 @@ impl MakefileGenerator {
         .PHONY: uninstall\n\
         .PHONY: clean\n", 
         debug = self.print_debug(),
-        build_path = self.include_file_generator.as_ref().unwrap().print_build_directory());
+        build_path = self.build_directory.to_str().unwrap());
         
         match self.filename.as_ref().unwrap().write(data.as_bytes()) {
             Ok(_) => (),
@@ -293,14 +356,16 @@ impl MakefileGenerator {
 
 impl GeneratorExecutor for MakefileGenerator {
     fn generate_makefiles(&mut self, dependency: &DependencyNode) -> Result<(), MyMakeError> {
+
+        if self.state == GeneratorState::IncludeNotGenerated {
+            self.generate_include_files()?;
+            self.state = GeneratorState::IncludeGenerated;
+        }
+
         if !&dependency.borrow().is_makefile_made()
         {
             dependency.borrow_mut().makefile_made();
             self.generate_makefile()?;
-        }
-
-        if self.build_directory == self.output_directory {
-            self.generate_include_files()?;
         }
 
         let dependency_output_library_head = self.get_required_project_lib_dir();
@@ -315,7 +380,7 @@ impl GeneratorExecutor for MakefileGenerator {
                 required_dependency.borrow_mut().makefile_made();
                 let mut build_directory = dependency_output_library_head
                                                   .join(required_dependency.borrow().get_project_name());
-                if self.debug {
+                if self.is_debug_build() {
                     build_directory.push("debug");
                 }
                 else {
@@ -442,26 +507,30 @@ impl DependencyAccessor for MakefileGenerator {
 
 
 impl Sanitizer for MakefileGenerator {
-    fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
-        self.include_file_generator.as_mut().unwrap().set_sanitizers(sanitizers);
+    fn set_sanitizers(&mut self, sanitizers: &[String]) {
+        self.build_configurations.add_configuration(Configuration::Sanitizer(sanitizers.iter()
+                                                                                       .map(|s| s.to_string())
+                                                                                       .collect()));
     }
 }
 
 
 impl RuntimeSettings for MakefileGenerator {
     fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
-        self.include_file_generator.as_mut().unwrap().add_cpp_version(version)
+        self.build_configurations.add_configuration(Configuration::CppVersion(version.to_string()));
+        Ok(())
     }
 
 
     fn debug(&mut self) {
-        self.debug = true;
+        self.build_configurations.add_configuration(Configuration::Debug);
         self.use_subdir(std::path::PathBuf::from("debug")).unwrap();
     }
 
 
     fn release(&mut self) {
-        if !self.debug {
+        self.build_configurations.add_configuration(Configuration::Release);
+        if !self.is_debug_build() {
             self.use_subdir(std::path::PathBuf::from("release")).unwrap();
         }
     }

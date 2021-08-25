@@ -15,7 +15,7 @@ pub trait Generator
 }
 
 pub trait Sanitizer {
-    fn set_sanitizers(&mut self, sanitizers: Vec<&str>);
+    fn set_sanitizers(&mut self, sanitizers: &[String]);
 }
 
 

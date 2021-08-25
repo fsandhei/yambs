@@ -53,7 +53,7 @@ impl<'a> Builder<'a> {
     }
 
 
-    pub fn set_sanitizers(&mut self, sanitizers: Vec<&str>) {
+    pub fn set_sanitizers(&mut self, sanitizers: &[String]) {
         self.generator.as_mut().set_sanitizers(sanitizers);
     }
 

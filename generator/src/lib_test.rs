@@ -15,6 +15,11 @@ fn expected_library_name(path: &std::path::Path) -> String {
     library_name
 }
 
+fn construct_generator(path: PathBuf) -> MakefileGenerator {
+    let toolchain = Toolchain::new().set_sample_config();
+    MakefileGenerator::new(path, &toolchain)
+}
+
 #[test]
 fn generate_makefile_test() -> std::io::Result<()> {
     let dir = TempDir::new("example")?;
@@ -34,7 +39,7 @@ fn generate_makefile_test() -> std::io::Result<()> {
         .mmk_data_mut()
         .data_mut()
         .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("main")]);
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     assert!(Generator::generate_makefile(&mut gen).is_ok());
     Ok(())
@@ -45,7 +50,7 @@ fn print_debug_test() -> std::io::Result<()> {
     let path = std::path::PathBuf::from("some_path");
     let output_dir = TempDir::new("build")?;
     let dependency = Rc::new(RefCell::new(Dependency::from(&path.join("run.mmk"))));
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     gen.debug();
     assert_eq!(
@@ -63,11 +68,11 @@ fn generate_header_release_test() -> std::io::Result<()> {
     let dir = TempDir::new("example")?;
     let output_dir = TempDir::new("build")?;
     let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("run.mmk"))));
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     gen.create_makefile();
     let test_file = gen.output_directory.join("makefile");
-    assert!(Generator::generate_header(&mut gen).is_ok());
+    assert!(gen.generate_header().is_ok());
     assert_eq!(
         format!(
             "\
@@ -98,12 +103,12 @@ fn generate_header_debug_test() -> std::io::Result<()> {
     let dir = TempDir::new("example")?;
     let output_dir = TempDir::new("build")?;
     let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     gen.debug();
     gen.create_makefile();
     let test_file = gen.output_directory.join("makefile");
-    assert!(Generator::generate_header(&mut gen).is_ok());
+    assert!(gen.generate_header().is_ok());
     assert_eq!(
         format!(
             "\
@@ -156,7 +161,7 @@ fn generate_package_test() -> std::io::Result<()> {
         ],
     );
 
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     gen.create_makefile();
     let test_file = gen.output_directory.join("makefile");
@@ -221,7 +226,7 @@ fn generate_executable_test() -> std::io::Result<()> {
             Keyword::from(dir_second_dep.path().to_str().unwrap()),
         ],
     );
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     gen.create_makefile();
     let test_file = gen.output_directory.join("makefile");
@@ -264,7 +269,7 @@ fn generate_appending_flags_test_cxxflags() -> std::io::Result<()> {
         "MMK_CXXFLAGS_APPEND".to_string(),
         vec![Keyword::from("-pthread")],
     );
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     gen.create_makefile();
     let test_file = gen.output_directory.join("makefile");
@@ -289,7 +294,7 @@ fn generate_appending_flags_test_cppflags() -> std::io::Result<()> {
         "MMK_CPPFLAGS_APPEND".to_string(),
         vec![Keyword::from("-somesetting")],
     );
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     gen.create_makefile();
     let test_file = gen.output_directory.join("makefile");
@@ -319,7 +324,7 @@ fn generate_appending_flags_test() -> std::io::Result<()> {
         vec![Keyword::from("-somesetting")],
     );
 
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     gen.create_makefile();
     let test_file = gen.output_directory.join("makefile");
@@ -348,7 +353,7 @@ fn print_header_includes_test() -> std::io::Result<()> {
             Keyword::from("ofilename.cpp"),
         ],
     );
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     let actual = gen.print_header_includes();
     let expected = format!(
@@ -382,7 +387,7 @@ fn print_dependencies_test() -> std::io::Result<()> {
         ],
     );
 
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     let expected = format!(
         "-I{} -I{} -I{}",
@@ -418,7 +423,7 @@ fn print_dependencies_with_sys_include_test() -> std::io::Result<()> {
         vec![Keyword::from(dir_second_dep.path().to_str().unwrap())],
     );
 
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     let expected = format!(
         "-I{} -I{} -isystem {}",
@@ -444,7 +449,7 @@ fn print_dependencies_with_only_sys_include_test() -> std::io::Result<()> {
         vec![Keyword::from(dir_dep.path().to_str().unwrap())],
     );
 
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     let expected = format!(
         "-I{}  -isystem {}",
@@ -480,7 +485,7 @@ fn print_required_dependencies_libraries_test() -> std::io::Result<()> {
         .borrow_mut()
         .add_dependency(Rc::clone(&dependency_dep));
 
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     let expected = format!(
         "\t{directory}/libs/{dep_directory}/release/{library_name} \\\n",
@@ -533,7 +538,7 @@ fn print_required_dependencies_libraries_multiple_test() -> std::io::Result<()> 
         .borrow_mut()
         .add_dependency(Rc::clone(&second_dependency_dep));
 
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
     let expected = format!("\t{directory}/libs/{dep_directory}/release/{library_name} \\\n\
                                     \t{directory}/libs/{second_dep_directory}/release/{second_library_name} \\\n",
@@ -554,7 +559,7 @@ fn print_library_name_test() -> std::io::Result<()> {
     let dir = TempDir::new("example")?;
     let output_dir = TempDir::new("build")?;
     let dependency = Rc::new(RefCell::new(Dependency::from(&dir.path().join("lib.mmk"))));
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
 
     let expected = format!(
@@ -578,7 +583,7 @@ fn print_library_name_with_label_test() -> std::io::Result<()> {
         vec![Keyword::from("myDependency")],
     );
     dependency.borrow_mut().add_library_name();
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
     gen.set_dependency(&dependency);
 
     let expected = format!(
@@ -600,7 +605,7 @@ fn replace_generator_test() -> std::io::Result<()> {
     let dependency = Rc::new(RefCell::new(Dependency::from(
         &dir_dep.path().join("lib.mmk"),
     )));
-    let mut gen = MakefileGenerator::new(output_dir.path().to_path_buf());
+    let mut gen = construct_generator(output_dir.path().to_path_buf());
 
     gen.replace_generator(&dependency, replacement_output_dir.clone());
     assert_eq!(dependency, gen.dependency.unwrap());

@@ -116,18 +116,18 @@ impl<'a> CommandLine<'a> {
     fn parse_sanitizer_options(&self, builder: &mut Builder) -> Result<(), MyMakeError> {
         if self.matches.is_present("sanitizer") {
             let valid_options = vec!["address", "undefined", "leak", "thread"];
-            let sanitizer_options: Vec<&str> = self.matches.values_of("sanitizer").unwrap().collect();
+            let sanitizer_options: Vec<String> = self.matches.values_of("sanitizer").unwrap().map(|s| s.to_string()).collect();
             for option in &sanitizer_options {
-                if !valid_options.contains(&option) {
+                if !valid_options.contains(&option.as_str()) {
                     return Err(MyMakeError::from_str("Invalid argument used for sanitizer.\n\
                                                          Valid arguments are address, undefined, leak and thread."));
                 }
             }
-            if sanitizer_options.contains(&"address")
-             && sanitizer_options.contains(&"thread") {
+            if sanitizer_options.contains(&String::from("address"))
+             && sanitizer_options.contains(&String::from("thread")) {
                 return Err(MyMakeError::from_str("address cannot be used together with thread. Pick only one."));
             }
-            builder.set_sanitizers(sanitizer_options);
+            builder.set_sanitizers(sanitizer_options.as_slice());
         }
         Ok(())
     }

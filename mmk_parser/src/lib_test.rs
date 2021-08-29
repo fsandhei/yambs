@@ -4,12 +4,13 @@ use mmk_constants::Constant;
 use keyword::Keyword;
 use pretty_assertions::assert_eq;
 use tempdir::TempDir;
+use utility;
 
 #[test]
 fn test_mmk_file_reader()
 {
     let path = std::path::Path::new("/home/fredrik/bin/mymake/mmk_parser/src/test.mmk");
-    let content = read_file(&path);        
+    let content = utility::read_file(&path);        
     assert_eq!(content.unwrap(),("\
 #This is a comment.
 MMK_REQUIRE:
@@ -28,7 +29,7 @@ MMK_EXECUTABLE:
 fn test_remove_comments()
 {
     let path = std::path::Path::new("/home/fredrik/bin/mymake/mmk_parser/src/test.mmk");
-    let content = read_file(&path).unwrap();     
+    let content = utility::read_file(&path).unwrap();     
     assert_eq!(remove_comments(&content),String::from("
 MMK_REQUIRE:
    /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/test/

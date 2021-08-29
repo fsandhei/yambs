@@ -8,15 +8,42 @@ use utility;
 use regex::Regex;
 use std::collections::HashMap;
 use std::vec::Vec;
-use std::fs;
-use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 mod keyword;
 pub use keyword::Keyword;
 
 mod mmk_constants;
-use mmk_constants::{Constant, Constants};
+pub use mmk_constants::{Constant, Constants};
+
+mod toolchain;
+pub use toolchain::Toolchain;
+
+pub fn read_toolchain(path: &PathBuf) -> Result<Toolchain, MyMakeError> {
+    let mut toolchain = Toolchain::new();
+    let content = toolchain.get_content(path)?;
+    toolchain.parse(content)?;
+    Ok(toolchain)
+}
+
+pub fn find_toolchain_file(path: &PathBuf) -> Result<PathBuf, MyMakeError> {
+    let toolchain_filename = "toolchain.mmk";
+    let mymake_includes = path.join("mymake");
+    if mymake_includes.is_dir() {
+        Ok(mymake_includes.join(toolchain_filename))
+    } else {
+        let parent = path.parent().unwrap();
+        let mymake_includes = parent.join("mymake");
+        if mymake_includes.is_dir() {
+            Ok(mymake_includes.join(toolchain_filename))
+        } else {
+            return Err(MyMakeError::from(format!(
+                "Error: Could not find mymake directory from {:?}",
+                path.to_str().unwrap()
+            )));
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Mmk
@@ -230,12 +257,6 @@ pub fn validate_file_name(path: &PathBuf) -> Result<(), MyMakeError> {
         _ => return Err(MyMakeError::from(format!("{:?} is illegal name! File must be named lib.mmk or run.mmk.", file_name))),
     };
     Ok(())
-}
-
-
-pub fn read_file(file_path: &Path) -> Result<String, io::Error>
-{
-    fs::read_to_string(&file_path)
 }
 
 

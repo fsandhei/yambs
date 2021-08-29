@@ -1,4 +1,5 @@
 TODO: 
+    Reproduserbarhet: Lag en typ 'remake'-kommando. Må først legge inn invokert kommando i mymake_log.
     *Dokumentasjon: * Finn ut hvordan en skriver README-filer for GitHub (hint: Jeg tror det er Markdown.)
                     * Dokumentér hva MyMake er for noe og hva hensikten med det er
                     * Er det noe formål for hvorfor MyMake ble laget (se på CMake / makefile som inspirasjon.)?
@@ -7,6 +8,7 @@ TODO:
                        * MyMake går i en annen retning; MyMake skal følge én standard og kun det: MyMake setter standarden.
                        * Mengden med konfigurasjoner en må gjøre for å få et godt produksjons- og utviklingsmiljø med CMake er unødvendig vanskelig.
                        * Med MyMake skal dette komme "out of the box".
+                       * Minst mulig med "boilerplate" - kode.
                     * Syntaks for MyMake 
                        * Hvert MyMake - keyword og hva disse gjør.
                     * Filosofi om bruk (kommandolinjebasert i stedet for konfigurasjonsfiler slik CMake er lagt opp.)
@@ -37,6 +39,9 @@ TODO:
                                        compiler=<path/til/compiler{gcc, clang, msvc}
                                        linker=<path/til/linker>
                                     La fila hete "toolchain.txt"
+                           Utred hva som må settes opp av bruker.
+                           Les opp om linker, AR og lignende.
+
     *            Include: Generatoren lager include - filene som trengs til byggene. Da slippes det å lages spesifikke mapper for dette
     *                     til sluttbrukeren.
     *                     include-filene til et prosjekt skal legges i /file/to/project/.build/include/
@@ -48,7 +53,10 @@ TODO:
     *                               Tredje part skal kalles i .mmk på følgende måte:
     *                               MMK_REQUIRE:
     *                                  /some/directory/to/mmk/file
-
+    * Defines.mk:
+         - Makefile som inneholder ulike definisjoner?
+         - Muligheten for å definere CC, CC_COMPILER_IS_CLANG, CC_COMPILER_IS_GCC, AR, LD, MKDIR, MV, CP, med mer.
+         
 
     * Overall: * Endre alle Error - meldinger som er relevant til å ta MyMakeError for Result.
     *          * Ordne bedre feilhåndtering for mmk_parser. Feilhåndteringen der baserer seg
@@ -60,4 +68,17 @@ TODO:
 
     * Ha støtte for sanitizere. Burde muligens være støtte for riktig bruk også. Ordne testdekning for dette.
     * Les opp på sanitizere og hvordan støtten er for de ulike kompilatorene. Tenk kun på GCC i starten.
+    * Release-makefile-bygg: Mangler flagget -DNDEBUG. Legg dette til release-config.
+    
+    * Error:
+         Forbedre MyMakeError - structen:
+            * Implementere std::error::Error - traiten
+            * Vurdere å legge til ekstra felt i MyMakeError som beskriver hvilken type feilmelding det er (enum ErrorKind)
+               ErrorKind:
+                 - CompileTime
+                 - ConfigureTime
+                 - ParseError
+                 ...
 
+   * Custom System Message structure
+      - Error messages should reflect which part of the MyMake process that failed.

@@ -14,7 +14,7 @@ mod keyword;
 pub use keyword::Keyword;
 
 mod mmk_constants;
-use mmk_constants::{Constant, Constants};
+pub use mmk_constants::{Constant, Constants};
 
 mod toolchain;
 pub use toolchain::Toolchain;
@@ -24,6 +24,25 @@ pub fn read_toolchain(path: &PathBuf) -> Result<Toolchain, MyMakeError> {
     let content = toolchain.get_content(path)?;
     toolchain.parse(content)?;
     Ok(toolchain)
+}
+
+pub fn find_toolchain_file(path: &PathBuf) -> Result<PathBuf, MyMakeError> {
+    let toolchain_filename = "toolchain.mmk";
+    let mymake_includes = path.join("mymake");
+    if mymake_includes.is_dir() {
+        Ok(mymake_includes.join(toolchain_filename))
+    } else {
+        let parent = path.parent().unwrap();
+        let mymake_includes = parent.join("mymake");
+        if mymake_includes.is_dir() {
+            Ok(mymake_includes.join(toolchain_filename))
+        } else {
+            return Err(MyMakeError::from(format!(
+                "Error: Could not find mymake directory from {:?}",
+                path.to_str().unwrap()
+            )));
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

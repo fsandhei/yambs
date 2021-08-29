@@ -1,3 +1,7 @@
+mod filter;
+mod clean;
+mod make;
+
 use dependency::{Dependency, DependencyRegistry, DependencyNode};
 use error::MyMakeError;
 use generator::GeneratorExecutor;
@@ -6,9 +10,7 @@ use colored::Colorize;
 use std::process::Output;
 use std::rc::Rc;
 use std::path::PathBuf;
-mod filter;
-mod clean;
-mod make;
+
 use make::Make;
 
 pub struct Builder<'a> {
@@ -68,6 +70,10 @@ impl<'a> Builder<'a> {
         self.generator.as_mut().release();
     }
 
+
+    pub fn is_verbose(&self) -> bool {
+        self.verbose
+    }
 
     pub fn verbose(&mut self) {
         self.verbose = true;

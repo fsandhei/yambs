@@ -17,6 +17,7 @@ use dependency::{DependencyNode, DependencyAccessor};
 use error::MyMakeError;
 use include_file_generator::IncludeFileGenerator;
 use utility;
+use mmk_parser::Toolchain;
 
 #[derive(PartialEq, Eq)]
 enum Configuration {
@@ -81,11 +82,13 @@ pub struct MakefileGenerator
     output_directory: PathBuf,
     build_configurations: BuildConfigurations,
     state: GeneratorState,
+    toolchain: Toolchain
 }
 
 
 impl MakefileGenerator {
-    pub fn new(build_directory: std::path::PathBuf) -> MakefileGenerator {
+    pub fn new(build_directory: std::path::PathBuf,
+               toolchain: &Toolchain) -> MakefileGenerator {
         let output_directory = build_directory;
         utility::create_dir(&output_directory).unwrap();
 
@@ -96,13 +99,14 @@ impl MakefileGenerator {
             output_directory,
             build_configurations: BuildConfigurations::new(),
             state: GeneratorState::IncludeNotGenerated,
+            toolchain: toolchain.clone()
         }
     }
 
 
     fn generate_include_files(&mut self) -> Result<(), MyMakeError> {
         let include_output_directory = self.build_directory.join("make_include");
-        let mut include_file_generator = IncludeFileGenerator::new(&include_output_directory);        
+        let mut include_file_generator = IncludeFileGenerator::new(&include_output_directory, &self.toolchain);
 
         for build_configuration in &self.build_configurations {
                 match build_configuration {
@@ -117,9 +121,10 @@ impl MakefileGenerator {
 
 
     pub fn replace_generator(&mut self, dependency: &DependencyNode, build_directory: std::path::PathBuf) {
-        let gen = MakefileGenerator::new(build_directory);
+        // let gen = MakefileGenerator::new(build_directory);
+        utility::create_dir(&build_directory).unwrap();
         self.set_dependency(dependency);
-        self.output_directory = gen.output_directory;
+        self.output_directory = build_directory;
         self.create_makefile();
     }
 

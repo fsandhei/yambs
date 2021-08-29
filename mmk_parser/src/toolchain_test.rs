@@ -54,3 +54,24 @@ fn verify_keyword_incorrect_word_test() {
     assert_eq!(result.unwrap_err().to_string(), 
                &String::from("Error: derp is not allowed as keyword for toolchain."));
 }
+
+
+#[test]
+fn verify_filename_correct_name_test() {
+    let filename = std::ffi::OsStr::new("toolchain.mmk");
+    let toolchain = Toolchain::new();
+    let result = toolchain.validate_filename(&filename);
+    assert!(result.is_ok());
+}
+
+
+
+#[test]
+fn verify_filename_incorrect_name_test() {
+    let filename = std::ffi::OsStr::new("not-a-toolchain.mmk");
+    let toolchain = Toolchain::new();
+    let result = toolchain.validate_filename(&filename);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().to_string(),
+               &String::from("Error: not-a-toolchain.mmk is not a valid name for toolchain file. It must be named toolchain.mmk"))
+}

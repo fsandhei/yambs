@@ -5,7 +5,7 @@ set -e # Bail on error.
 BIN_DIR="/usr/bin/"
 CARGO="/home/fredrik/.cargo/bin/cargo"
 ROOT_DIR="/home/fredrik/bin/mymake"
-MYMAKE="$ROOT_DIR/target/debug/mymake"
+MYMAKE="$ROOT_DIR/target/release/mymake"
 MYMAKE_RELEASE="$ROOT_DIR/target/release/mymake"
 CWD=`pwd`
 
@@ -13,6 +13,20 @@ install_mymake()
 {
    echo "Installing release build of MyMake into $BIN_DIR"
    cp -f -v $MYMAKE_RELEASE $BIN_DIR
+}
+
+
+make_toolchain_file()
+{
+   LOCATION="$1"
+   if [ ! -d "$LOCATION" ]; then 
+      mkdir "$LOCATION"
+   fi
+   cat << EOF > "$LOCATION/toolchain.mmk"
+compiler = /usr/bin/gcc
+linker = /usr/bin/ld
+
+EOF
 }
 
 
@@ -32,6 +46,7 @@ test_mymake_minimal_build()
    fi
    mkdir $TEST_DIR && cd $TEST_DIR
    mkdir "$TEST_DIR/src"
+   make_toolchain_file "$TEST_DIR/mymake"
 
    cat << EOF > $TEST_DIR/src/test.cpp
 #include <iostream>
@@ -52,8 +67,11 @@ MMK_SOURCES:
 EOF
 
    cd $ROOT_DIR && build_mymake
+   if [ -d "$ROOT_DIR/build" ]; then
+      rm -rf "$ROOT_DIR/build"
+   fi
    mkdir "$ROOT_DIR/build" && cd $ROOT_DIR/build
-   $MYMAKE -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
+   "$MYMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"
@@ -73,6 +91,7 @@ test_mymake_with_one_dependency_build()
    fi
    mkdir $TEST_DIR && cd $TEST_DIR
    mkdir "$TEST_DIR/src"
+   make_toolchain_file "$TEST_DIR/mymake"
 
    cat << EOF > $TEST_DIR/src/test.cpp
 #include <iostream>
@@ -134,8 +153,11 @@ MMK_SOURCES:
    example.cpp
 
 EOF
+   if [ -d "$ROOT_DIR/build" ]; then
+      rm -rf "$ROOT_DIR/build"
+   fi
    mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
-   $MYMAKE -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
+   "$MYMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"
@@ -159,7 +181,7 @@ cargo_test()
 {
    path=$1
    cd $path
-   echo "cargo test -p $path -- test-threads=1"
+   echo "cargo test -p $path"
    execute_command "$CARGO test"
    cd $ROOT_DIR
 }

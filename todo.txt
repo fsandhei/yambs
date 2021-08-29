@@ -80,3 +80,5 @@ TODO:
                  - ParseError
                  ...
 
+   * Custom System Message structure
+      - Error messages should reflect which part of the MyMake process that failed.

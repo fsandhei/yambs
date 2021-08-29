@@ -24,6 +24,12 @@ impl Constant {
     }
 }
 
+impl std::fmt::Display for Constant {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.keyword)
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Constants {

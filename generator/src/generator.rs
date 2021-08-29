@@ -31,9 +31,9 @@ pub trait GeneratorExecutor : Generator {
 }
 
 
-pub trait UtilityGenerator {
-    fn generate_makefiles(&mut self) -> Result<(), MyMakeError>;
-    fn add_cpp_version(&mut self, version: &str) -> Result<(), MyMakeError>;
-    fn print_cpp_version(&self) -> &str;
+pub trait UtilityGenerator<'config> {
+    fn generate_makefiles(&'config mut self) -> Result<(), MyMakeError>;
+    fn add_cpp_version(&mut self, version: &'config str) -> Result<(), MyMakeError>;
+    fn print_cpp_version(&'config self) -> &'config str;
     fn generate_flags_sanitizer(&self) -> String;
 }

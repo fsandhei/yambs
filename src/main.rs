@@ -23,10 +23,6 @@ fn main() -> Result<(), MyMakeError> {
     let mut generator = MakefileGenerator::new(std::env::current_dir().unwrap(), &toolchain);
     let mut builder = Builder::new(&mut generator);
 
-    command_line
-        .parse_command_line(&mut builder)
-        .unwrap_or_terminate();
-
     if builder.is_verbose() {
         let compiler = toolchain
             .get_item(&Constant::new("compiler"))
@@ -49,6 +45,10 @@ fn main() -> Result<(), MyMakeError> {
         .read_mmk_files_from_path(&myfile)
         .unwrap_or_terminate();
     println!();
+
+    command_line
+    .parse_command_line(&mut builder)
+    .unwrap_or_terminate();
 
     print!("MyMake: Generating makefiles");
     builder.generate_makefiles().unwrap_or_terminate();

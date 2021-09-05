@@ -69,6 +69,9 @@ TODO:
     * Ha støtte for sanitizere. Burde muligens være støtte for riktig bruk også. Ordne testdekning for dette.
     * Les opp på sanitizere og hvordan støtten er for de ulike kompilatorene. Tenk kun på GCC i starten.
     * Release-makefile-bygg: Mangler flagget -DNDEBUG. Legg dette til release-config.
+    * Ha støtte for en "build-project / build-all" - funksjonalitet? 
+      - Hvis et prosjekt har flere varianter av tester (compile time test, unit test, fuzz tests), er det fint å kunne bygge alle disse, slik som en bygger alle targets i make.
+      - Semantisk krever MyMake at hver run.mmk skal ligge i sine separate mapper, så mymake må kunne lete opp alle run.mmk - filer og bygge disse.
     
     * Error:
          Forbedre MyMakeError - structen:

@@ -8,7 +8,7 @@ use utility;
 use regex::Regex;
 use std::collections::HashMap;
 use std::vec::Vec;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 mod keyword;
 pub use keyword::Keyword;
@@ -26,23 +26,41 @@ pub fn read_toolchain(path: &PathBuf) -> Result<Toolchain, MyMakeError> {
     Ok(toolchain)
 }
 
-pub fn find_toolchain_file(path: &PathBuf) -> Result<PathBuf, MyMakeError> {
+pub fn find_toolchain_file(path: &Path) -> Result<PathBuf, MyMakeError> {
     let toolchain_filename = "toolchain.mmk";
     let mymake_includes = path.join("mymake");
-    if mymake_includes.is_dir() {
-        Ok(mymake_includes.join(toolchain_filename))
-    } else {
-        let parent = path.parent().unwrap();
-        let mymake_includes = parent.join("mymake");
-        if mymake_includes.is_dir() {
-            Ok(mymake_includes.join(toolchain_filename))
-        } else {
-            return Err(MyMakeError::from(format!(
-                "Error: Could not find mymake directory from {:?}",
-                path.to_str().unwrap()
-            )));
+
+    if path.join(toolchain_filename).is_file() {
+        return Ok(path.join(toolchain_filename));
+    }
+    else if mymake_includes.is_dir() {
+        let toolchain_file = mymake_includes.join(toolchain_filename);
+        if toolchain_file.is_file() {
+            return Ok(toolchain_file);
+        }
+        else {
+            return Err(MyMakeError::from(format!("\
+            Error: Could not find mymake directory and toolchain file from {:?}",
+            path.to_str().unwrap())));            
         }
     }
+    return find_toolchain_file(path.parent().unwrap());
+    
+    // } else {
+    //     let parent = path.parent().unwrap();
+    //     let mymake_includes = parent.join("mymake");
+    //     if mymake_includes.is_dir() {
+    //         let toolchain_file = mymake_includes.join(toolchain_filename);
+    //         if toolchain_file.is_file() {
+    //             return Ok(toolchain_file);
+    //         }
+    //     } else {
+    //         return Err(MyMakeError::from(format!(
+    //             "Error: Could not find mymake directory from {:?}",
+    //             path.to_str().unwrap()
+    //         )));
+    //     }
+    // }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

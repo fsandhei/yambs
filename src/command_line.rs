@@ -34,6 +34,7 @@ impl<'a> CommandLine<'a> {
                         .help("Set runtime configurations."))
             .arg(Arg::with_name("verbosity")
                         .short("v")
+                        .long("verbose")
                         .multiple(true)
                         .help("Toggles verbosity"))
             .arg(Arg::with_name("jobs")
@@ -82,7 +83,7 @@ impl<'a> CommandLine<'a> {
         }
 
         if self.matches.is_present("verbosity") {
-            builder.verbose();
+            builder.set_verbose(true);
         }
 
         if self.matches.is_present("jobs") {

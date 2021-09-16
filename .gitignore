@@ -10,26 +10,17 @@ target
 # Build directory
 *build
 
-Cargo.lock
-
 # Dependency related ignores
 mmk_parser/target
-mmk_parser/Cargo.lock
 
 generator/target
-generator/Cargo.lock
 
 builder/target
-builder/Cargo.lock
 
 external/target
-external/Cargo.lock
 
 error/target
-error/Cargo.lock
 
 dependency/target
-dependency/Cargo.lock
 
 utility/target
-utility/Cargo.lock

@@ -353,10 +353,9 @@ fn generate_defines_mk_test() -> std::io::Result<()> {
     # Defines.mk\n\
     # Contains a number of defines determined from MyMake configuration time.\n\
     \n\
-    CC := /some/compiler\n\
-    CC_USES_CLANG := false\n\
+    CC := /usr/bin/gcc\n\
     CC_USES_GCC := true\n\
-    CC_USES_MSVC := false\n\
+    CC_USES_CLANG := false\n\
     \n\
     CP := /usr/bin/cp\n\
     CP_FORCE := -f\n\

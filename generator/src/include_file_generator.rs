@@ -14,6 +14,7 @@ pub struct IncludeFileGenerator<'generator> {
     output_directory: PathBuf,
     args: HashMap<&'generator str, String>,
     toolchain: &'generator Toolchain,
+    compiler_constants: HashMap<&'generator str, &'generator str>
 }
 
 
@@ -21,7 +22,19 @@ pub struct IncludeFileGenerator<'generator> {
 impl<'generator> IncludeFileGenerator<'generator> {
     pub fn new(output_directory: &std::path::PathBuf, toolchain: &'generator Toolchain) -> Self {
         utility::create_dir(&output_directory).unwrap();
-        IncludeFileGenerator{ file: None, output_directory: output_directory.clone(), args: HashMap::new(), toolchain }
+
+        let mut compiler_constants = HashMap::with_capacity(30);
+        compiler_constants.insert("CC_USES_CLANG", "false");
+        compiler_constants.insert("CC_USES_GCC", "false");
+
+        IncludeFileGenerator{ 
+            file: None, 
+            output_directory: 
+            output_directory.clone(), 
+            args: HashMap::new(), 
+            toolchain,
+            compiler_constants: compiler_constants
+        }
     }
 
 
@@ -187,19 +200,52 @@ impl<'generator> IncludeFileGenerator<'generator> {
         # Contains a number of defines determined from MyMake configuration time.\n\
         \n\
         CC := {compiler_path}\n\
-        CC_USES_CLANG := false\n\
-        CC_USES_GCC := true\n\
-        CC_USES_MSVC := false\n\
-        \n\
+        {compiler_conditional_flags}\n\
         CP := /usr/bin/cp\n\
         CP_FORCE := -f\n\
         \n\
         ",
-        compiler_path = self.toolchain.get_item(&Constant::new("compiler"))?.to_str().unwrap());
+        compiler_path = self.toolchain.get_item(
+            &Constant::new("compiler"))?
+            .to_str()
+            .ok_or_else(||"/usr/bin/gcc")
+            .unwrap(),
+        compiler_conditional_flags = self.evaluate_compiler().unwrap());
         match self.file.as_ref().unwrap().write(data.as_bytes()) {
             Ok(_) => Ok(()),
             Err(err) => return Err(MyMakeError::from(format!("Error creating defines.mk: {}", err))),
         }
+    }
+
+    fn evaluate_compiler(&mut self) -> Result<String, MyMakeError> {
+        let compiler_path = self.toolchain.get_item(&Constant::new("compiler"))?;
+        let compiler = utility::get_head_directory(compiler_path);
+        let compiler_str = compiler.to_str()
+        .ok_or_else(
+            || MyMakeError::from_str(
+                "Error creating &str from OsStr in include_file_generator.evaluate_compiler()"))?;
+        match compiler_str {
+            "gcc" => {
+                self.compiler_constants.insert("CC_USES_GCC", "true");
+            },
+            "clang" => {
+                self.compiler_constants.insert("CC_USES_CLANG", "true");
+            },
+            _ => return Err(MyMakeError::from(format!("no settings exist for {}", compiler_str))),
+        };
+
+        let (gcc_key, gcc_value) = self.get_makefile_constant("CC_USES_GCC")
+                                                            .unwrap_or((&"CC_USES_GCC", &"true"));
+
+        let (clang_key, clang_value) = self.get_makefile_constant("CC_USES_CLANG")
+                                                            .unwrap_or((&"CC_USES_CLANG", &"true"));
+        
+        Ok(format!("{} := {}\n\
+                    {} := {}\n", gcc_key, gcc_value, clang_key, clang_value))
+    }
+
+    fn get_makefile_constant(&self, key: &str) -> Option<(&& str, && str)> {
+        self.compiler_constants.get_key_value(key)
     }
 }
 

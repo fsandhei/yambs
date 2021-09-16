@@ -104,9 +104,9 @@ impl Toolchain {
     // Only for testing!
     pub fn set_sample_config(mut self) -> Self {
         self.config
-            .insert(Constant::new("compiler"), PathBuf::from("/some/compiler"));
+            .insert(Constant::new("compiler"), PathBuf::from("/usr/bin/gcc"));
         self.config
-            .insert(Constant::new("linker"), PathBuf::from("/some/linker"));
+            .insert(Constant::new("linker"), PathBuf::from("/usr/bin/ld"));
         self
     }
 }

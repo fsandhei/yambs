@@ -75,8 +75,8 @@ impl<'a> Builder<'a> {
         self.verbose
     }
 
-    pub fn verbose(&mut self) {
-        self.verbose = true;
+    pub fn set_verbose(&mut self, value: bool) {
+        self.verbose = value;
     }
 
 

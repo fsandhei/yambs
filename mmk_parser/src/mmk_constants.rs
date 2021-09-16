@@ -1,15 +1,15 @@
-/* 
-   * Konstanter som man burde ha:
-   * project_top: I praksis directory opp for .mmk - fila. Burde være konstant for et prosjekt. Er det mulig å gjøre?
-   * src_dir: src/source - dir: Trengs denne?
-   * os : operativsystem.
+/*
+ * Konstanter som man burde ha:
+ * project_top: I praksis directory opp for .mmk - fila. Burde være konstant for et prosjekt. Er det mulig å gjøre?
+ * src_dir: src/source - dir: Trengs denne?
+ * os : operativsystem.
 */
-use std::cmp::Eq;
-use std::hash::Hash;
-use std::collections::HashMap;
 use regex::Regex;
-use std::string::String;
+use std::cmp::Eq;
+use std::collections::HashMap;
+use std::hash::Hash;
 use std::path::PathBuf;
+use std::string::String;
 
 use utility;
 
@@ -20,7 +20,9 @@ pub struct Constant {
 
 impl Constant {
     pub fn new(keyword: &str) -> Self {
-        Self { keyword: String::from(keyword) }
+        Self {
+            keyword: String::from(keyword),
+        }
     }
 }
 
@@ -33,7 +35,7 @@ impl std::fmt::Display for Constant {
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Constants {
-    list: HashMap<Constant, String>
+    list: HashMap<Constant, String>,
 }
 
 impl Constants {
@@ -41,18 +43,23 @@ impl Constants {
         let mut collection = HashMap::<Constant, String>::new();
         let path = utility::get_project_top_directory(path_to_mmk_dir);
 
-        collection.insert(Constant::new("project_top"), path.to_str().unwrap().to_string());
-        collection.insert(Constant::new("src_dir"), src_path.to_str().unwrap().to_string());
+        collection.insert(
+            Constant::new("project_top"),
+            path.to_str().unwrap().to_string(),
+        );
+        collection.insert(
+            Constant::new("src_dir"),
+            src_path.to_str().unwrap().to_string(),
+        );
         Self { list: collection }
     }
-
 
     pub fn get_constant(&self, data: &String) -> Option<String> {
         let constant_pattern = Regex::new(r"\$\{(.*)\}").unwrap();
         if let Some(captured) = constant_pattern.captures(data) {
             let capture_s = captured.get(1).unwrap().as_str();
             if self.is_constant(&String::from(capture_s)) {
-                return Some(capture_s.to_string())
+                return Some(capture_s.to_string());
             }
             return None;
         }
@@ -66,10 +73,8 @@ impl Constants {
         None
     }
 
-
     fn is_constant(&self, data: &String) -> bool {
-        if data == "project_top"
-        || data == "src_dir" {
+        if data == "project_top" || data == "src_dir" {
             return true;
         }
         false

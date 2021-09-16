@@ -1,14 +1,12 @@
+use crate::MyMakeUnwrap;
 use builder::Builder;
-use clap::{Arg, App, SubCommand, ArgMatches};
+use clap::{App, Arg, ArgMatches, SubCommand};
 use error::MyMakeError;
 use std::path::PathBuf;
-use crate::MyMakeUnwrap;
-
 
 pub struct CommandLine<'a> {
     matches: ArgMatches<'a>,
 }
-
 
 impl<'a> CommandLine<'a> {
     pub fn new() -> Self {
@@ -55,13 +53,19 @@ impl<'a> CommandLine<'a> {
         }
     }
 
-
-    fn parse_runtime_configuration(&self, builder: &mut Builder) -> Result<(), MyMakeError>{
+    fn parse_runtime_configuration(&self, builder: &mut Builder) -> Result<(), MyMakeError> {
         if self.matches.is_present("runtime configurations") {
-            let build_configs: Vec<_> = self.matches.values_of("runtime configurations").unwrap().collect();
+            let build_configs: Vec<_> = self
+                .matches
+                .values_of("runtime configurations")
+                .unwrap()
+                .collect();
 
             if build_configs.contains(&"release") && build_configs.contains(&"debug") {
-                return Err(MyMakeError::from("release and debug can't be used together. Only use one build configuration.".to_string()))
+                return Err(MyMakeError::from(
+                    "release and debug can't be used together. Only use one build configuration."
+                        .to_string(),
+                ));
             }
 
             if !build_configs.contains(&"release") && !build_configs.contains(&"debug") {
@@ -77,8 +81,8 @@ impl<'a> CommandLine<'a> {
                     builder.release();
                     continue;
                 }
-                
-                builder.use_std(config)?;                
+
+                builder.use_std(config)?;
             }
         }
 
@@ -94,30 +98,35 @@ impl<'a> CommandLine<'a> {
         Ok(())
     }
 
-
-    fn parse_extern(&self, builder: &mut Builder) -> Result<(), MyMakeError>{
+    fn parse_extern(&self, builder: &mut Builder) -> Result<(), MyMakeError> {
         if let Some(ref matches) = self.matches.subcommand_matches("extern") {
             if matches.is_present("dot") {
                 let last = &builder.top_dependency();
                 if let Some(top_dep) = last {
                     match external::dottie(top_dep, false, &mut String::new()) {
                         Ok(()) => {
-                                    println!("MyMake: Dependency graph made: dependency.gv");
-                                    std::process::exit(0);
-                                },
-                        Err(_) => return Err(MyMakeError::from_str("Could not make dependency graph.")),
+                            println!("MyMake: Dependency graph made: dependency.gv");
+                            std::process::exit(0);
+                        }
+                        Err(_) => {
+                            return Err(MyMakeError::from_str("Could not make dependency graph."))
+                        }
                     };
-                }                 
+                }
             }
         }
         Ok(())
     }
 
-
     fn parse_sanitizer_options(&self, builder: &mut Builder) -> Result<(), MyMakeError> {
         if self.matches.is_present("sanitizer") {
             let valid_options = vec!["address", "undefined", "leak", "thread"];
-            let sanitizer_options: Vec<String> = self.matches.values_of("sanitizer").unwrap().map(|s| s.to_string()).collect();
+            let sanitizer_options: Vec<String> = self
+                .matches
+                .values_of("sanitizer")
+                .unwrap()
+                .map(|s| s.to_string())
+                .collect();
             for option in &sanitizer_options {
                 if !valid_options.contains(&option.as_str()) {
                     return Err(MyMakeError::from_str("Invalid argument used for sanitizer.\n\
@@ -125,33 +134,35 @@ impl<'a> CommandLine<'a> {
                 }
             }
             if sanitizer_options.contains(&String::from("address"))
-             && sanitizer_options.contains(&String::from("thread")) {
-                return Err(MyMakeError::from_str("address cannot be used together with thread. Pick only one."));
+                && sanitizer_options.contains(&String::from("thread"))
+            {
+                return Err(MyMakeError::from_str(
+                    "address cannot be used together with thread. Pick only one.",
+                ));
             }
             builder.set_sanitizers(sanitizer_options.as_slice());
         }
         Ok(())
     }
 
-
     pub fn parse_command_line(&self, builder: &mut Builder) -> Result<(), MyMakeError> {
         if self.matches.is_present("clean") {
             // builder.clean().unwrap_or_terminate();
             std::process::exit(0);
         }
-        
+
         self.parse_runtime_configuration(builder)?;
         self.parse_sanitizer_options(builder)?;
         self.parse_extern(builder)?;
         Ok(())
     }
 
-
     pub fn validate_file_path(&self) -> PathBuf {
         // Fix so the error message is explainable.
-        let file_name = mmk_parser::validate_file_path(self.matches.value_of("MyMake file")
-                                        .unwrap_or_terminate())
-                                        .unwrap_or_terminate();
+        let file_name = mmk_parser::validate_file_path(
+            self.matches.value_of("MyMake file").unwrap_or_terminate(),
+        )
+        .unwrap_or_terminate();
         mmk_parser::validate_file_name(&file_name).unwrap_or_terminate();
         file_name
     }

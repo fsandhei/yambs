@@ -1,4 +1,3 @@
-
 use super::*;
 
 fn fixture_construct_constants() -> Constants {
@@ -17,7 +16,7 @@ fn get_constant_test() {
 
 #[test]
 fn get_constant_invalid_test() {
-    let constants = fixture_construct_constants();   
+    let constants = fixture_construct_constants();
     let input = String::from("${project_top_wrong}");
     let actual = constants.get_constant(&input);
     assert!(actual.is_none());
@@ -30,7 +29,6 @@ fn is_constant_test() {
     let actual = constants.is_constant(&input);
     assert_eq!(actual, true);
 }
-
 
 #[test]
 fn is_constant_invalid_test() {

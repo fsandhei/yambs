@@ -17,7 +17,7 @@ impl Toolchain {
         Self {
             config: HashMap::new(),
         }
-    }    
+    }
 
     pub fn parse(&mut self, content: String) -> Result<(), MyMakeError> {
         let content_without_comments = self.remove_comments(&content);

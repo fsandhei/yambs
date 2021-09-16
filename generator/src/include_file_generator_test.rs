@@ -9,7 +9,10 @@ fn produce_include_path(base_dir: TempDir) -> PathBuf {
     output_directory
 }
 
-fn construct_generator<'generator>(path: &PathBuf, toolchain: &'generator Toolchain) -> IncludeFileGenerator<'generator> {
+fn construct_generator<'generator>(
+    path: &PathBuf,
+    toolchain: &'generator Toolchain,
+) -> IncludeFileGenerator<'generator> {
     IncludeFileGenerator::new(path, toolchain)
 }
 
@@ -182,7 +185,6 @@ fn generate_debug_mk_test() -> std::io::Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn generate_debug_mk_with_address_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
@@ -214,7 +216,6 @@ fn generate_debug_mk_with_address_sanitizer_test() -> std::io::Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn generate_debug_mk_with_thread_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
@@ -245,7 +246,6 @@ fn generate_debug_mk_with_thread_sanitizer_test() -> std::io::Result<()> {
     );
     Ok(())
 }
-
 
 #[test]
 fn generate_release_mk_test() -> std::io::Result<()> {
@@ -297,7 +297,6 @@ fn change_directory_test() -> std::io::Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn generate_flags_sanitizer_no_sanitizers_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
@@ -309,7 +308,6 @@ fn generate_flags_sanitizer_no_sanitizers_test() -> std::io::Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn generate_flags_sanitizer_address_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
@@ -317,14 +315,15 @@ fn generate_flags_sanitizer_address_sanitizer_test() -> std::io::Result<()> {
     let mut gen = construct_generator(&output_directory, &toolchain);
     gen.set_sanitizers(&[String::from("address")]);
     let actual = gen.generate_flags_sanitizer();
-    let expected = String::from("\
+    let expected = String::from(
+        "\
                                     CXXFLAGS += -fsanitize=address \n\
                                     \n\
-                                    LDFLAGS += -fsanitize=address ");
+                                    LDFLAGS += -fsanitize=address ",
+    );
     assert_eq!(expected, actual);
     Ok(())
 }
-
 
 #[test]
 fn generate_flags_sanitizer_thread_sanitizer_test() -> std::io::Result<()> {
@@ -333,14 +332,15 @@ fn generate_flags_sanitizer_thread_sanitizer_test() -> std::io::Result<()> {
     let mut gen = construct_generator(&output_directory, &toolchain);
     gen.set_sanitizers(&[String::from("thread")]);
     let actual = gen.generate_flags_sanitizer();
-    let expected = String::from("\
+    let expected = String::from(
+        "\
                                     CXXFLAGS += -fsanitize=thread -fPIE -pie \n\
                                     \n\
-                                    LDFLAGS += -fsanitize=thread -fPIE -pie ");
+                                    LDFLAGS += -fsanitize=thread -fPIE -pie ",
+    );
     assert_eq!(expected, actual);
     Ok(())
 }
-
 
 #[test]
 fn generate_defines_mk_test() -> std::io::Result<()> {
@@ -349,7 +349,8 @@ fn generate_defines_mk_test() -> std::io::Result<()> {
     let mut gen = construct_generator(&output_directory, &toolchain);
     let file_name = output_directory.join("defines.mk");
     gen.generate_defines_mk().unwrap();
-    assert_eq!("\
+    assert_eq!(
+        "\
     # Defines.mk\n\
     # Contains a number of defines determined from MyMake configuration time.\n\
     \n\
@@ -360,6 +361,8 @@ fn generate_defines_mk_test() -> std::io::Result<()> {
     CP := /usr/bin/cp\n\
     CP_FORCE := -f\n\
     \n\
-    ", fs::read_to_string(file_name.to_str().unwrap()).unwrap());
+    ",
+        fs::read_to_string(file_name.to_str().unwrap()).unwrap()
+    );
     Ok(())
 }

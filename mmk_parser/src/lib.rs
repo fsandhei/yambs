@@ -4,11 +4,11 @@
 //TODO: Burde ha muligheten til å kunne bruke path som bruker relativ-path-direktiver (../)
 
 use error::MyMakeError;
-use utility;
 use regex::Regex;
 use std::collections::HashMap;
-use std::vec::Vec;
 use std::path::{Path, PathBuf};
+use std::vec::Vec;
+use utility;
 
 mod keyword;
 pub use keyword::Keyword;
@@ -32,76 +32,55 @@ pub fn find_toolchain_file(path: &Path) -> Result<PathBuf, MyMakeError> {
 
     if path.join(toolchain_filename).is_file() {
         return Ok(path.join(toolchain_filename));
-    }
-    else if mymake_includes.is_dir() {
+    } else if mymake_includes.is_dir() {
         let toolchain_file = mymake_includes.join(toolchain_filename);
         if toolchain_file.is_file() {
             return Ok(toolchain_file);
-        }
-        else {
-            return Err(MyMakeError::from(format!("\
+        } else {
+            return Err(MyMakeError::from(format!(
+                "\
             Error: Could not find mymake directory and toolchain file from {:?}",
-            path.to_str().unwrap())));            
+                path.to_str().unwrap()
+            )));
         }
     }
     return find_toolchain_file(path.parent().unwrap());
-    
-    // } else {
-    //     let parent = path.parent().unwrap();
-    //     let mymake_includes = parent.join("mymake");
-    //     if mymake_includes.is_dir() {
-    //         let toolchain_file = mymake_includes.join(toolchain_filename);
-    //         if toolchain_file.is_file() {
-    //             return Ok(toolchain_file);
-    //         }
-    //     } else {
-    //         return Err(MyMakeError::from(format!(
-    //             "Error: Could not find mymake directory from {:?}",
-    //             path.to_str().unwrap()
-    //         )));
-    //     }
-    // }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Mmk
-{
+pub struct Mmk {
     data: HashMap<String, Vec<Keyword>>,
-    constants: Constants
+    constants: Constants,
 }
 
 impl Mmk {
-    pub fn new(path: &PathBuf) -> Mmk
-    {
-        let source_path = utility::get_source_directory_from_path(utility::get_project_top_directory(path));
+    pub fn new(path: &PathBuf) -> Mmk {
+        let source_path =
+            utility::get_source_directory_from_path(utility::get_project_top_directory(path));
 
-        Mmk { data: HashMap::new(), 
-              constants: Constants::new(path, &source_path),
-         }
+        Mmk {
+            data: HashMap::new(),
+            constants: Constants::new(path, &source_path),
+        }
     }
 
     pub fn data(&self) -> &HashMap<String, Vec<Keyword>> {
         &self.data
     }
 
-
     pub fn data_mut(&mut self) -> &mut HashMap<String, Vec<Keyword>> {
         &mut self.data
     }
-
 
     pub fn has_executables(&self) -> bool {
         self.data.contains_key("MMK_EXECUTABLE")
     }
 
-
     pub fn has_dependencies(&self) -> bool {
         self.data.contains_key("MMK_REQUIRE")
     }
 
-
-    pub fn to_string(self: &Self, key: &str) -> String
-    {
+    pub fn to_string(self: &Self, key: &str) -> String {
         let mut formatted_string = String::new();
         if self.data.contains_key(key) {
             for item in &self.data[key] {
@@ -119,7 +98,6 @@ impl Mmk {
         formatted_string.trim_end().to_string()
     }
 
-
     pub fn get_include_directories(&self) -> Result<String, MyMakeError> {
         if self.data.contains_key("MMK_REQUIRE") {
             let mut formatted_string = String::new();
@@ -127,11 +105,11 @@ impl Mmk {
                 if keyword.option() == "SYSTEM" {
                     formatted_string.push_str("-isystem");
                     formatted_string.push_str(" ");
-                }
-                else {
+                } else {
                     formatted_string.push_str("-I");
                 }
-                let dep_path = utility::get_include_directory_from_path(&PathBuf::from(keyword.argument()))?;
+                let dep_path =
+                    utility::get_include_directory_from_path(&PathBuf::from(keyword.argument()))?;
                 formatted_string.push_str(dep_path.to_str().unwrap());
                 formatted_string.push_str(" ");
             }
@@ -140,25 +118,25 @@ impl Mmk {
         Ok(String::from(""))
     }
 
-
-    pub fn valid_keyword(self: &Self, keyword: & str) -> Result<(), MyMakeError>
-    {
+    pub fn valid_keyword(self: &Self, keyword: &str) -> Result<(), MyMakeError> {
         let stripped_keyword = keyword.trim_end_matches(":");
         if stripped_keyword == "MMK_REQUIRE"
-        || stripped_keyword == "MMK_SOURCES"
-        || stripped_keyword == "MMK_HEADERS"
-        || stripped_keyword == "MMK_EXECUTABLE"
-        || stripped_keyword == "MMK_SYS_INCLUDE" 
-        || stripped_keyword == "MMK_CXXFLAGS_APPEND" 
-        || stripped_keyword == "MMK_CPPFLAGS_APPEND" 
-        || stripped_keyword == "MMK_LIBRARY_LABEL" {
+            || stripped_keyword == "MMK_SOURCES"
+            || stripped_keyword == "MMK_HEADERS"
+            || stripped_keyword == "MMK_EXECUTABLE"
+            || stripped_keyword == "MMK_SYS_INCLUDE"
+            || stripped_keyword == "MMK_CXXFLAGS_APPEND"
+            || stripped_keyword == "MMK_CPPFLAGS_APPEND"
+            || stripped_keyword == "MMK_LIBRARY_LABEL"
+        {
             Ok(())
-        }
-        else {
-            Err(MyMakeError::from(format!("{} is not a valid keyword.", keyword)))
+        } else {
+            Err(MyMakeError::from(format!(
+                "{} is not a valid keyword.",
+                keyword
+            )))
         }
     }
-
 
     pub fn sources_to_objects(self: &Self) -> String {
         let sources = &self.to_string("MMK_SOURCES");
@@ -166,8 +144,11 @@ impl Mmk {
         objects
     }
 
-
-    fn parse_mmk_expression(&mut self, mmk_keyword: &str, data_iter: &mut std::str::Lines) -> Result<(), MyMakeError> {
+    fn parse_mmk_expression(
+        &mut self,
+        mmk_keyword: &str,
+        data_iter: &mut std::str::Lines,
+    ) -> Result<(), MyMakeError> {
         self.valid_keyword(mmk_keyword)?;
         let mut arg_vec: Vec<Keyword> = Vec::new();
         let mut current_line = data_iter.next();
@@ -175,13 +156,11 @@ impl Mmk {
             let line = current_line.unwrap().trim();
             if line != "" && !self.valid_keyword(&line).is_ok() {
                 let keyword = self.parse_and_create_keyword(line);
-                
+
                 arg_vec.push(keyword);
-            }
-            else if line == "" {
+            } else if line == "" {
                 break;
-            }
-            else {
+            } else {
                 return Err(MyMakeError::from_str("Invalid spacing of arguments! Keep at least one line between each MyMake keyword."));
             }
             current_line = data_iter.next();
@@ -190,32 +169,28 @@ impl Mmk {
         Ok(())
     }
 
-
     fn parse_and_create_keyword(&self, line: &str) -> Keyword {
         let line_split: Vec<&str> = line.split(" ").collect();
         let keyword: Keyword;
         if line_split.len() == 1 {
             let arg = line_split[0];
             keyword = Keyword::from(&self.replace_constant_with_value(&arg.to_string()))
-        }
-        else {
+        } else {
             let option = line_split[1];
             let arg = line_split[0];
-            keyword = Keyword::from(&self.replace_constant_with_value(&arg.to_string())).with_option(option);
+            keyword = Keyword::from(&self.replace_constant_with_value(&arg.to_string()))
+                .with_option(option);
         }
         keyword
     }
-
 
     pub fn has_library_label(&self) -> bool {
         self.data.contains_key("MMK_LIBRARY_LABEL")
     }
 
-
     pub fn has_system_include(&self) -> bool {
         self.data.contains_key("MMK_SYS_INCLUDE")
     }
-
 
     pub fn parse(&mut self, data: &String) -> Result<(), MyMakeError> {
         let no_comment_data = remove_comments(data);
@@ -227,22 +202,23 @@ impl Mmk {
                 let mmk_keyword = captured.get(1).unwrap().as_str();
                 self.parse_mmk_expression(mmk_keyword, &mut lines)?;
                 current_line = lines.next();
-            }
-            else {
+            } else {
                 current_line = lines.next();
-            } 
+            }
         }
         Ok(())
     }
 
     fn replace_constant_with_value(&self, mmk_keyword_value: &str) -> String {
         if let Some(constant_string) = self.constants.get_constant(&mmk_keyword_value.to_string()) {
-            let item = self.constants.get_item(Constant::new(&constant_string)).unwrap();
+            let item = self
+                .constants
+                .get_item(Constant::new(&constant_string))
+                .unwrap();
             let constant_reconstructed = format!("${{{}}}", constant_string);
             return mmk_keyword_value.replace(&constant_reconstructed, &item);
-        }
-        else {
-            return mmk_keyword_value.to_string()
+        } else {
+            return mmk_keyword_value.to_string();
         }
     }
 
@@ -255,42 +231,48 @@ impl Mmk {
     }
 }
 
-
 pub fn validate_file_path(file_path_as_str: &str) -> Result<PathBuf, MyMakeError> {
     let file_path = match PathBuf::from(file_path_as_str).canonicalize() {
         Ok(file) => file,
-        Err(err) => return Err(MyMakeError::from(format!("{:?}", err)))
-     };
+        Err(err) => return Err(MyMakeError::from(format!("{:?}", err))),
+    };
     if !file_path.is_file() {
-        return Err(MyMakeError::from(format!("Error: {:?} is not a valid path!", &file_path)));
+        return Err(MyMakeError::from(format!(
+            "Error: {:?} is not a valid path!",
+            &file_path
+        )));
     }
     Ok(file_path)
 }
-
 
 pub fn validate_file_name(path: &PathBuf) -> Result<(), MyMakeError> {
     let file_name = path.file_name().unwrap().to_str().unwrap();
     match file_name {
         "lib.mmk" | "run.mmk" => (),
-        _ => return Err(MyMakeError::from(format!("{:?} is illegal name! File must be named lib.mmk or run.mmk.", file_name))),
+        _ => {
+            return Err(MyMakeError::from(format!(
+                "{:?} is illegal name! File must be named lib.mmk or run.mmk.",
+                file_name
+            )))
+        }
     };
     Ok(())
 }
-
 
 pub fn remove_comments(data: &String) -> String {
     let mut lines = data.lines();
     let mut current_line = lines.next();
     let comment_expression = Regex::new(r"#.*").unwrap();
     let mut non_comment_data: String = data.clone();
-    
+
     while current_line != None {
-        non_comment_data = comment_expression.replace(&non_comment_data, "").to_string();
+        non_comment_data = comment_expression
+            .replace(&non_comment_data, "")
+            .to_string();
         current_line = lines.next();
     }
     non_comment_data
 }
-
 
 #[cfg(test)]
 #[path = "./lib_test.rs"]

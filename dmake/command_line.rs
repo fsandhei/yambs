@@ -105,7 +105,7 @@ impl<'a> CommandLine<'a> {
                 if let Some(top_dep) = last {
                     match external::dottie(top_dep, false, &mut String::new()) {
                         Ok(()) => {
-                            println!("MyMake: Dependency graph made: dependency.gv");
+                            println!("DMake: Dependency graph made: dependency.gv");
                             std::process::exit(0);
                         }
                         Err(_) => {

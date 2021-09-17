@@ -1,13 +1,27 @@
 [package]
-name = "mymake"
+name = "dmake"
 version = "0.1.0"
 authors = ["Fredrik Sandhei <fredrik.sandhei@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = [
+   "builder",
+   "mmk_parser",
+   "generator",
+   "external",
+   "error"
+]
+
+[[bin]]
+name = "dmake"
+bench = false
+path  = "dmake/main.rs"
+
 [dependencies]
-builder = {path = 'builder/'}
+builder = { path = 'builder/' }
 mmk_parser = { path = 'mmk_parser/' }
 generator = { path = 'generator/' }
 external = { path = 'external/' }
@@ -15,3 +29,4 @@ error    = { path = 'error/' }
 
 colored = "2.0.0"
 clap = "2.33.3"
+

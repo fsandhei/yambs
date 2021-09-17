@@ -122,9 +122,9 @@ impl<'a> Builder<'a> {
             let output = self.build_dependency(&top_dependency, &build_directory, self.verbose);
             let build_status_message: String;
             if output.is_ok() && output.unwrap().status.success() {
-                build_status_message = format!("MyMake: {}", "Build SUCCESS".green());
+                build_status_message = format!("DMake: {}", "Build SUCCESS".green());
             } else {
-                build_status_message = format!("MyMake: {}", "Build FAILED".red());
+                build_status_message = format!("DMake: {}", "Build FAILED".red());
             }
             println!("{}", build_status_message);
             self.make.log_text(build_status_message)?;
@@ -133,7 +133,7 @@ impl<'a> Builder<'a> {
                 .as_ref()
                 .unwrap()
                 .join("mymake_log.txt");
-            println!("MyMake: Build log available at {:?}", log_path);
+            println!("DMake: Build log available at {:?}", log_path);
         }
         Ok(())
     }

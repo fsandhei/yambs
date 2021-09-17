@@ -11,7 +11,7 @@ where
         match self {
             Ok(t) => t,
             Err(err) => {
-                eprintln!("\r{}", format!("MyMake: {}", err).red());
+                eprintln!("\r{}", format!("DMake: {}", err).red());
                 std::process::exit(1);
             }
         }
@@ -23,7 +23,7 @@ impl<T> MyMakeUnwrap<T> for Option<T> {
         match self {
             Some(t) => t,
             None => {
-                eprintln!("{}", "MyMake: Invalid input or no input given!".red());
+                eprintln!("{}", "DMake: Invalid input or no input given!".red());
                 std::process::exit(1);
             }
         }

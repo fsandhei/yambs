@@ -28,17 +28,17 @@ fn main() -> Result<(), MyMakeError> {
         .unwrap_or_terminate();
 
     println!(
-        "MyMake: Using toolchain from {}",
+        "DMake: Using toolchain from {}",
         toolchain_file.to_str().unwrap()
     );
-    print!("MyMake: Reading MyMake files");
+    print!("DMake: Reading MyMake files");
     std::io::stdout().flush().unwrap();
     builder
         .read_mmk_files_from_path(&myfile)
         .unwrap_or_terminate();
     println!();
 
-    print!("MyMake: Generating makefiles");
+    print!("DMake: Generating makefiles");
     builder.generate_makefiles().unwrap_or_terminate();
     println!();
     builder.build_project().unwrap_or_terminate();

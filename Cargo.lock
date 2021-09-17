@@ -45,6 +45,7 @@ dependencies = [
  "generator",
  "mmk_parser",
  "regex",
+ "tempdir",
  "utility",
 ]
 
@@ -102,6 +103,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "524cbf6897b527295dff137cec09ecf3a05f4fddffd7dfcd1585403449e74198"
 
 [[package]]
+name = "dmake"
+version = "0.1.0"
+dependencies = [
+ "builder",
+ "clap",
+ "colored",
+ "error",
+ "external",
+ "generator",
+ "mmk_parser",
+]
+
+[[package]]
 name = "error"
 version = "0.1.0"
 
@@ -126,6 +140,8 @@ dependencies = [
  "dependency",
  "error",
  "mmk_parser",
+ "pretty_assertions",
+ "tempdir",
  "utility",
 ]
 
@@ -161,22 +177,11 @@ name = "mmk_parser"
 version = "0.1.0"
 dependencies = [
  "error",
+ "pretty_assertions",
  "regex",
+ "tempdir",
  "textwrap 0.12.1",
  "utility",
-]
-
-[[package]]
-name = "mymake"
-version = "0.1.0"
-dependencies = [
- "builder",
- "clap",
- "colored",
- "error",
- "external",
- "generator",
- "mmk_parser",
 ]
 
 [[package]]
@@ -359,6 +364,7 @@ name = "utility"
 version = "0.1.0"
 dependencies = [
  "error",
+ "tempdir",
 ]
 
 [[package]]

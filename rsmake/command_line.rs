@@ -11,17 +11,17 @@ pub struct CommandLine<'a> {
 impl<'a> CommandLine<'a> {
     pub fn new() -> Self {
         Self {
-            matches: App::new("MyMake Makefile Build System")
+            matches: App::new("RsMake Build System")
             .version("0.1.0")
             .about("\
-            GNU Make build system overlay for C++ projects. MyMake generates makefiles and builds the project with the \n\
-            specifications written in the respective MyMake files.")
+            GNU Make build system overlay for C++ projects. RsMake generates makefiles and builds the project with the \n\
+            specifications written in the respective RsMake files.")
             .author("Written and maintained by Fredrik Sandhei <fredrik.sandhei@gmail.com>")        
-            .arg(Arg::with_name("MyMake file")
+            .arg(Arg::with_name("RsMake file")
                         .short("g")
                         .required(true)
                         .takes_value(true)
-                        .help("Input file for MyMake."))
+                        .help("Input file for RsMake."))
             .arg(Arg::with_name("clean")
                         .long("clean")
                         .help("Removes .build directories, cleaning the project. WARNING: Deprecated. Delete build directory manually instead."))
@@ -45,7 +45,7 @@ impl<'a> CommandLine<'a> {
                         .multiple(true)
                         .help("Sets sanitizers to be used for debug build (address, undefined, leak, thread)."))
             .subcommand(SubCommand::with_name("extern")
-                        .about("Run external programs from MyMake.")
+                        .about("Run external programs from RsMake.")
                         .arg(Arg::with_name("dot")
                             .long("dot-dependency")
                             .help("Produce a dot graph visualization of the project dependency.")))
@@ -105,7 +105,7 @@ impl<'a> CommandLine<'a> {
                 if let Some(top_dep) = last {
                     match external::dottie(top_dep, false, &mut String::new()) {
                         Ok(()) => {
-                            println!("DMake: Dependency graph made: dependency.gv");
+                            println!("rsmake: Dependency graph made: dependency.gv");
                             std::process::exit(0);
                         }
                         Err(_) => {
@@ -160,7 +160,7 @@ impl<'a> CommandLine<'a> {
     pub fn validate_file_path(&self) -> PathBuf {
         // Fix so the error message is explainable.
         let file_name = mmk_parser::validate_file_path(
-            self.matches.value_of("MyMake file").unwrap_or_terminate(),
+            self.matches.value_of("RsMake file").unwrap_or_terminate(),
         )
         .unwrap_or_terminate();
         mmk_parser::validate_file_name(&file_name).unwrap_or_terminate();

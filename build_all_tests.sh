@@ -4,15 +4,15 @@ set -e # Bail on error.
 
 BIN_DIR="/usr/bin/"
 CARGO="/home/fredrik/.cargo/bin/cargo"
-ROOT_DIR="/home/fredrik/bin/dmake-rs"
-DMAKE="$ROOT_DIR/target/release/dmake"
-DMAKE_RELEASE="$ROOT_DIR/target/release/dmake"
+ROOT_DIR="/home/fredrik/bin/rsmake"
+RSMAKE="$ROOT_DIR/target/release/rsmake"
+RSMAKE_RELEASE="$ROOT_DIR/target/release/rsmake"
 CWD=`pwd`
 
 install_mymake()
 {
    echo "Installing release build of DMake into $BIN_DIR"
-   cp -f -v $DMAKE_RELEASE $BIN_DIR
+   cp -f -v $RSMAKE_RELEASE $BIN_DIR
 }
 
 
@@ -71,7 +71,7 @@ EOF
       rm -rf "$ROOT_DIR/build"
    fi
    mkdir "$ROOT_DIR/build" && cd $ROOT_DIR/build
-   "$DMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
+   "$RSMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"
@@ -157,7 +157,7 @@ EOF
       rm -rf "$ROOT_DIR/build"
    fi
    mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
-   "$DMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
+   "$RSMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"

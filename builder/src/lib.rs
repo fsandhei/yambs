@@ -78,7 +78,7 @@ impl<'a> Builder<'a> {
     pub fn create_log_file(&mut self) -> Result<(), MyMakeError> {
         if let Some(top_dependency) = &self.top_dependency {
             if top_dependency.borrow().is_makefile_made() {
-                let log_file_name = env::current_dir().unwrap().join("mymake_log.txt");
+                let log_file_name = env::current_dir().unwrap().join("rsmake_log.txt");
                 return self.make.add_logger(&log_file_name);
             } else {
                 return Err(MyMakeError::from(format!(
@@ -122,9 +122,9 @@ impl<'a> Builder<'a> {
             let output = self.build_dependency(&top_dependency, &build_directory, self.verbose);
             let build_status_message: String;
             if output.is_ok() && output.unwrap().status.success() {
-                build_status_message = format!("DMake: {}", "Build SUCCESS".green());
+                build_status_message = format!("rsmake: {}", "Build SUCCESS".green());
             } else {
-                build_status_message = format!("DMake: {}", "Build FAILED".red());
+                build_status_message = format!("rsmake: {}", "Build FAILED".red());
             }
             println!("{}", build_status_message);
             self.make.log_text(build_status_message)?;
@@ -132,8 +132,8 @@ impl<'a> Builder<'a> {
                 .top_build_directory
                 .as_ref()
                 .unwrap()
-                .join("mymake_log.txt");
-            println!("DMake: Build log available at {:?}", log_path);
+                .join("rsmake_log.txt");
+            println!("rsmake: Build log available at {:?}", log_path);
         }
         Ok(())
     }

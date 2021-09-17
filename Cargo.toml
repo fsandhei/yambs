@@ -1,5 +1,5 @@
 [package]
-name = "dmake"
+name = "rsmake"
 version = "0.1.0"
 authors = ["Fredrik Sandhei <fredrik.sandhei@gmail.com>"]
 edition = "2018"
@@ -16,9 +16,9 @@ members = [
 ]
 
 [[bin]]
-name = "dmake"
+name = "rsmake"
 bench = false
-path  = "dmake/main.rs"
+path  = "rsmake/main.rs"
 
 [dependencies]
 builder = { path = 'builder/' }

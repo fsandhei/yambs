@@ -11,7 +11,7 @@ CWD=`pwd`
 
 install_mymake()
 {
-   echo "Installing release build of DMake into $BIN_DIR"
+   echo "Installing release build of RsMake into $BIN_DIR"
    cp -f -v $RSMAKE_RELEASE $BIN_DIR
 }
 
@@ -32,7 +32,7 @@ EOF
 
 build_mymake()
 {
-   echo "Building latest version of DMake."
+   echo "Building latest version of RsMake."
    cd $ROOT_DIR
    $CARGO build --release
 }

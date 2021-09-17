@@ -1,13 +1,13 @@
-# rsmake C++ Build System
+# RsMake C++ Build System
 
-rsmake is a command-line based build system for C++, written solely in Rust. It is intended to be a quick and easy build system for developers 
+RsMake is a command-line based build system for C++, written solely in Rust. It is intended to be a quick and easy build system for developers 
 to easily maintain and manage their project.
 
-rsmake is a hierarchical build system which constructs a directed acyclic graph from the contents of its recipe files.
+RsMake is a hierarchical build system which constructs a directed acyclic graph from the contents of its recipe files.
 
 By writing the minimal amount of boilerplate code, a user gets a well equipped build environment with different runtime configurations.
 
-rsmake differs from the typical build systems in that there are no "targets"...
+RsMake differs from the typical build systems in that there are no "targets"...
 
-Diagram here of how a rsmake hierarchical project tree should look like and so on...
+Diagram here of how a RsMake hierarchical project tree should look like and so on...
 

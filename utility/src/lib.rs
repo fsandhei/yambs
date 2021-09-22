@@ -1,4 +1,4 @@
-use error::MyMakeError;
+use error::{FsError, MyMakeError};
 use std::fs::File;
 use std::path::{PathBuf, Path};
 
@@ -26,7 +26,7 @@ pub fn get_include_directory_from_path<P: AsRef<Path>>(path: P) -> Result<PathBu
             return Ok(parent.join("include"));
         }
         else {
-            return Err(MyMakeError::from(format!("Error: Could not find include directory from {:?}", parent)));
+            return Err(MyMakeError::Generic {description: format!("Could not find include directory from {:?}", parent)});
         }        
     }
 }
@@ -37,7 +37,7 @@ pub fn get_mmk_library_file_from_path(path: &PathBuf) -> Result<PathBuf, MyMakeE
         return Ok(path.join("lib.mmk"));
     }
     else {
-        return Err(MyMakeError::from(format!("{:?} does not contain a lib.mmk file!", path)));
+        return Err(MyMakeError::Generic {description: format!("{:?} does not contain a lib.mmk file!", path)});
     }
 }
 
@@ -76,41 +76,38 @@ pub fn directory_exists(path: &Path) -> bool {
 }
 
 
-pub fn create_dir<D: AsRef<Path>>(dir: D) -> Result<(), MyMakeError> {
+pub fn create_dir<D: AsRef<Path>>(dir: D) -> Result<(), FsError> {
     if !dir.as_ref().is_dir() {
-        std::fs::create_dir_all(dir.as_ref())?;
+        std::fs::create_dir_all(dir.as_ref()).map_err(|err| FsError::CreateDirectory(dir.as_ref().to_path_buf(), err))?;
     }
     Ok(())
 }
 
 
-pub fn remove_dir(dir: &std::path::PathBuf) -> Result<(), MyMakeError> {
+pub fn remove_dir(dir: &std::path::PathBuf) -> Result<(), FsError> {
     if dir.is_dir() {
-        std::fs::remove_dir_all(dir)?;
+        std::fs::remove_dir_all(dir).map_err(|err| FsError::RemoveDirectory(dir.to_path_buf(), err))?;
     }
     Ok(())
 }
 
 
-pub fn create_symlink<D, S>(destination: D, source: S) -> Result<(), MyMakeError> 
+pub fn create_symlink<D, S>(destination: D, source: S) -> Result<(), FsError> 
     where D: AsRef<Path>,
           S: AsRef<Path> {
-    match std::os::unix::fs::symlink(destination.as_ref(), source.as_ref()) {
-        Ok(()) => Ok(()),
-        Err(err) => Err(MyMakeError::from(format!("Error: Could not create symlink between {:?} and {:?}: {}", destination.as_ref(), source.as_ref(), err))),
-    }
+       std::os::unix::fs::symlink(destination.as_ref(), source.as_ref())
+       .map_err(|err| FsError::CreateSymlink{ dest: destination.as_ref().to_path_buf(), 
+                                                 src: source.as_ref().to_path_buf(),
+                                                 source: err})
 }
 
 
-pub fn create_file(dir: &PathBuf, filename: &str) -> Result<File, MyMakeError> {
+pub fn create_file(dir: &PathBuf, filename: &str) -> Result<File, FsError> {
     let file = dir.join(filename);
     if file.is_file() {
-        match std::fs::remove_file(&file) {
-            Ok(()) => (),
-            Err(err) => return Err(MyMakeError::from(format!("Error removing {:?}: {}", file, err))),
-        };
+        std::fs::remove_file(&file).map_err(|err| FsError::RemoveFile(file.to_path_buf(), err))?;
     }
-    let filename = File::create(&file)?;
+    let filename = File::create(&file).map_err(|err| FsError::CreateFile(file, err))?;
     Ok(filename)
 }
 
@@ -125,12 +122,9 @@ pub fn print_full_path(os: &mut String, dir: &str, filename: &str, no_newline: b
 }
 
 
-pub fn read_file(file_path: &Path) -> Result<String, MyMakeError>
+pub fn read_file(file_path: &Path) -> Result<String, FsError>
 {
-    match std::fs::read_to_string(&file_path) {
-        Ok(content) => Ok(content),
-        Err(err) => Err(MyMakeError::from(format!("Error reading from {:?}: {}", file_path, err))),
-    }
+    std::fs::read_to_string(&file_path).map_err(|err| FsError::ReadFromFile(file_path.to_path_buf(), err))
 }
 
 #[cfg(test)]

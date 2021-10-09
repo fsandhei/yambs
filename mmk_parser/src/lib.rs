@@ -3,7 +3,7 @@
 
 //TODO: Burde ha muligheten til å kunne bruke path som bruker relativ-path-direktiver (../)
 
-use error::MyMakeError;
+use error::{FsError, MyMakeError, ParseError, ToolchainError};
 use regex::Regex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -19,7 +19,7 @@ pub use mmk_constants::{Constant, Constants};
 mod toolchain;
 pub use toolchain::Toolchain;
 
-pub fn read_toolchain(path: &PathBuf) -> Result<Toolchain, MyMakeError> {
+pub fn read_toolchain(path: &PathBuf) -> Result<Toolchain, ToolchainError> {
     let mut toolchain = Toolchain::new();
     let content = toolchain.get_content(path)?;
     toolchain.parse(content)?;
@@ -37,9 +37,8 @@ pub fn find_toolchain_file(path: &Path) -> Result<PathBuf, MyMakeError> {
         if toolchain_file.is_file() {
             return Ok(toolchain_file);
         } else {
-            return Err(MyMakeError::from(format!(
-                "\
-            Error: Could not find mymake directory and toolchain file from {:?}",
+            return Err(MyMakeError::ConfigurationTime(format!(
+                "Could not find mymake directory and toolchain file from {:?}",
                 path.to_str().unwrap()
             )));
         }
@@ -51,6 +50,7 @@ pub fn find_toolchain_file(path: &Path) -> Result<PathBuf, MyMakeError> {
 pub struct Mmk {
     data: HashMap<String, Vec<Keyword>>,
     constants: Constants,
+    file: std::path::PathBuf,
 }
 
 impl Mmk {
@@ -61,6 +61,7 @@ impl Mmk {
         Mmk {
             data: HashMap::new(),
             constants: Constants::new(path, &source_path),
+            file: source_path,
         }
     }
 
@@ -118,7 +119,7 @@ impl Mmk {
         Ok(String::from(""))
     }
 
-    pub fn valid_keyword(self: &Self, keyword: &str) -> Result<(), MyMakeError> {
+    pub fn valid_keyword(&self, keyword: &str) -> Result<(), ParseError> {
         let stripped_keyword = keyword.trim_end_matches(":");
         if stripped_keyword == "MMK_REQUIRE"
             || stripped_keyword == "MMK_SOURCES"
@@ -131,10 +132,10 @@ impl Mmk {
         {
             Ok(())
         } else {
-            Err(MyMakeError::from(format!(
-                "{} is not a valid keyword.",
-                keyword
-            )))
+            Err(ParseError::InvalidKeyword {
+                file: self.file.to_path_buf(),
+                keyword: stripped_keyword.to_string(),
+            })
         }
     }
 
@@ -148,7 +149,7 @@ impl Mmk {
         &mut self,
         mmk_keyword: &str,
         data_iter: &mut std::str::Lines,
-    ) -> Result<(), MyMakeError> {
+    ) -> Result<(), ParseError> {
         self.valid_keyword(mmk_keyword)?;
         let mut arg_vec: Vec<Keyword> = Vec::new();
         let mut current_line = data_iter.next();
@@ -161,7 +162,9 @@ impl Mmk {
             } else if line == "" {
                 break;
             } else {
-                return Err(MyMakeError::from_str("Invalid spacing of arguments! Keep at least one line between each MyMake keyword."));
+                return Err(ParseError::InvalidSpacing {
+                    file: self.file.to_path_buf(),
+                });
             }
             current_line = data_iter.next();
         }
@@ -192,7 +195,7 @@ impl Mmk {
         self.data.contains_key("MMK_SYS_INCLUDE")
     }
 
-    pub fn parse(&mut self, data: &String) -> Result<(), MyMakeError> {
+    pub fn parse(&mut self, data: &String) -> Result<(), ParseError> {
         let no_comment_data = remove_comments(data);
         let mut lines = no_comment_data.lines();
         let mut current_line = lines.next();
@@ -231,29 +234,27 @@ impl Mmk {
     }
 }
 
-pub fn validate_file_path(file_path_as_str: &str) -> Result<PathBuf, MyMakeError> {
-    let file_path = match PathBuf::from(file_path_as_str).canonicalize() {
-        Ok(file) => file,
-        Err(err) => return Err(MyMakeError::from(format!("{:?}", err))),
-    };
+pub fn validate_file_path(file_path_as_str: &str) -> Result<PathBuf, FsError> {
+    let file_path = PathBuf::from(file_path_as_str)
+        .canonicalize()
+        .map_err(FsError::Canonicalize)?;
+
     if !file_path.is_file() {
-        return Err(MyMakeError::from(format!(
-            "Error: {:?} is not a valid path!",
-            &file_path
-        )));
+        return Err(FsError::FileDoesNotExist(file_path));
     }
     Ok(file_path)
 }
 
-pub fn validate_file_name(path: &PathBuf) -> Result<(), MyMakeError> {
+pub fn validate_file_name(path: &PathBuf) -> Result<(), ParseError> {
     let file_name = path.file_name().unwrap().to_str().unwrap();
     match file_name {
         "lib.mmk" | "run.mmk" => (),
         _ => {
-            return Err(MyMakeError::from(format!(
-                "{:?} is illegal name! File must be named lib.mmk or run.mmk.",
-                file_name
-            )))
+            return Err(ParseError::InvalidFilename(file_name.to_string()));
+            // return Err(MyMakeError::from(format!(
+            //     "{:?} is illegal name! File must be named lib.mmk or run.mmk.",
+            //     file_name
+            // )))
         }
     };
     Ok(())

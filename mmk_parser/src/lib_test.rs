@@ -297,7 +297,7 @@ fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError> {
     assert!(result.is_err());
     assert_eq!(
         &String::from("MMK_REQUIRES is not a valid keyword."),
-        result.unwrap_err().to_string()
+        &result.unwrap_err().to_string()
     );
     Ok(())
 }

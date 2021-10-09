@@ -4,25 +4,14 @@ use thiserror;
 #[derive(Debug, thiserror::Error)]
 pub enum MyMakeError {
     #[error("Error occured during compilation: {description}")]
-    CompileTime {
-        description: String
-    },
-    #[error("Error occured during configure time: {description}")]
-    ConfigurationTime {
-        description: String
-    },
+    CompileTime { description: String },
+    #[error("Error occured during configure time: {0}")]
+    ConfigurationTime(String),
     #[error("{description}")]
-    Generic {
-        description: String
-    },
-    
-    #[error("Error occured during parsing of file {file}: {description}")]
-    Parse {
-        file: std::path::PathBuf,
-        description: String,
-    },
+    Generic { description: String },
+    #[error("Error occured during parsing")]
+    Parse(#[source] ParseError),
 }
-
 
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
@@ -35,8 +24,8 @@ pub enum FsError {
     CreateSymlink {
         dest: std::path::PathBuf,
         src: std::path::PathBuf,
-        #[source] 
-        source: std::io::Error
+        #[source]
+        source: std::io::Error,
     },
     #[error("Error occured in removing file {0:?}")]
     RemoveFile(std::path::PathBuf, #[source] std::io::Error),
@@ -44,23 +33,41 @@ pub enum FsError {
     CreateFile(std::path::PathBuf, #[source] std::io::Error),
     #[error("Error occured reading from file {0:?}")]
     ReadFromFile(std::path::PathBuf, #[source] std::io::Error),
+    #[error("The path {0:?} does not exist")]
+    FileDoesNotExist(std::path::PathBuf),
+    #[error("Failed to canonicalize path")]
+    Canonicalize(#[source] std::io::Error),
+    #[error("Failed to pop from path")]
+    PopError,
 }
-// impl MyMakeError {
-//     pub fn from_str(msg: &str) -> MyMakeError {
-//         MyMakeError{details: msg.to_string()}
-//     }
-//     pub fn from(msg: String) -> MyMakeError {
-//         MyMakeError{details: msg}
-//     }
 
-//     pub fn to_string(&self) -> &String {
-//         &self.details
-//     }
-// }
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error("{file}: {keyword} is not a valid MMK keyword!")]
+    InvalidKeyword {
+        file: std::path::PathBuf,
+        keyword: String,
+    },
+    #[error(
+        "{file}: Invalid spacing of arguments! Keep at least one line between each RsMake keyword."
+    )]
+    InvalidSpacing { file: std::path::PathBuf },
+    #[error(transparent)]
+    FileSystem(#[from] FsError),
+    #[error("{0:?} is not a valid RsMake filename! File must be named lib.mmk or run.mmk.")]
+    InvalidFilename(String),
+    #[error(transparent)]
+    Toolchain(#[from] ToolchainError),
+}
 
-// impl fmt::Display for MyMakeError {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(f, "{}", self.details)
-//     }
-// }
-
+#[derive(Debug, thiserror::Error)]
+pub enum ToolchainError {
+    #[error("Key \"{0}\" could not not be found")]
+    KeyNotFound(String),
+    #[error("{0} \"{0}\" is not allowed as keyword for toolchain.")]
+    InvalidKeyword(String),
+    #[error("{0} is not a valid name for toolchain file. It must be named toolchain.mmk")]
+    InvalidName(String),
+    #[error(transparent)]
+    FileSystem(#[from] FsError),
+}

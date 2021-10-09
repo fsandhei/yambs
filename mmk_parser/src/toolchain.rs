@@ -1,6 +1,6 @@
 use crate::mmk_constants::Constant;
 
-use error::MyMakeError;
+use error::{FsError, ToolchainError};
 use regex::{Captures, Regex};
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -19,7 +19,7 @@ impl Toolchain {
         }
     }
 
-    pub fn parse(&mut self, content: String) -> Result<(), MyMakeError> {
+    pub fn parse(&mut self, content: String) -> Result<(), ToolchainError> {
         let content_without_comments = self.remove_comments(&content);
         let assign_rule = Regex::new(r"(\w+)\s*=\s*([_/a-zA-Z]+)").unwrap();
         let mut lines = content_without_comments.lines();
@@ -33,28 +33,22 @@ impl Toolchain {
         Ok(())
     }
 
-    pub fn get_content(&self, path: &PathBuf) -> Result<String, MyMakeError> {
-        if let Some(filename) = path.file_name() {
-            self.validate_filename(filename)?;
-            utility::read_file(path)
-        } else {
-            return Err(MyMakeError::from(format!(
-                "Error: {} is not a valid path to toolchain file.",
-                path.to_str().unwrap()
-            )));
-        }
+    pub fn get_content(&self, path: &std::path::Path) -> Result<String, ToolchainError> {
+        let filename = path
+            .file_name()
+            .ok_or_else(|| FsError::PopError)
+            .map_err(ToolchainError::FileSystem)?;
+        self.validate_filename(filename)?;
+        utility::read_file(path).map_err(ToolchainError::FileSystem)
     }
 
-    pub fn get_item(&self, toolchain_key: &Constant) -> Result<&PathBuf, MyMakeError> {
+    pub fn get_item(&self, toolchain_key: &Constant) -> Result<&PathBuf, ToolchainError> {
         self.config
             .get(&toolchain_key)
-            .ok_or(MyMakeError::from(format!(
-                "Error: {} could not be found",
-                toolchain_key
-            )))
+            .ok_or(ToolchainError::KeyNotFound(toolchain_key.to_string()))
     }
 
-    fn parse_line(&mut self, captured: Captures) -> Result<(), MyMakeError> {
+    fn parse_line(&mut self, captured: Captures) -> Result<(), ToolchainError> {
         let tool = captured.get(1).unwrap().as_str();
         self.verify_keyword(tool)?;
         let tool_constant = Constant::new(tool);
@@ -64,25 +58,21 @@ impl Toolchain {
         Ok(())
     }
 
-    fn validate_filename(&self, filename: &OsStr) -> Result<(), MyMakeError> {
+    fn validate_filename(&self, filename: &OsStr) -> Result<(), ToolchainError> {
         match filename.to_str() {
             Some("toolchain.mmk") => Ok(()),
             _ => {
-                return Err(MyMakeError::from(format!(
-                "Error: {} is not a valid name for toolchain file. It must be named toolchain.mmk",
-                filename.to_str().unwrap()
-            )))
+                return Err(ToolchainError::InvalidName(
+                    filename.to_str().unwrap().to_string(),
+                ))
             }
         }
     }
 
-    fn verify_keyword(&self, keyword: &str) -> Result<(), MyMakeError> {
+    fn verify_keyword(&self, keyword: &str) -> Result<(), ToolchainError> {
         match keyword {
             "compiler" | "linker" => Ok(()),
-            _ => Err(MyMakeError::from(format!(
-                "Error: {} is not allowed as keyword for toolchain.",
-                keyword
-            ))),
+            _ => Err(ToolchainError::InvalidKeyword(keyword.to_string())),
         }
     }
 

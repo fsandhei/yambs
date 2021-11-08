@@ -64,7 +64,7 @@ pub enum ParseError {
 pub enum ToolchainError {
     #[error("Key \"{0}\" could not not be found")]
     KeyNotFound(String),
-    #[error("{0} \"{0}\" is not allowed as keyword for toolchain.")]
+    #[error("\"{0}\" is not allowed as keyword for toolchain.")]
     InvalidKeyword(String),
     #[error("{0} is not a valid name for toolchain file. It must be named toolchain.mmk")]
     InvalidName(String),

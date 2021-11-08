@@ -54,9 +54,9 @@ pub struct Mmk {
 }
 
 impl Mmk {
-    pub fn new(path: &PathBuf) -> Mmk {
-        let source_path =
-            utility::get_source_directory_from_path(utility::get_project_top_directory(path));
+    pub fn new(path: &Path) -> Mmk {
+        let source_path = path.to_path_buf();
+        // utility::get_source_directory_from_path(utility::get_project_top_directory(path));
 
         Mmk {
             data: HashMap::new(),

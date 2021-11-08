@@ -1,14 +1,17 @@
 use super::*;
-use keyword::Keyword;
-use mmk_constants::Constant;
 use pretty_assertions::assert_eq;
 use tempdir::TempDir;
+
+use keyword::Keyword;
+use mmk_constants::Constant;
 use utility;
 
 #[test]
 fn test_mmk_file_reader() {
-    let current_dir = std::env::current_dir().expect("Could not retrieve current directory for
-                                                                 mmk_parser::test_mmk_file_reader");
+    let current_dir = std::env::current_dir().expect(
+        "Could not retrieve current directory for
+                                                                 mmk_parser::test_mmk_file_reader",
+    );
     let path = current_dir.join("src/test.mmk");
     let content = utility::read_file(&path);
     assert_eq!(
@@ -30,10 +33,12 @@ MMK_EXECUTABLE:
 
 #[test]
 fn test_remove_comments() {
-    let current_dir = std::env::current_dir().expect("Could not retrieve current directory for
-    mmk_parser::test_mmk_file_reader");
+    let current_dir = std::env::current_dir().expect(
+        "Could not retrieve current directory for
+    mmk_parser::test_mmk_file_reader",
+    );
     let path = current_dir.join("src/test.mmk");
-    
+
     let content = utility::read_file(&path).unwrap();
     assert_eq!(
         remove_comments(&content),
@@ -54,7 +59,7 @@ MMK_EXECUTABLE:
 }
 
 #[test]
-fn test_to_string_mmk_sources() -> Result<(), MyMakeError> {
+fn test_to_string_mmk_sources() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -71,7 +76,7 @@ fn test_to_string_mmk_sources() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn test_to_string_mmk_headers() -> Result<(), MyMakeError> {
+fn test_to_string_mmk_headers() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -88,7 +93,7 @@ fn test_to_string_mmk_headers() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn test_parse_mmk_sources() -> Result<(), MyMakeError> {
+fn test_parse_mmk_sources() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -109,7 +114,7 @@ fn test_parse_mmk_sources() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn test_parse_mmk_source() -> Result<(), MyMakeError> {
+fn test_parse_mmk_source() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -174,7 +179,7 @@ fn test_valid_keyword_mmk_cxxflags_append() {
 }
 
 #[test]
-fn test_parse_dependencies() -> Result<(), MyMakeError> {
+fn test_parse_dependencies() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -194,7 +199,7 @@ fn test_parse_dependencies() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn test_multiple_keywords() -> Result<(), MyMakeError> {
+fn test_multiple_keywords() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -229,7 +234,7 @@ fn test_multiple_keywords() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn test_has_library_label_true() -> Result<(), MyMakeError> {
+fn test_has_library_label_true() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -243,7 +248,7 @@ fn test_has_library_label_true() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn test_has_library_label_false() -> Result<(), MyMakeError> {
+fn test_has_library_label_false() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -257,7 +262,7 @@ fn test_has_library_label_false() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn test_has_system_include_true() -> Result<(), MyMakeError> {
+fn test_has_system_include_true() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -271,7 +276,7 @@ fn test_has_system_include_true() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn test_has_system_include_false() -> Result<(), MyMakeError> {
+fn test_has_system_include_false() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -285,7 +290,7 @@ fn test_has_system_include_false() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError> {
+fn test_parse_mmk_no_valid_keyword() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -296,14 +301,14 @@ fn test_parse_mmk_no_valid_keyword() -> Result<(), MyMakeError> {
     let result = mmk_content.parse(&content);
     assert!(result.is_err());
     assert_eq!(
-        &String::from("MMK_REQUIRES is not a valid keyword."),
+        &String::from("/some/path/lib.mmk: MMK_REQUIRES is not a valid MMK keyword!"),
         &result.unwrap_err().to_string()
     );
     Ok(())
 }
 
 #[test]
-fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError> {
+fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), ParseError> {
     let path = PathBuf::from("/some/path/lib.mmk");
     let mut mmk_content = Mmk::new(&path);
     let content: String = String::from(
@@ -315,8 +320,8 @@ fn test_parse_mmk_invalid_spacing_between_keywords() -> Result<(), MyMakeError> 
     let result = mmk_content.parse(&content);
     assert!(result.is_err());
     assert_eq!(
-        &String::from(
-            "Invalid spacing of arguments! Keep at least one line between each MyMake keyword."
+        String::from(
+            "/some/path/lib.mmk: Invalid spacing of arguments! Keep at least one line between each RsMake keyword."
         ),
         result.unwrap_err().to_string()
     );
@@ -383,7 +388,7 @@ fn validate_file_name_invalid_file_name_test() {
     let result = validate_file_name(&some_invalid_file_path);
     assert!(result.is_err());
     assert_eq!(
-        &String::from("\"mymakeinfo.mmk\" is illegal name! File must be named lib.mmk or run.mmk."),
+        String::from("\"mymakeinfo.mmk\" is not a valid RsMake filename! File must be named lib.mmk or run.mmk."),
         result.unwrap_err().to_string()
     );
 }

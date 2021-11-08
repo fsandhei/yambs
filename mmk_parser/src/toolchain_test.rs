@@ -1,4 +1,5 @@
 use super::*;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn parse_compiler_test() {
@@ -61,8 +62,8 @@ fn verify_keyword_incorrect_word_test() {
     let result = toolchain.verify_keyword("derp");
     assert!(result.is_err());
     assert_eq!(
-        result.unwrap_err().to_string(),
-        &String::from("Error: derp is not allowed as keyword for toolchain.")
+        String::from("\"derp\" is not allowed as keyword for toolchain."),
+        result.unwrap_err().to_string()
     );
 }
 
@@ -81,5 +82,5 @@ fn verify_filename_incorrect_name_test() {
     let result = toolchain.validate_filename(&filename);
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().to_string(),
-               &String::from("Error: not-a-toolchain.mmk is not a valid name for toolchain file. It must be named toolchain.mmk"))
+               String::from("not-a-toolchain.mmk is not a valid name for toolchain file. It must be named toolchain.mmk"))
 }

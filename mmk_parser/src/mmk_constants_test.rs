@@ -1,4 +1,5 @@
 use super::*;
+use std::path::PathBuf;
 
 fn fixture_construct_constants() -> Constants {
     let path_to_mmk_dir = PathBuf::from("/some/project/top/path/");

@@ -8,7 +8,7 @@ use regex::Regex;
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::path::PathBuf;
+use std::path::Path;
 use std::string::String;
 
 use utility;
@@ -39,7 +39,7 @@ pub struct Constants {
 }
 
 impl Constants {
-    pub fn new(path_to_mmk_dir: &PathBuf, src_path: &PathBuf) -> Self {
+    pub fn new(path_to_mmk_dir: &Path, src_path: &Path) -> Self {
         let mut collection = HashMap::<Constant, String>::new();
         let path = utility::get_project_top_directory(path_to_mmk_dir);
 

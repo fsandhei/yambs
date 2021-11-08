@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use thiserror;
 
 #[non_exhaustive]
@@ -11,6 +12,17 @@ pub enum MyMakeError {
     Generic { description: String },
     #[error("Error occured during parsing")]
     Parse(#[source] ParseError),
+}
+
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
+pub enum DependencyError {
+    #[error(transparent)]
+    Fs(#[from] FsError),
+    #[error(transparent)]
+    Parse(#[from] ParseError),
+    #[error("Dependency circulation! {0:?} depends on {1:?}, which depends on itself")]
+    Circulation(PathBuf, PathBuf),
 }
 
 #[non_exhaustive]

@@ -23,6 +23,8 @@ pub enum DependencyError {
     Parse(#[from] ParseError),
     #[error("Dependency circulation! {0:?} depends on {1:?}, which depends on itself")]
     Circulation(PathBuf, PathBuf),
+    #[error("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!")]
+    NotSet,
 }
 
 #[non_exhaustive]
@@ -51,6 +53,23 @@ pub enum FsError {
     Canonicalize(#[source] std::io::Error),
     #[error("Failed to pop from path")]
     PopError,
+}
+
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
+pub enum GeneratorError {
+    #[error("C++ version \"{0}\" used is not allowed.")]
+    InvalidCppVersion(String),
+    #[error(transparent)]
+    Fs(#[from] FsError),
+    #[error(transparent)]
+    Toolchain(#[from] ToolchainError),
+    #[error("No settings exist for compiler {0:?}")]
+    NoCompiler(PathBuf),
+    #[error(transparent)]
+    Dependency(#[from] DependencyError),
+    #[error("Error occured creating rule")]
+    CreateRule,
 }
 
 #[derive(Debug, thiserror::Error)]

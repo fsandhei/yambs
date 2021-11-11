@@ -17,7 +17,7 @@ fn construct_generator<'generator>(
 }
 
 #[test]
-fn add_cpp_version_cpp98_test() -> Result<(), MyMakeError> {
+fn add_cpp_version_cpp98_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let toolchain = Toolchain::new().set_sample_config();
     let mut gen = construct_generator(&output_directory, &toolchain);
@@ -27,7 +27,7 @@ fn add_cpp_version_cpp98_test() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn add_cpp_version_cpp11_test() -> Result<(), MyMakeError> {
+fn add_cpp_version_cpp11_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let toolchain = Toolchain::new().set_sample_config();
     let mut gen = construct_generator(&output_directory, &toolchain);
@@ -37,7 +37,7 @@ fn add_cpp_version_cpp11_test() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn add_cpp_version_cpp14_test() -> Result<(), MyMakeError> {
+fn add_cpp_version_cpp14_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let toolchain = Toolchain::new().set_sample_config();
     let mut gen = construct_generator(&output_directory, &toolchain);
@@ -47,7 +47,7 @@ fn add_cpp_version_cpp14_test() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn add_cpp_version_cpp17_test() -> Result<(), MyMakeError> {
+fn add_cpp_version_cpp17_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let toolchain = Toolchain::new().set_sample_config();
     let mut gen = construct_generator(&output_directory, &toolchain);
@@ -57,7 +57,7 @@ fn add_cpp_version_cpp17_test() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn add_cpp_version_cpp17_uppercase_test() -> Result<(), MyMakeError> {
+fn add_cpp_version_cpp17_uppercase_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let toolchain = Toolchain::new().set_sample_config();
     let mut gen = construct_generator(&output_directory, &toolchain);
@@ -67,7 +67,7 @@ fn add_cpp_version_cpp17_uppercase_test() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn add_cpp_version_cpp20_test() -> Result<(), MyMakeError> {
+fn add_cpp_version_cpp20_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let toolchain = Toolchain::new().set_sample_config();
     let mut gen = construct_generator(&output_directory, &toolchain);
@@ -77,14 +77,14 @@ fn add_cpp_version_cpp20_test() -> Result<(), MyMakeError> {
 }
 
 #[test]
-fn add_cpp_version_invalid_test() -> Result<(), MyMakeError> {
+fn add_cpp_version_invalid_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let toolchain = Toolchain::new().set_sample_config();
     let mut gen = construct_generator(&output_directory, &toolchain);
     let result = gen.add_cpp_version("python");
     assert!(result.is_err());
     assert_eq!(
-        &String::from("python is not a valid C++ version."),
+        String::from("C++ version \"python\" used is not allowed."),
         result.unwrap_err().to_string()
     );
     Ok(())

@@ -1,9 +1,9 @@
 use crate::DependencyNode;
 
-use error::MyMakeError;
+use error::DependencyError;
 
 pub trait DependencyAccessor {
     // Dependency accessors
     fn set_dependency(&mut self, dependency: &DependencyNode);
-    fn get_dependency(&self) -> Result<&DependencyNode, MyMakeError>;
+    fn get_dependency(&self) -> Result<&DependencyNode, DependencyError>;
 }

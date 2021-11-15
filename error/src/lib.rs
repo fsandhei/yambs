@@ -16,6 +16,21 @@ pub enum MyMakeError {
 
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
+pub enum BuilderError {
+    #[error(transparent)]
+    Dependency(#[from] DependencyError),
+    #[error(transparent)]
+    Generator(#[from] GeneratorError),
+    #[error("{0}: called in an unexpected way.")]
+    UnexpectedCall(String),
+    #[error(transparent)]
+    Fs(#[from] FsError),
+    #[error(transparent)]
+    Make(#[from] MakeError),
+}
+
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
 pub enum DependencyError {
     #[error(transparent)]
     Fs(#[from] FsError),
@@ -25,6 +40,8 @@ pub enum DependencyError {
     Circulation(PathBuf, PathBuf),
     #[error("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!")]
     NotSet,
+    #[error("Dependency does not have a makefile")]
+    NoMakefile,
 }
 
 #[non_exhaustive]
@@ -53,6 +70,10 @@ pub enum FsError {
     Canonicalize(#[source] std::io::Error),
     #[error("Failed to pop from path")]
     PopError,
+    #[error("Failed to write to file")]
+    WriteToFile(#[source] std::io::Error),
+    #[error("Failed to spawn process {0:?}")]
+    Spawn(std::process::Command),
 }
 
 #[non_exhaustive]
@@ -72,6 +93,7 @@ pub enum GeneratorError {
     CreateRule,
 }
 
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
     #[error("{file}: {keyword} is not a valid MMK keyword!")]
@@ -91,6 +113,14 @@ pub enum ParseError {
     Toolchain(#[from] ToolchainError),
 }
 
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
+pub enum MakeError {
+    #[error("The following error occured from the file system: {0})")]
+    Fs(#[source] FsError),
+}
+
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ToolchainError {
     #[error("Key \"{0}\" could not not be found")]

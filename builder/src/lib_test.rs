@@ -252,7 +252,7 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
 }
 
 #[test]
-fn read_mmk_files_two_files_circulation() -> Result<(), MyMakeError> {
+fn read_mmk_files_two_files_circulation() -> Result<(), BuilderError> {
     let mut generator = GeneratorMock::new();
     let mut builder = Builder::new(&mut generator);
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");

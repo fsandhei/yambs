@@ -1,10 +1,9 @@
-mod clean;
 mod filter;
 mod make;
 
 use colored::Colorize;
 use dependency::{Dependency, DependencyNode, DependencyRegistry};
-use error::MyMakeError;
+use error::BuilderError;
 use generator::GeneratorExecutor;
 use std::env;
 use std::path::PathBuf;
@@ -46,8 +45,8 @@ impl<'a> Builder<'a> {
         self.make.with_flag(flag, value);
     }
 
-    pub fn use_std(&mut self, version: &str) -> Result<(), MyMakeError> {
-        return self.generator.as_mut().use_std(version);
+    pub fn use_std(&mut self, version: &str) -> Result<(), BuilderError> {
+        Ok(self.generator.as_mut().use_std(version)?)
     }
 
     pub fn set_sanitizers(&mut self, sanitizers: &[String]) {
@@ -75,15 +74,11 @@ impl<'a> Builder<'a> {
         &self.top_dependency
     }
 
-    pub fn create_log_file(&mut self) -> Result<(), MyMakeError> {
+    pub fn create_log_file(&mut self) -> Result<(), BuilderError> {
         if let Some(top_dependency) = &self.top_dependency {
             if top_dependency.borrow().is_makefile_made() {
                 let log_file_name = env::current_dir().unwrap().join("rsmake_log.txt");
-                return self.make.add_logger(&log_file_name);
-            } else {
-                return Err(MyMakeError::from(format!(
-                    "Error: Can't create log file because top dependency does not have a makefile!"
-                )));
+                self.make.add_logger(&log_file_name)?;
             }
         }
         Ok(())
@@ -92,7 +87,7 @@ impl<'a> Builder<'a> {
     pub fn read_mmk_files_from_path(
         self: &mut Self,
         top_path: &std::path::PathBuf,
-    ) -> Result<(), MyMakeError> {
+    ) -> Result<(), BuilderError> {
         let top_dependency =
             Dependency::create_dependency_from_path(&top_path, &mut self.dep_registry)?;
         self.top_dependency = Some(Rc::clone(&top_dependency));
@@ -103,18 +98,21 @@ impl<'a> Builder<'a> {
         self.generator.as_mut().set_dependency(dependency);
     }
 
-    pub fn generate_makefiles(&mut self) -> Result<(), MyMakeError> {
+    pub fn generate_makefiles(&mut self) -> Result<(), BuilderError> {
         if let Some(top_dependency) = self.top_dependency.clone() {
             self.add_dependency_to_generator(&top_dependency);
-            return self.generator.as_mut().generate_makefiles(&top_dependency);
+            return Ok(self
+                .generator
+                .as_mut()
+                .generate_makefiles(&top_dependency)?);
         } else {
-            return Err(MyMakeError::from(String::from(
-                "builder.generate_builder(): Called in unexpected way.",
+            return Err(BuilderError::UnexpectedCall(String::from(
+                "builder.generate_builder()",
             )));
         }
     }
 
-    pub fn build_project(&mut self) -> Result<(), MyMakeError> {
+    pub fn build_project(&mut self) -> Result<(), BuilderError> {
         self.create_log_file()?;
         let build_directory = std::env::current_dir().unwrap();
 
@@ -143,7 +141,7 @@ impl<'a> Builder<'a> {
         dependency: &DependencyNode,
         build_path: &PathBuf,
         verbosity: bool,
-    ) -> Result<Output, MyMakeError> {
+    ) -> Result<Output, BuilderError> {
         let build_directory = self.resolve_build_directory(build_path);
 
         for required_dependency in dependency.borrow().requires().borrow().iter() {

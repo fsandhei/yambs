@@ -263,17 +263,8 @@ impl<'generator> UtilityGenerator<'generator> for IncludeFileGenerator<'generato
         self.generate_release_mk()
     }
 
-    fn add_cpp_version(&mut self, version: &str) -> Result<(), GeneratorError> {
-        let cpp_version_string = match version.to_lowercase().as_str() {
-            "c++98" => "-std=c++98",
-            "c++11" => "-std=c++11",
-            "c++14" => "-std=c++14",
-            "c++17" => "-std=c++17",
-            "c++20" => "-std=c++20",
-            _ => return Err(GeneratorError::InvalidCppVersion(version.to_lowercase())),
-        };
-        self.args.insert("C++", cpp_version_string.to_string());
-        Ok(())
+    fn add_cpp_version(&mut self, version: &str) {
+        self.args.insert("C++", version.to_string());
     }
 
     fn print_cpp_version(&'generator self) -> &str {

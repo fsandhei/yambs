@@ -27,7 +27,7 @@ pub trait GeneratorExecutor: Generator {
 
 pub trait UtilityGenerator<'config> {
     fn generate_makefiles(&'config mut self) -> Result<(), GeneratorError>;
-    fn add_cpp_version(&mut self, version: &'config str) -> Result<(), GeneratorError>;
+    fn add_cpp_version(&mut self, version: &'config str);
     fn print_cpp_version(&'config self) -> &'config str;
     fn generate_flags_sanitizer(&self) -> String;
 }

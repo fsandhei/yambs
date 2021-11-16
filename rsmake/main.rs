@@ -1,21 +1,23 @@
-// extern crate mmk_parser;
-
-mod command_line;
-mod unwrap_or_terminate;
-
 use builder::*;
-use error::MyMakeError;
+use error::{FsError, MyMakeError};
 use generator::MakefileGenerator;
 
 use unwrap_or_terminate::MyMakeUnwrap;
 
 use std::io::Write;
 
+mod command_line;
+mod unwrap_or_terminate;
+
 fn main() -> Result<(), MyMakeError> {
-    let command_line = command_line::CommandLine::new();
+    let mut command_line = command_line::CommandLine::new();
     let myfile = command_line.validate_file_path();
     let toolchain_file = &mmk_parser::find_toolchain_file(myfile.parent().unwrap_or(&myfile))
-        .or_else(|_| mmk_parser::find_toolchain_file(&std::env::current_dir()?))
+        .or_else(|_| {
+            mmk_parser::find_toolchain_file(
+                &std::env::current_dir().map_err(FsError::AccessDirectory)?,
+            )
+        })
         .unwrap_or_terminate();
 
     let toolchain = mmk_parser::read_toolchain(&toolchain_file).unwrap_or_terminate();

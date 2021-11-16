@@ -25,12 +25,6 @@ enum Configuration {
     CppVersion(String),
 }
 
-#[derive(PartialEq, Eq)]
-enum GeneratorState {
-    IncludeGenerated,
-    IncludeNotGenerated,
-}
-
 struct BuildConfigurations {
     configurations: Vec<Configuration>,
 }
@@ -67,6 +61,12 @@ impl<'a> IntoIterator for &'a BuildConfigurations {
     fn into_iter(self) -> Self::IntoIter {
         self.configurations.iter()
     }
+}
+
+#[derive(PartialEq, Eq)]
+enum GeneratorState {
+    IncludeGenerated,
+    IncludeNotGenerated,
 }
 
 pub struct MakefileGenerator {
@@ -106,7 +106,7 @@ impl MakefileGenerator {
                     include_file_generator.set_sanitizers(sanitizers)
                 }
                 Configuration::CppVersion(version) => {
-                    include_file_generator.add_cpp_version(version)?
+                    include_file_generator.add_cpp_version(version);
                 }
                 _ => (),
             };
@@ -120,7 +120,6 @@ impl MakefileGenerator {
         dependency: &DependencyNode,
         build_directory: std::path::PathBuf,
     ) {
-        // let gen = MakefileGenerator::new(build_directory);
         utility::create_dir(&build_directory).unwrap();
         self.set_dependency(dependency);
         self.output_directory = build_directory;

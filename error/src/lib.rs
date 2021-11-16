@@ -1,9 +1,12 @@
 use std::path::PathBuf;
 use thiserror;
 
+// TODO: Need to rethink MyMakeError and nomenclature of Compile, Configuration and Build time.
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum MyMakeError {
+    #[error("Error occured when parsing command line")]
+    CommandLine(#[source] CommandLineError),
     #[error("Error occured during compilation: {description}")]
     CompileTime { description: String },
     #[error("Error occured during configure time: {0}")]
@@ -12,6 +15,8 @@ pub enum MyMakeError {
     Generic { description: String },
     #[error("Error occured during parsing")]
     Parse(#[source] ParseError),
+    #[error(transparent)]
+    Fs(#[from] FsError),
 }
 
 #[non_exhaustive]
@@ -27,6 +32,19 @@ pub enum BuilderError {
     Fs(#[from] FsError),
     #[error(transparent)]
     Make(#[from] MakeError),
+}
+
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
+pub enum CommandLineError {
+    #[error("C++ version \"{0}\" used is not allowed.")]
+    InvalidCppVersion(String),
+    #[error("release and debug can't be used together. Only use one build configuration.")]
+    InvalidConfiguration,
+    #[error("Invalid argument used for sanitizer. Valid arguments are address, undefined, leak and thread.")]
+    InvalidSanitizerArgument,
+    #[error("address cannot be used together with thread. Pick only one.")]
+    IllegalSanitizerCombination,
 }
 
 #[non_exhaustive]
@@ -74,13 +92,13 @@ pub enum FsError {
     WriteToFile(#[source] std::io::Error),
     #[error("Failed to spawn process {0:?}")]
     Spawn(std::process::Command),
+    #[error("Could not access directory")]
+    AccessDirectory(#[source] std::io::Error),
 }
 
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum GeneratorError {
-    #[error("C++ version \"{0}\" used is not allowed.")]
-    InvalidCppVersion(String),
     #[error(transparent)]
     Fs(#[from] FsError),
     #[error(transparent)]

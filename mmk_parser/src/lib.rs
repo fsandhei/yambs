@@ -26,7 +26,7 @@ pub fn read_toolchain(path: &PathBuf) -> Result<Toolchain, ToolchainError> {
     Ok(toolchain)
 }
 
-pub fn find_toolchain_file(path: &Path) -> Result<PathBuf, MyMakeError> {
+pub fn find_toolchain_file(path: &Path) -> Result<PathBuf, ToolchainError> {
     let toolchain_filename = "toolchain.mmk";
     let mymake_includes = path.join("mymake");
 
@@ -37,10 +37,7 @@ pub fn find_toolchain_file(path: &Path) -> Result<PathBuf, MyMakeError> {
         if toolchain_file.is_file() {
             return Ok(toolchain_file);
         } else {
-            return Err(MyMakeError::ConfigurationTime(format!(
-                "Could not find mymake directory and toolchain file from {:?}",
-                path.to_str().unwrap()
-            )));
+            return Err(ToolchainError::FileNotFound(path.into()));
         }
     }
     return find_toolchain_file(path.parent().unwrap());

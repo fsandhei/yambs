@@ -1,17 +1,18 @@
-use builder::*;
-use error::{FsError, MyMakeError};
-use generator::MakefileGenerator;
-
-use unwrap_or_terminate::MyMakeUnwrap;
-
 use std::io::Write;
 
-mod command_line;
+use structopt::StructOpt;
+
+use builder::*;
+use cli::command_line::CommandLine;
+use error::{FsError, MyMakeError};
+use generator::MakefileGenerator;
+use unwrap_or_terminate::MyMakeUnwrap;
+
 mod unwrap_or_terminate;
 
 fn main() -> Result<(), MyMakeError> {
-    let mut command_line = command_line::CommandLine::new();
-    let myfile = command_line.validate_file_path();
+    let command_line = CommandLine::from_args();
+    let myfile = &command_line.input_file;
     let toolchain_file = &mmk_parser::find_toolchain_file(myfile.parent().unwrap_or(&myfile))
         .or_else(|_| {
             mmk_parser::find_toolchain_file(
@@ -25,9 +26,9 @@ fn main() -> Result<(), MyMakeError> {
     let mut generator = MakefileGenerator::new(std::env::current_dir().unwrap(), &toolchain);
     let mut builder = Builder::new(&mut generator);
 
-    command_line
-        .parse_command_line(&mut builder)
-        .unwrap_or_terminate();
+    builder
+        .configure(&command_line)
+        .map_err(MyMakeError::ConfigurationTime)?;
 
     println!(
         "rsmake: Using toolchain from {}",

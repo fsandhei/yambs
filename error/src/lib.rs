@@ -7,16 +7,12 @@ use thiserror;
 pub enum MyMakeError {
     #[error("Error occured when parsing command line")]
     CommandLine(#[source] CommandLineError),
-    #[error("Error occured during compilation: {description}")]
-    CompileTime { description: String },
-    #[error("Error occured during configure time: {0}")]
-    ConfigurationTime(String),
-    #[error("{description}")]
-    Generic { description: String },
     #[error("Error occured during parsing")]
     Parse(#[source] ParseError),
     #[error(transparent)]
     Fs(#[from] FsError),
+    #[error(transparent)]
+    ConfigurationTime(#[from] BuilderError),
 }
 
 #[non_exhaustive]
@@ -37,14 +33,22 @@ pub enum BuilderError {
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum CommandLineError {
+    #[error("Input cannot be non-UTF-8")]
+    NonUtf8Input,
     #[error("C++ version \"{0}\" used is not allowed.")]
     InvalidCppVersion(String),
-    #[error("release and debug can't be used together. Only use one build configuration.")]
+    #[error("Configuration input was not valid.")]
     InvalidConfiguration,
+    #[error("release and debug can't be used together. Only use one build configuration.")]
+    InvalidBuildConfiguration,
     #[error("Invalid argument used for sanitizer. Valid arguments are address, undefined, leak and thread.")]
     InvalidSanitizerArgument,
     #[error("address cannot be used together with thread. Pick only one.")]
     IllegalSanitizerCombination,
+    #[error(transparent)]
+    Parse(#[from] ParseError),
+    #[error(transparent)]
+    Fs(#[from] FsError),
 }
 
 #[non_exhaustive]
@@ -94,6 +98,10 @@ pub enum FsError {
     Spawn(std::process::Command),
     #[error("Could not access directory")]
     AccessDirectory(#[source] std::io::Error),
+    #[error("Could not find include directory from {0:?}")]
+    NoIncludeDirectory(std::path::PathBuf),
+    #[error("{0:?} does not contain a lib.mmk file!")]
+    NoLibraryFile(std::path::PathBuf),
 }
 
 #[non_exhaustive]
@@ -141,6 +149,8 @@ pub enum MakeError {
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ToolchainError {
+    #[error("Could not find mymake directory and toolchain file from {0:?}")]
+    FileNotFound(PathBuf),
     #[error("Key \"{0}\" could not not be found")]
     KeyNotFound(String),
     #[error("\"{0}\" is not allowed as keyword for toolchain.")]

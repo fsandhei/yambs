@@ -1,15 +1,16 @@
-mod filter;
-mod make;
-
-use colored::Colorize;
-use dependency::{Dependency, DependencyNode, DependencyRegistry};
-use error::BuilderError;
-use generator::GeneratorExecutor;
 use std::env;
 use std::path::PathBuf;
 use std::process::Output;
 use std::rc::Rc;
 
+use cli::command_line::{BuildConfigurations, CommandLine, Configuration};
+use colored::Colorize;
+use dependency::{Dependency, DependencyNode, DependencyRegistry};
+use error::BuilderError;
+use generator::GeneratorExecutor;
+
+mod filter;
+mod make;
 use make::Make;
 
 pub struct Builder<'a> {
@@ -35,6 +36,17 @@ impl<'a> Builder<'a> {
         }
     }
 
+    pub fn configure(&mut self, command_line: &CommandLine) -> Result<(), BuilderError> {
+        if command_line.verbose {
+            self.set_verbose(true);
+        }
+        self.add_make("-j", &command_line.jobs.to_string());
+
+        self.use_configuration(&command_line.configuration)?;
+
+        Ok(())
+    }
+
     pub fn add_generator(&mut self, generator: &'a mut dyn GeneratorExecutor) {
         if let Some(_) = &self.top_dependency {
             self.generator = Box::new(generator);
@@ -49,8 +61,8 @@ impl<'a> Builder<'a> {
         Ok(self.generator.as_mut().use_std(version)?)
     }
 
-    pub fn set_sanitizers(&mut self, sanitizers: &[String]) {
-        self.generator.as_mut().set_sanitizers(sanitizers);
+    pub fn set_sanitizer(&mut self, sanitizers: &str) {
+        self.generator.as_mut().set_sanitizer(sanitizers);
     }
 
     pub fn debug(&mut self) {
@@ -184,14 +196,6 @@ impl<'a> Builder<'a> {
         Ok(output)
     }
 
-    fn resolve_build_directory(&self, path: &PathBuf) -> PathBuf {
-        if self.debug {
-            return path.join("debug");
-        } else {
-            return path.join("release");
-        }
-    }
-
     fn construct_build_message(dependency: &DependencyNode) -> String {
         let dep_type: &str;
         let dep_type_name: String;
@@ -217,6 +221,29 @@ impl<'a> Builder<'a> {
         }
         self.make.log_text(message).unwrap();
         std::env::set_current_dir(directory).unwrap()
+    }
+
+    fn resolve_build_directory(&self, path: &PathBuf) -> PathBuf {
+        if self.debug {
+            return path.join("debug");
+        } else {
+            return path.join("release");
+        }
+    }
+
+    fn use_configuration(
+        &mut self,
+        configurations: &BuildConfigurations,
+    ) -> Result<(), BuilderError> {
+        for configuration in configurations {
+            match configuration {
+                Configuration::Debug => Ok(self.debug()),
+                Configuration::Release => Ok(self.release()),
+                Configuration::Sanitizer(sanitizer) => Ok(self.set_sanitizer(&sanitizer)),
+                Configuration::CppVersion(version) => self.use_std(&version),
+            }?;
+        }
+        Ok(())
     }
 }
 

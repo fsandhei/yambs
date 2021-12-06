@@ -12,7 +12,7 @@ pub trait Generator: DependencyAccessor + Sanitizer + RuntimeSettings {
 }
 
 pub trait Sanitizer {
-    fn set_sanitizers(&mut self, sanitizers: &[String]);
+    fn set_sanitizer(&mut self, sanitizer: &str);
 }
 
 pub trait RuntimeSettings {

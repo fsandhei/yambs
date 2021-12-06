@@ -1,4 +1,4 @@
-use error::{FsError, MyMakeError};
+use error::FsError;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
@@ -13,7 +13,7 @@ pub fn get_source_directory_from_path<P: AsRef<Path>>(path: P) -> PathBuf {
     }
 }
 
-pub fn get_include_directory_from_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, MyMakeError> {
+pub fn get_include_directory_from_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, FsError> {
     if path.as_ref().join("include").is_dir() {
         return Ok(path.as_ref().join("include"));
     } else {
@@ -21,20 +21,16 @@ pub fn get_include_directory_from_path<P: AsRef<Path>>(path: P) -> Result<PathBu
         if parent.join("include").is_dir() {
             return Ok(parent.join("include"));
         } else {
-            return Err(MyMakeError::Generic {
-                description: format!("Could not find include directory from {:?}", parent),
-            });
+            return Err(FsError::NoIncludeDirectory(parent.into()));
         }
     }
 }
 
-pub fn get_mmk_library_file_from_path(path: &PathBuf) -> Result<PathBuf, MyMakeError> {
+pub fn get_mmk_library_file_from_path(path: &Path) -> Result<PathBuf, FsError> {
     if path.join("lib.mmk").is_file() {
         return Ok(path.join("lib.mmk"));
     } else {
-        return Err(MyMakeError::Generic {
-            description: format!("{:?} does not contain a lib.mmk file!", path),
-        });
+        return Err(FsError::NoLibraryFile(path.into()));
     }
 }
 

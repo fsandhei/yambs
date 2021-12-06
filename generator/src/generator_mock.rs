@@ -39,10 +39,6 @@ impl Generator for GeneratorMock {
     fn print_ok(&self) {}
 }
 
-impl Sanitizer for GeneratorMock {
-    fn set_sanitizers(&mut self, _: &[String]) {}
-}
-
 impl RuntimeSettings for GeneratorMock {
     fn debug(&mut self) {}
 

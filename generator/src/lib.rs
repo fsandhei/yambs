@@ -11,57 +11,12 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use cli::command_line::{BuildConfigurations, Configuration};
 use dependency::{DependencyAccessor, DependencyNode};
 use error::GeneratorError;
 use include_file_generator::IncludeFileGenerator;
 use mmk_parser::Toolchain;
 use utility;
-
-#[derive(PartialEq, Eq)]
-enum Configuration {
-    Debug,
-    Release,
-    Sanitizer(Vec<String>),
-    CppVersion(String),
-}
-
-struct BuildConfigurations {
-    configurations: Vec<Configuration>,
-}
-
-impl BuildConfigurations {
-    pub fn new() -> Self {
-        Self {
-            configurations: Vec::new(),
-        }
-    }
-
-    pub fn add_configuration(&mut self, configuration: Configuration) {
-        self.configurations.push(configuration);
-    }
-
-    pub fn is_debug_build(&self) -> bool {
-        self.configurations.contains(&Configuration::Debug)
-    }
-}
-
-impl IntoIterator for BuildConfigurations {
-    type Item = Configuration;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.configurations.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a BuildConfigurations {
-    type Item = &'a Configuration;
-    type IntoIter = std::slice::Iter<'a, Configuration>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.configurations.iter()
-    }
-}
 
 #[derive(PartialEq, Eq)]
 enum GeneratorState {
@@ -102,8 +57,8 @@ impl MakefileGenerator {
 
         for build_configuration in &self.build_configurations {
             match build_configuration {
-                Configuration::Sanitizer(sanitizers) => {
-                    include_file_generator.set_sanitizers(sanitizers)
+                Configuration::Sanitizer(sanitizer) => {
+                    include_file_generator.set_sanitizer(sanitizer)
                 }
                 Configuration::CppVersion(version) => {
                     include_file_generator.add_cpp_version(version);
@@ -542,7 +497,7 @@ impl DependencyAccessor for MakefileGenerator {
 }
 
 impl Sanitizer for MakefileGenerator {
-    fn set_sanitizers(&mut self, sanitizers: &[String]) {
+    fn set_sanitizer(&mut self, sanitizers: &str) {
         self.build_configurations
             .add_configuration(Configuration::Sanitizer(
                 sanitizers.iter().map(|s| s.to_string()).collect(),

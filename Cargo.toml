@@ -9,6 +9,7 @@ edition = "2018"
 [workspace]
 members = [
    "builder",
+   "cli",
    "mmk_parser",
    "generator",
    "external",
@@ -22,11 +23,13 @@ path  = "rsmake/main.rs"
 
 [dependencies]
 builder = { path = 'builder/' }
+cli = { path = 'cli/' }
 mmk_parser = { path = 'mmk_parser/' }
 generator = { path = 'generator/' }
 external = { path = 'external/' }
 error    = { path = 'error/' }
 
 colored = "2.0.0"
-clap = "2.33.3"
-
+structopt = "0.3"
+regex = "1.0"
+lazy_static = "1.4"

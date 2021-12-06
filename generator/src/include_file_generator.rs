@@ -94,12 +94,12 @@ impl<'generator> IncludeFileGenerator<'generator> {
        \n\
        \n\
        else ifeq ($(CC_USES_CLANG), true)
-            CXXFLAGS += $(GLINUX_WARNINGS)\n\
+            CXXFLAGS += $(GLINUX_WARNINGS)\n
         
        endif\n\
         CXXFLAGS += {cpp_version}\n\
        \n\
-       \n\
+       \n
 
         #-Wall                     # Reasonable and standard\n\
         #-Wextra                   # Warn if indentation implies blocks where blocks do not exist.\n\
@@ -138,7 +138,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
                     -O0 \\
                     -gdwarf
         \n\
-        {flags_sanitizer}\
+        {flags_sanitizer}
 
         # When building with sanitizer options, certain linker options must be added.\n\
         # For thread sanitizers, -fPIE and -pie will be added to linker and C++ flag options.\n\
@@ -269,9 +269,16 @@ impl<'generator> UtilityGenerator<'generator> for IncludeFileGenerator<'generato
 
     fn print_cpp_version(&'generator self) -> &str {
         if self.args.contains_key("C++") {
-            self.args.get("C++").unwrap()
+            match self.args.get("C++").unwrap().as_str() {
+                "c++98" => "-std=c++98",
+                "c++03" => "-std=c++03",
+                "c++11" => "-std=c++11",
+                "c++14" => "-std=c++14",
+                "c++17" => "-std=c++17",
+                "c++20" | _ => "-std=c++17",
+            }
         } else {
-            "-std=c++20"
+            "-std=c++17"
         }
     }
 
@@ -290,16 +297,14 @@ impl<'generator> UtilityGenerator<'generator> for IncludeFileGenerator<'generato
 }
 
 impl<'generator> Sanitizer for IncludeFileGenerator<'generator> {
-    fn set_sanitizers(&mut self, sanitizers: &[String]) {
+    fn set_sanitizer(&mut self, sanitizer: &str) {
         let mut sanitizer_str = String::new();
-        for option in sanitizers {
-            match option.as_str() {
-                "address" => sanitizer_str.push_str("address "), // sanitizer_str.push_str("address kernel-adress hwaddress pointer-compare pointer-subtract"),
-                "thread" => sanitizer_str.push_str("thread -fPIE -pie "),
-                "leak" => sanitizer_str.push_str("leak "),
-                "undefined" => sanitizer_str.push_str("undefined "),
-                _ => (),
-            }
+        match sanitizer {
+            "address" => sanitizer_str.push_str("address "), // sanitizer_str.push_str("address kernel-adress hwaddress pointer-compare pointer-subtract"),
+            "thread" => sanitizer_str.push_str("thread -fPIE -pie "),
+            "leak" => sanitizer_str.push_str("leak "),
+            "undefined" => sanitizer_str.push_str("undefined "),
+            _ => (),
         }
         self.args.insert("sanitizers", sanitizer_str);
     }

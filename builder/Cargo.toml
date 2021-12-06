@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 colored = "2.0.0"
+cli        = { path = "../cli" }
 dependency = { path = "../dependency" }
 error      = { path = "../error" }
 utility    = { path = "../utility" }

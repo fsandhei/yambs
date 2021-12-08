@@ -7,6 +7,9 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use structopt::StructOpt;
 
+// TODO: Need to add tests for C++ validation and sanitizer validation
+// TODO: Should be okay to use tests from Generator.
+
 #[derive(StructOpt, Debug)]
 #[structopt(
     author = "Fredrik Sandhei <fredrik.sandhei@gmail.com>",

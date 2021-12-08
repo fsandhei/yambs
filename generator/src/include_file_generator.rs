@@ -94,10 +94,10 @@ impl<'generator> IncludeFileGenerator<'generator> {
        \n\
        \n\
        else ifeq ($(CC_USES_CLANG), true)
-            CXXFLAGS += $(GLINUX_WARNINGS)\n
-        
+            CXXFLAGS += $(GLINUX_WARNINGS)\n\
        endif\n\
-        CXXFLAGS += {cpp_version}\n\
+       \n\
+       CXXFLAGS += {cpp_version}\n\
        \n\
        \n
 
@@ -278,7 +278,7 @@ impl<'generator> UtilityGenerator<'generator> for IncludeFileGenerator<'generato
                 "c++20" | _ => "-std=c++20",
             }
         } else {
-            "-std=c++17"
+            "-std=c++20"
         }
     }
 

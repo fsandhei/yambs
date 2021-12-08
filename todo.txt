@@ -89,3 +89,5 @@ TODO:
 
    * Custom System Message structure
       - Error messages should reflect which part of the DMake process that failed.
+   * Signal Interrupt handler
+      * Upon interrupting a RsMake process by for example getting Ctrl-C input from user, cancel RsMake processes in an ordinary fashion.

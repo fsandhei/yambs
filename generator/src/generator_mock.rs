@@ -19,6 +19,10 @@ impl GeneratorExecutor for GeneratorMock {
     }
 }
 
+impl Sanitizer for GeneratorMock {
+    fn set_sanitizer(&mut self, _: &str) {}
+}
+
 impl Generator for GeneratorMock {
     fn generate_makefile(&mut self) -> Result<(), GeneratorError> {
         Ok(())

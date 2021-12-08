@@ -61,10 +61,6 @@ impl<'a> Builder<'a> {
         Ok(self.generator.as_mut().use_std(version)?)
     }
 
-    pub fn set_sanitizer(&mut self, sanitizers: &str) {
-        self.generator.as_mut().set_sanitizer(sanitizers);
-    }
-
     pub fn debug(&mut self) {
         self.debug = true;
         self.generator.as_mut().debug();
@@ -244,6 +240,10 @@ impl<'a> Builder<'a> {
             }?;
         }
         Ok(())
+    }
+
+    fn set_sanitizer(&mut self, sanitizers: &str) {
+        self.generator.as_mut().set_sanitizer(sanitizers);
     }
 }
 

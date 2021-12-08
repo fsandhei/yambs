@@ -275,7 +275,7 @@ impl<'generator> UtilityGenerator<'generator> for IncludeFileGenerator<'generato
                 "c++11" => "-std=c++11",
                 "c++14" => "-std=c++14",
                 "c++17" => "-std=c++17",
-                "c++20" | _ => "-std=c++17",
+                "c++20" | _ => "-std=c++20",
             }
         } else {
             "-std=c++17"

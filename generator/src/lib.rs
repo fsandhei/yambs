@@ -497,11 +497,10 @@ impl DependencyAccessor for MakefileGenerator {
 }
 
 impl Sanitizer for MakefileGenerator {
-    fn set_sanitizer(&mut self, sanitizers: &str) {
+    fn set_sanitizer(&mut self, sanitizer: &str) {
+        let sanitizer_configuration = Configuration::Sanitizer(sanitizer.into());
         self.build_configurations
-            .add_configuration(Configuration::Sanitizer(
-                sanitizers.iter().map(|s| s.to_string()).collect(),
-            ));
+            .add_configuration(sanitizer_configuration);
     }
 }
 

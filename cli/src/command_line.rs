@@ -91,16 +91,15 @@ impl BuildConfigurations {
         self.configurations.push(configuration);
     }
 
-    // pub fn is_debug_build(&self) -> bool {
-    //     self.configurations.contains(&Configuration::Debug)
-    // }
+    pub fn is_debug_build(&self) -> bool {
+        self.configurations.contains(&Configuration::Debug)
+    }
 }
 
 impl std::str::FromStr for BuildConfigurations {
     type Err = CommandLineError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        println!("s = {}", s);
         let mut build_configurations = Self::new();
         let cli_configurations = s.split(",");
         for cli_config in cli_configurations {

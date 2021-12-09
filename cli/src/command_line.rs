@@ -8,7 +8,6 @@ use regex::Regex;
 use structopt::StructOpt;
 
 // TODO: Need to add tests for C++ validation and sanitizer validation
-// TODO: Should be okay to use tests from Generator.
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -23,23 +22,19 @@ pub struct CommandLine {
     /// Input file for RsMake.
     #[structopt(short = "g", parse(try_from_str = validate_file_path))]
     pub input_file: PathBuf,
-    /// Toggles verbosity
-    #[structopt(short = "v", long = "verbose", help = "Toggle verbose output")]
+    /// Toggles verbose output.
+    #[structopt(short = "v", long = "verbose")]
     pub verbose: bool,
     #[structopt(
         short = "c",
         long = "configuration",
         default_value = "release",
         parse(try_from_str = BuildConfigurations::from_str),
-        help = "Set runtime configurations (build configurations, C++ standard, sanitizers, etc)"
     )]
+    /// "Set runtime configurations (build configurations, C++ standard, sanitizers, etc)"
     pub configuration: BuildConfigurations,
-    #[structopt(
-        short = "j",
-        long = "jobs",
-        default_value = "10",
-        help = "Set parallelization of builds for Make."
-    )]
+    #[structopt(short = "j", long = "jobs", default_value = "10")]
+    ///"Set parallelization of builds for Make."
     pub jobs: u8,
 }
 
@@ -164,4 +159,79 @@ fn validate_file_path(path: &str) -> Result<PathBuf, CommandLineError> {
     let file_name = mmk_parser::validate_file_path(path)?;
     mmk_parser::validate_file_name(&file_name)?;
     Ok(file_name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_cpp_version_cpp98_test() -> Result<(), CommandLineError> {
+        let cpp_version = parse_cpp_version("c++98")?;
+        assert_eq!(cpp_version, Configuration::CppVersion("c++98".into()));
+        Ok(())
+    }
+
+    #[test]
+    fn add_cpp_version_cpp11_test() -> Result<(), CommandLineError> {
+        let cpp_version = parse_cpp_version("c++11")?;
+        assert_eq!(cpp_version, Configuration::CppVersion("c++11".into()));
+        Ok(())
+    }
+
+    #[test]
+    fn add_cpp_version_cpp14_test() -> Result<(), CommandLineError> {
+        let cpp_version = parse_cpp_version("c++14")?;
+        assert_eq!(cpp_version, Configuration::CppVersion("c++14".into()));
+        Ok(())
+    }
+
+    #[test]
+    fn add_cpp_version_cpp17_test() -> Result<(), CommandLineError> {
+        let cpp_version = parse_cpp_version("c++17")?;
+        assert_eq!(cpp_version, Configuration::CppVersion("c++17".into()));
+        Ok(())
+    }
+
+    #[test]
+    fn add_cpp_version_cpp20_test() -> Result<(), CommandLineError> {
+        let cpp_version = parse_cpp_version("c++20")?;
+        assert_eq!(cpp_version, Configuration::CppVersion("c++20".into()));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_cpp_version_fails_on_invalid_version() -> Result<(), CommandLineError> {
+        let result = parse_cpp_version("python");
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn parse_sanitizer_options_allows_combinatio_of_address_and_leak(
+    ) -> Result<(), CommandLineError> {
+        let address = Configuration::Sanitizer("address".into());
+        let thread = Configuration::Sanitizer("leak".into());
+        let sanitizers = vec![&address, &thread];
+        parse_sanitizer_options(sanitizers.as_slice())
+    }
+
+    #[test]
+    fn parse_sanitizer_options_allows_combinatio_of_address_and_undefined(
+    ) -> Result<(), CommandLineError> {
+        let address = Configuration::Sanitizer("address".into());
+        let undefined = Configuration::Sanitizer("undefined".into());
+        let sanitizers = vec![&address, &undefined];
+        parse_sanitizer_options(sanitizers.as_slice())
+    }
+
+    #[test]
+    fn parse_sanitizer_options_does_not_allow_combination_of_address_and_thread(
+    ) -> Result<(), CommandLineError> {
+        let address = Configuration::Sanitizer("address".into());
+        let thread = Configuration::Sanitizer("thread".into());
+        let sanitizers = vec![&address, &thread];
+        assert!(parse_sanitizer_options(sanitizers.as_slice()).is_err());
+        Ok(())
+    }
 }

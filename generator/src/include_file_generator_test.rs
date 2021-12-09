@@ -16,79 +16,65 @@ fn construct_generator<'generator>(
     IncludeFileGenerator::new(path, toolchain)
 }
 
-// #[test]
-// fn add_cpp_version_cpp98_test() -> Result<(), GeneratorError> {
-//     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-//     let toolchain = Toolchain::new().set_sample_config();
-//     let mut gen = construct_generator(&output_directory, &toolchain);
-//     gen.add_cpp_version("c++98");
-//     assert_eq!(gen.args["C++"], "-std=c++98");
-//     Ok(())
-// }
-//
-// #[test]
-// fn add_cpp_version_cpp11_test() -> Result<(), GeneratorError> {
-//     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-//     let toolchain = Toolchain::new().set_sample_config();
-//     let mut gen = construct_generator(&output_directory, &toolchain);
-//     gen.add_cpp_version("c++11");
-//     assert_eq!(gen.args["C++"], "-std=c++11");
-//     Ok(())
-// }
-//
-// #[test]
-// fn add_cpp_version_cpp14_test() -> Result<(), GeneratorError> {
-//     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-//     let toolchain = Toolchain::new().set_sample_config();
-//     let mut gen = construct_generator(&output_directory, &toolchain);
-//     gen.add_cpp_version("c++14");
-//     assert_eq!(gen.args["C++"], "-std=c++14");
-//     Ok(())
-// }
-//
-// #[test]
-// fn add_cpp_version_cpp17_test() -> Result<(), GeneratorError> {
-//     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-//     let toolchain = Toolchain::new().set_sample_config();
-//     let mut gen = construct_generator(&output_directory, &toolchain);
-//     gen.add_cpp_version("c++17");
-//     assert_eq!(gen.args["C++"], "-std=c++17");
-//     Ok(())
-// }
-//
-// #[test]
-// fn add_cpp_version_cpp17_uppercase_test() -> Result<(), GeneratorError> {
-//     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-//     let toolchain = Toolchain::new().set_sample_config();
-//     let mut gen = construct_generator(&output_directory, &toolchain);
-//     gen.add_cpp_version("C++17");
-//     assert_eq!(gen.args["C++"], "-std=c++17");
-//     Ok(())
-// }
-//
-// #[test]
-// fn add_cpp_version_cpp20_test() -> Result<(), GeneratorError> {
-//     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-//     let toolchain = Toolchain::new().set_sample_config();
-//     let mut gen = construct_generator(&output_directory, &toolchain);
-//     gen.add_cpp_version("c++20");
-//     assert_eq!(gen.args["C++"], "-std=c++20");
-//     Ok(())
-// }
+#[test]
+fn add_cpp_version_cpp98_test() -> Result<(), GeneratorError> {
+    let output_directory = produce_include_path(TempDir::new("example").unwrap());
+    let toolchain = Toolchain::new().set_sample_config();
+    let mut gen = construct_generator(&output_directory, &toolchain);
+    gen.add_cpp_version("c++98");
+    assert_eq!(gen.args["C++"], "c++98");
+    Ok(())
+}
 
-// #[test]
-// fn add_cpp_version_invalid_test() -> Result<(), GeneratorError> {
-//     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-//     let toolchain = Toolchain::new().set_sample_config();
-//     let mut gen = construct_generator(&output_directory, &toolchain);
-//     let result = gen.add_cpp_version("python");
-//     assert!(result.is_err());
-//     assert_eq!(
-//         String::from("C++ version \"python\" used is not allowed."),
-//         result.unwrap_err().to_string()
-//     );
-//     Ok(())
-// }
+#[test]
+fn add_cpp_version_cpp11_test() -> Result<(), GeneratorError> {
+    let output_directory = produce_include_path(TempDir::new("example").unwrap());
+    let toolchain = Toolchain::new().set_sample_config();
+    let mut gen = construct_generator(&output_directory, &toolchain);
+    gen.add_cpp_version("c++11");
+    assert_eq!(gen.args["C++"], "c++11");
+    Ok(())
+}
+
+#[test]
+fn add_cpp_version_cpp14_test() -> Result<(), GeneratorError> {
+    let output_directory = produce_include_path(TempDir::new("example").unwrap());
+    let toolchain = Toolchain::new().set_sample_config();
+    let mut gen = construct_generator(&output_directory, &toolchain);
+    gen.add_cpp_version("c++14");
+    assert_eq!(gen.args["C++"], "c++14");
+    Ok(())
+}
+
+#[test]
+fn add_cpp_version_cpp17_test() -> Result<(), GeneratorError> {
+    let output_directory = produce_include_path(TempDir::new("example").unwrap());
+    let toolchain = Toolchain::new().set_sample_config();
+    let mut gen = construct_generator(&output_directory, &toolchain);
+    gen.add_cpp_version("c++17");
+    assert_eq!(gen.args["C++"], "c++17");
+    Ok(())
+}
+
+#[test]
+fn add_cpp_version_cpp17_uppercase_test() -> Result<(), GeneratorError> {
+    let output_directory = produce_include_path(TempDir::new("example").unwrap());
+    let toolchain = Toolchain::new().set_sample_config();
+    let mut gen = construct_generator(&output_directory, &toolchain);
+    gen.add_cpp_version("C++17");
+    assert_eq!(gen.args["C++"], "c++17");
+    Ok(())
+}
+
+#[test]
+fn add_cpp_version_cpp20_test() -> Result<(), GeneratorError> {
+    let output_directory = produce_include_path(TempDir::new("example").unwrap());
+    let toolchain = Toolchain::new().set_sample_config();
+    let mut gen = construct_generator(&output_directory, &toolchain);
+    gen.add_cpp_version("c++20");
+    assert_eq!(gen.args["C++"], "c++20");
+    Ok(())
+}
 
 #[test]
 fn generate_strict_mk_test() -> std::io::Result<()> {

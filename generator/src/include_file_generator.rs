@@ -264,7 +264,7 @@ impl<'generator> UtilityGenerator<'generator> for IncludeFileGenerator<'generato
     }
 
     fn add_cpp_version(&mut self, version: &str) {
-        self.args.insert("C++", version.to_string());
+        self.args.insert("C++", version.to_string().to_lowercase());
     }
 
     fn print_cpp_version(&'generator self) -> &str {

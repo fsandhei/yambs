@@ -80,7 +80,6 @@ MMK_SOURCES:
    src/test.cpp
 EOF
 
-   cd $ROOT_DIR && build_mymake
    if [ -d "$ROOT_DIR/build" ]; then
       rm -rf "$ROOT_DIR/build"
    fi
@@ -217,9 +216,13 @@ cargo_test "${ROOT_DIR}/builder"
 cargo_test "${ROOT_DIR}/dependency"
 cargo_test "${ROOT_DIR}/generator"
 cargo_test "${ROOT_DIR}/utility"
+   
+cd $ROOT_DIR && build_mymake
 
+echo "--------------------------- RUNNING ACCEPTANCE TESTS ---------------------------"
 test_mymake_minimal_build
 test_mymake_with_one_dependency_build
+echo "--------------------------- END OF ACCEPTANCE TESTS ---------------------------"
 
 if [ "$?" -eq 0 ]; then
    echo "SUCCESS"

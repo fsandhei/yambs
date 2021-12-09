@@ -2,17 +2,32 @@
 
 set -e # Bail on error.
 
+trap "remove_build_and_test_files $?" EXIT
+
 BIN_DIR="/usr/bin/"
 CARGO="/home/fredrik/.cargo/bin/cargo"
 ROOT_DIR="/home/fredrik/bin/rsmake"
 RSMAKE="$ROOT_DIR/target/release/rsmake"
 RSMAKE_RELEASE="$ROOT_DIR/target/release/rsmake"
 CWD=`pwd`
+   
+TEST_DIR="$ROOT_DIR/test_project"
+TEST_DIR_DEP="$ROOT_DIR/test_dependency_project"
 
 install_mymake()
 {
    echo "Installing release build of RsMake into $BIN_DIR"
    cp -f -v $RSMAKE_RELEASE $BIN_DIR
+}
+
+
+remove_build_and_test_files() {
+   if [[ "$1" != "0" ]]; then
+      echo "An error occured. Cleaning up and exiting..."
+      rm -rf "$ROOT_DIR/build"
+      rm -rf "$TEST_DIR"
+      rm -rf "$TEST_DIR_DEP"
+   fi
 }
 
 
@@ -40,7 +55,6 @@ build_mymake()
 
 test_mymake_minimal_build()
 {
-   TEST_DIR="$ROOT_DIR/test_project"
    if [ -d "$TEST_DIR" ]; then
       rm -rf "$TEST_DIR"
    fi
@@ -70,7 +84,7 @@ EOF
    if [ -d "$ROOT_DIR/build" ]; then
       rm -rf "$ROOT_DIR/build"
    fi
-   mkdir "$ROOT_DIR/build" && cd $ROOT_DIR/build
+   mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
    "$RSMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
@@ -83,8 +97,6 @@ EOF
 
 test_mymake_with_one_dependency_build()
 {
-   TEST_DIR="$ROOT_DIR/test_project"
-   TEST_DIR_DEP="$ROOT_DIR/test_dependency_project"
    
    if [ -d "$TEST_DIR" ]; then
       rm -rf "$TEST_DIR"

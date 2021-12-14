@@ -8,12 +8,12 @@ edition = "2018"
 
 [workspace]
 members = [
-   "builder",
-   "cli",
-   "mmk_parser",
-   "generator",
-   "external",
-   "error"
+   "crates/cli",
+   "crates/builder",
+   "crates/mmk_parser",
+   "crates/generator",
+   "crates/external",
+   "crates/error"
 ]
 
 [[bin]]
@@ -22,12 +22,12 @@ bench = false
 path  = "rsmake/main.rs"
 
 [dependencies]
-builder = { path = 'builder/' }
-cli = { path = 'cli/' }
-mmk_parser = { path = 'mmk_parser/' }
-generator = { path = 'generator/' }
-external = { path = 'external/' }
-error    = { path = 'error/' }
+builder = { path = 'crates/builder/' }
+cli = { path = 'crates/cli' }
+mmk_parser = { path = 'crates/mmk_parser/' }
+generator = { path = 'crates/generator/' }
+external = { path = 'crates/external/' }
+error    = { path = 'crates/error/' }
 
 colored = "2.0.0"
 structopt = "0.3"

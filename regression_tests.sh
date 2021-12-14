@@ -14,13 +14,6 @@ CWD=`pwd`
 TEST_DIR="$ROOT_DIR/test_project"
 TEST_DIR_DEP="$ROOT_DIR/test_dependency_project"
 
-install_mymake()
-{
-   echo "Installing release build of RsMake into $BIN_DIR"
-   cp -f -v $RSMAKE_RELEASE $BIN_DIR
-}
-
-
 remove_build_and_test_files() {
    if [[ "$1" != "0" ]]; then
       echo "An error occured. Cleaning up and exiting..."
@@ -211,11 +204,11 @@ done
 
 [ $CWD != $ROOT_DIR ] && cd $ROOT_DIR
 
-cargo_test "${ROOT_DIR}/mmk_parser"
-cargo_test "${ROOT_DIR}/builder"
-cargo_test "${ROOT_DIR}/dependency"
-cargo_test "${ROOT_DIR}/generator"
-cargo_test "${ROOT_DIR}/utility"
+cargo_test "${ROOT_DIR}/crates/mmk_parser"
+cargo_test "${ROOT_DIR}/crates/builder"
+cargo_test "${ROOT_DIR}/crates/dependency"
+cargo_test "${ROOT_DIR}/crates/generator"
+cargo_test "${ROOT_DIR}/crates/utility"
    
 cd $ROOT_DIR && build_mymake
 

@@ -11,16 +11,16 @@ target
 *build
 
 # Dependency related ignores
-mmk_parser/target
+crates/mmk_parser/target
 
-generator/target
+crates/generator/target
 
-builder/target
+crates/builder/target
 
-external/target
+crates/external/target
 
-error/target
+crates/error/target
 
-dependency/target
+crates/dependency/target
 
-utility/target
+crates/utility/target

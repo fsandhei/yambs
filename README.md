@@ -5,7 +5,7 @@ to easily maintain and manage their project.
 
 RsMake is a hierarchical build system which constructs a directed acyclic graph from the contents of its recipe files.
 
-By writing the minimal amount of boilerplate code, a user gets a well equipped build environment with different runtime configurations.
+By writing the minimal amount of boilerplate code, a user gets a well equipped build environment with easily modifiable runtime configurations.
 
 RsMake differs from the typical build systems in that there are no "targets"...
 

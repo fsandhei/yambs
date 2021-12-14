@@ -3,6 +3,7 @@
 set -e # Bail on error.
 
 trap "remove_build_and_test_files $?" EXIT
+trap "remove_build_and_test_files $?" INT
 
 BIN_DIR="/usr/bin/"
 CARGO="/home/fredrik/.cargo/bin/cargo"
@@ -17,10 +18,10 @@ TEST_DIR_DEP="$ROOT_DIR/test_dependency_project"
 remove_build_and_test_files() {
    if [[ "$1" != "0" ]]; then
       echo "An error occured. Cleaning up and exiting..."
-      rm -rf "$ROOT_DIR/build"
-      rm -rf "$TEST_DIR"
-      rm -rf "$TEST_DIR_DEP"
    fi
+   rm -rf "$ROOT_DIR/build"
+   rm -rf "$TEST_DIR"
+   rm -rf "$TEST_DIR_DEP"
 }
 
 

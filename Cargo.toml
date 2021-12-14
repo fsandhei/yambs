@@ -19,7 +19,7 @@ members = [
 [[bin]]
 name = "rsmake"
 bench = false
-path  = "rsmake/main.rs"
+path  = "crates/rsmake/main.rs"
 
 [dependencies]
 builder = { path = 'crates/builder/' }

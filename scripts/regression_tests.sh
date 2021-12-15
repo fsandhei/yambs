@@ -5,6 +5,7 @@ set -e # Bail on error.
 trap "remove_build_and_test_files $?" EXIT
 trap "remove_build_and_test_files $?" INT
 
+ACCEPTANCE_TESTS_ONLY="false"
 BIN_DIR="/usr/bin/"
 CARGO="/home/fredrik/.cargo/bin/cargo"
 ROOT_DIR="/home/fredrik/bin/rsmake"
@@ -193,9 +194,8 @@ cargo_test()
 
 while :; do
    case $1 in
-      --install)
-         install_mymake
-         exit
+      --acceptance-tests-only)
+         ACCEPTANCE_TESTS_ONLY="true"
          ;;
       *)
          break
@@ -203,13 +203,14 @@ while :; do
    shift
 done
 
-[ $CWD != $ROOT_DIR ] && cd $ROOT_DIR
-
-cargo_test "${ROOT_DIR}/crates/mmk_parser"
-cargo_test "${ROOT_DIR}/crates/builder"
-cargo_test "${ROOT_DIR}/crates/dependency"
-cargo_test "${ROOT_DIR}/crates/generator"
-cargo_test "${ROOT_DIR}/crates/utility"
+if [[ "$ACCEPTANCE_TESTS_ONLY" == "false" ]]; then
+   [ $CWD != $ROOT_DIR ] && cd $ROOT_DIR
+   cargo_test "${ROOT_DIR}/crates/mmk_parser"
+   cargo_test "${ROOT_DIR}/crates/builder"
+   cargo_test "${ROOT_DIR}/crates/dependency"
+   cargo_test "${ROOT_DIR}/crates/generator"
+   cargo_test "${ROOT_DIR}/crates/utility"
+fi
    
 cd $ROOT_DIR && build_mymake
 

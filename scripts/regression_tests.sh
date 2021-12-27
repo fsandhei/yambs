@@ -16,6 +16,17 @@ CWD=`pwd`
 TEST_DIR="$ROOT_DIR/test_project"
 TEST_DIR_DEP="$ROOT_DIR/test_dependency_project"
 
+usage() {
+   echo "$(basename $0)"
+   echo "Regression test sript to run all tests for RsMake."
+   echo "Usage:"
+   echo "   $FUNCNAME [--acceptance-tests-only | -h | --help]"
+   echo "Flags:"
+   echo "  --acceptance-tests-only   Only run acceptance tests, skipping unit tests."
+   echo "  -h, --help                Display help message and exit."
+}
+
+
 remove_build_and_test_files() {
    if [[ "$1" != "0" ]]; then
       echo "An error occured. Cleaning up and exiting..."
@@ -197,6 +208,9 @@ while :; do
       --acceptance-tests-only)
          ACCEPTANCE_TESTS_ONLY="true"
          ;;
+      -h | --help)
+         usage
+         exit;;
       *)
          break
    esac

@@ -8,6 +8,10 @@ use regex::Regex;
 use structopt::StructOpt;
 
 // TODO: Need to add tests for C++ validation and sanitizer validation
+// TODO: Add default values that correctly correspond for 'configuration' when not all options are
+// specified.
+// TODO: Perhaps, BuilderConfigurations should be defaulted to have a predefined set of configurations
+// TODO: and remove those which are replaced by command line opted input.
 
 #[derive(StructOpt, Debug)]
 #[structopt(

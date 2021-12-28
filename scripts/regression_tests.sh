@@ -20,7 +20,7 @@ usage() {
    echo "$(basename $0)"
    echo "Regression test sript to run all tests for RsMake."
    echo "Usage:"
-   echo "   $FUNCNAME [--acceptance-tests-only | -h | --help]"
+   echo "   $(basename $0) [--acceptance-tests-only | -h | --help]"
    echo "Flags:"
    echo "  --acceptance-tests-only   Only run acceptance tests, skipping unit tests."
    echo "  -h, --help                Display help message and exit."

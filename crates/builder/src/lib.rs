@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use std::process::Output;
 use std::rc::Rc;
 
-use cli::command_line::{BuildConfigurations, CommandLine, Configuration};
+use cli::build_configurations::{BuildConfigurations, Configuration};
+use cli::command_line::CommandLine;
 use colored::Colorize;
 use dependency::{Dependency, DependencyNode, DependencyRegistry};
 use error::BuilderError;

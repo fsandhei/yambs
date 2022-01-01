@@ -11,7 +11,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use cli::command_line::{BuildConfigurations, Configuration};
+use cli::build_configurations::{BuildConfigurations, Configuration};
 use dependency::{DependencyAccessor, DependencyNode};
 use error::GeneratorError;
 use include_file_generator::IncludeFileGenerator;

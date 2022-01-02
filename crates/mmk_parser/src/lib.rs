@@ -248,10 +248,6 @@ pub fn validate_file_name(path: &PathBuf) -> Result<(), ParseError> {
         "lib.mmk" | "run.mmk" => (),
         _ => {
             return Err(ParseError::InvalidFilename(file_name.to_string()));
-            // return Err(MyMakeError::from(format!(
-            //     "{:?} is illegal name! File must be named lib.mmk or run.mmk.",
-            //     file_name
-            // )))
         }
     };
     Ok(())

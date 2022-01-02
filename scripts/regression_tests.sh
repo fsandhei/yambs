@@ -59,8 +59,7 @@ build_mymake()
 }
 
 
-test_mymake_minimal_build()
-{
+create_dummy_project() {
    if [ -d "$TEST_DIR" ]; then
       rm -rf "$TEST_DIR"
    fi
@@ -68,72 +67,10 @@ test_mymake_minimal_build()
    mkdir "$TEST_DIR/src"
    make_toolchain_file "$TEST_DIR/mymake"
 
-   cat << EOF > $TEST_DIR/src/test.cpp
-#include <iostream>
-
-int main()
-{
-   std::cout << "Minimum build test successful!\n";
-}
-
-EOF
-
-cat << EOF > $TEST_DIR/run.mmk
-MMK_EXECUTABLE:
-   x
-
-MMK_SOURCES:
-   src/test.cpp
-EOF
-
-   if [ -d "$ROOT_DIR/build" ]; then
-      rm -rf "$ROOT_DIR/build"
-   fi
-   mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
-   "$RSMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
-   build_result=$?
-   if [ "$build_result" -ne 0 ]; then
-      return "$build_result"
-   fi
-   cd "$ROOT_DIR"
-   rm -rf "$ROOT_DIR/build" "$TEST_DIR"
 }
 
 
-test_mymake_with_one_dependency_build()
-{
-   
-   if [ -d "$TEST_DIR" ]; then
-      rm -rf "$TEST_DIR"
-   fi
-   mkdir $TEST_DIR && cd $TEST_DIR
-   mkdir "$TEST_DIR/src"
-   make_toolchain_file "$TEST_DIR/mymake"
-
-   cat << EOF > $TEST_DIR/src/test.cpp
-#include <iostream>
-#include <example.h>
-
-int main()
-{
-   A a;
-   a.hello();
-   std::cout << "Minimum build with one dependency test successful!\n";
-}
-
-EOF
-
-cat << EOF > $TEST_DIR/run.mmk
-MMK_REQUIRE:
-  $TEST_DIR_DEP/src 
-
-MMK_EXECUTABLE:
-   x
-
-MMK_SOURCES:
-   src/test.cpp
-EOF
-
+create_dummy_library() {
    mkdir $TEST_DIR_DEP && cd $TEST_DIR_DEP
    mkdir "$TEST_DIR_DEP/src"
    mkdir "$TEST_DIR_DEP/include"
@@ -160,6 +97,103 @@ class A
 
 #endif
 EOF
+}
+
+
+test_mymake_minimal_build()
+{
+   create_dummy_project 
+   cat << EOF > $TEST_DIR/src/test.cpp
+#include <iostream>
+
+int main()
+{
+   std::cout << "Minimum build test successful!\n";
+}
+EOF
+   cat << EOF > $TEST_DIR/run.mmk
+MMK_EXECUTABLE:
+   x
+
+MMK_SOURCES:
+   src/test.cpp
+EOF
+
+   if [ -d "$ROOT_DIR/build" ]; then
+      rm -rf "$ROOT_DIR/build"
+   fi
+   mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
+   "$RSMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
+   build_result=$?
+   if [ "$build_result" -ne 0 ]; then
+      return "$build_result"
+   fi
+   cd "$ROOT_DIR"
+   rm -rf "$ROOT_DIR/build" "$TEST_DIR"
+}
+
+
+test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release()
+{
+   create_dummy_project 
+   cat << EOF > $TEST_DIR/src/test.cpp
+
+int main()
+{
+}
+EOF
+   cat << EOF > $TEST_DIR/run.mmk
+MMK_EXECUTABLE:
+   x
+
+MMK_SOURCES:
+   src/test.cpp
+EOF
+
+   if [ -d "$ROOT_DIR/build" ]; then
+      rm -rf "$ROOT_DIR/build"
+   fi
+   mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
+   "$RSMAKE" -g "$TEST_DIR/run.mmk" -c "c++17" && "$ROOT_DIR/build/release/x"
+   build_result=$?
+   if [ "$build_result" -ne 0 ]; then
+      return "$build_result"
+   fi
+   cd "$ROOT_DIR"
+   rm -rf "$ROOT_DIR/build" "$TEST_DIR"
+}
+
+
+
+test_mymake_with_one_dependency_build()
+{
+   create_dummy_project 
+   cat << EOF > $TEST_DIR/src/test.cpp
+#include <iostream>
+#include <example.h>
+
+int main()
+{
+   A a;
+   a.hello();
+   std::cout << "Minimum build with one dependency test successful!\n";
+}
+
+EOF
+   create_dummy_library
+   make_toolchain_file "$TEST_DIR/mymake"
+
+   cat << EOF > $TEST_DIR/run.mmk
+MMK_REQUIRE:
+  $TEST_DIR_DEP/src 
+
+MMK_EXECUTABLE:
+   x
+
+MMK_SOURCES:
+   src/test.cpp
+EOF
+
 
    cat << EOF > $TEST_DIR_DEP/src/lib.mmk
 
@@ -203,6 +237,12 @@ cargo_test()
    cd $ROOT_DIR
 }
 
+run_rsmake_test()
+{
+   echo "$1"
+   "$1" 1> /dev/null
+}
+
 while :; do
    case $1 in
       --acceptance-tests-only)
@@ -230,8 +270,9 @@ fi
 cd $ROOT_DIR && build_mymake
 
 echo "--------------------------- RUNNING ACCEPTANCE TESTS ---------------------------"
-test_mymake_minimal_build
-test_mymake_with_one_dependency_build
+run_rsmake_test test_mymake_minimal_build
+run_rsmake_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release
+run_rsmake_test test_mymake_with_one_dependency_build
 echo "--------------------------- END OF ACCEPTANCE TESTS ---------------------------"
 
 if [ "$?" -eq 0 ]; then

@@ -62,6 +62,21 @@ impl BuildConfigurations {
         self.configurations.push(configuration);
     }
 
+    pub fn remove_configuration(&mut self, configuration: &Configuration) {
+        let pos = self
+            .configurations
+            .as_slice()
+            .into_iter()
+            .position(|config| config == configuration);
+        if let Some(found_pos) = pos {
+            self.configurations.remove(found_pos);
+        }
+    }
+
+    pub fn has_configuration(&self, configuration: &Configuration) -> bool {
+        self.configurations.contains(configuration)
+    }
+
     pub fn is_debug_build(&self) -> bool {
         self.configurations.contains(&Configuration::Debug)
     }
@@ -80,14 +95,21 @@ impl std::str::FromStr for BuildConfigurations {
     type Err = CommandLineError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut build_configurations = Self::default();
         if s.is_empty() {
-            return Ok(Self::default());
+            return Ok(build_configurations);
         }
-        let mut build_configurations = Self::new();
         let cli_configurations = s.split(",").filter(|s| !s.is_empty());
         for cli_config in cli_configurations {
+            if cli_config == "release" || cli_config == "c++17" {
+                continue;
+            }
             let configuration = Configuration::from_str(cli_config)?;
             build_configurations.add_configuration(configuration);
+        }
+
+        if build_configurations.has_configuration(&Configuration::Debug) {
+            build_configurations.remove_configuration(&Configuration::Release);
         }
 
         let sanitizers = {
@@ -239,7 +261,7 @@ mod tests {
         let input = "release,c++17";
         let mut expected = BuildConfigurations::new();
         expected.add_configuration(Configuration::Release);
-        expected.add_configuration(Configuration::CppVersion("c++17".to_string()));
+        expected.add_configuration(Configuration::CppVersion("C++17".to_string()));
         let actual = BuildConfigurations::from_str(input).unwrap();
         assert_eq!(actual, expected);
         Ok(())
@@ -250,7 +272,7 @@ mod tests {
         let input = "release,c++17,";
         let mut expected = BuildConfigurations::new();
         expected.add_configuration(Configuration::Release);
-        expected.add_configuration(Configuration::CppVersion("c++17".to_string()));
+        expected.add_configuration(Configuration::CppVersion("C++17".to_string()));
         let actual = BuildConfigurations::from_str(input).unwrap();
         assert_eq!(actual, expected);
         Ok(())
@@ -262,10 +284,34 @@ mod tests {
         let input = "release,c++17,address,leak";
         let mut expected = BuildConfigurations::new();
         expected.add_configuration(Configuration::Release);
-        expected.add_configuration(Configuration::CppVersion("c++17".to_string()));
+        expected.add_configuration(Configuration::CppVersion("C++17".to_string()));
         expected.add_configuration(Configuration::Sanitizer("address".to_string()));
         expected.add_configuration(Configuration::Sanitizer("leak".to_string()));
-        let actual = BuildConfigurations::from_str(input).unwrap();
+        let actual = BuildConfigurations::from_str(input)?;
+        assert_eq!(actual, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn from_str_produces_build_configuration_when_not_exhaustive_configurations_are_given(
+    ) -> Result<(), CommandLineError> {
+        let input = "c++17";
+        let mut expected = BuildConfigurations::new();
+        expected.add_configuration(Configuration::Release);
+        expected.add_configuration(Configuration::CppVersion("C++17".to_string()));
+        let actual = BuildConfigurations::from_str(input)?;
+        assert_eq!(actual, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn from_str_produces_build_configuration_when_only_debug_is_given_and_defaults_to_cpp17(
+    ) -> Result<(), CommandLineError> {
+        let input = "debug";
+        let mut expected = BuildConfigurations::new();
+        expected.add_configuration(Configuration::CppVersion("C++17".to_string()));
+        expected.add_configuration(Configuration::Debug);
+        let actual = BuildConfigurations::from_str(input)?;
         assert_eq!(actual, expected);
         Ok(())
     }

@@ -15,7 +15,6 @@ use cli::build_configurations::{BuildConfigurations, Configuration};
 use dependency::{DependencyAccessor, DependencyNode};
 use error::GeneratorError;
 use include_file_generator::IncludeFileGenerator;
-use mmk_parser::Toolchain;
 use utility;
 
 #[derive(PartialEq, Eq)]
@@ -31,11 +30,10 @@ pub struct MakefileGenerator {
     output_directory: PathBuf,
     build_configurations: BuildConfigurations,
     state: GeneratorState,
-    toolchain: Toolchain,
 }
 
 impl MakefileGenerator {
-    pub fn new(build_directory: std::path::PathBuf, toolchain: &Toolchain) -> MakefileGenerator {
+    pub fn new(build_directory: std::path::PathBuf) -> MakefileGenerator {
         let output_directory = build_directory;
         utility::create_dir(&output_directory).unwrap();
 
@@ -46,14 +44,12 @@ impl MakefileGenerator {
             output_directory,
             build_configurations: BuildConfigurations::new(),
             state: GeneratorState::IncludeNotGenerated,
-            toolchain: toolchain.clone(),
         }
     }
 
     fn generate_include_files(&mut self) -> Result<(), error::GeneratorError> {
         let include_output_directory = self.build_directory.join("make_include");
-        let mut include_file_generator =
-            IncludeFileGenerator::new(&include_output_directory, &self.toolchain);
+        let mut include_file_generator = IncludeFileGenerator::new(&include_output_directory);
 
         for build_configuration in &self.build_configurations {
             match build_configuration {

@@ -9,18 +9,15 @@ fn produce_include_path(base_dir: TempDir) -> PathBuf {
     output_directory
 }
 
-fn construct_generator<'generator>(
-    path: &PathBuf,
-    toolchain: &'generator Toolchain,
-) -> IncludeFileGenerator<'generator> {
-    IncludeFileGenerator::new(path, toolchain)
+fn construct_generator<'generator>(path: &PathBuf) -> IncludeFileGenerator<'generator> {
+    IncludeFileGenerator::new(path)
 }
 
 #[test]
 fn add_cpp_version_cpp98_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("c++98");
     assert_eq!(gen.args["C++"], "c++98");
     Ok(())
@@ -29,8 +26,8 @@ fn add_cpp_version_cpp98_test() -> Result<(), GeneratorError> {
 #[test]
 fn add_cpp_version_cpp11_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("c++11");
     assert_eq!(gen.args["C++"], "c++11");
     Ok(())
@@ -39,8 +36,8 @@ fn add_cpp_version_cpp11_test() -> Result<(), GeneratorError> {
 #[test]
 fn add_cpp_version_cpp14_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("c++14");
     assert_eq!(gen.args["C++"], "c++14");
     Ok(())
@@ -49,8 +46,8 @@ fn add_cpp_version_cpp14_test() -> Result<(), GeneratorError> {
 #[test]
 fn add_cpp_version_cpp17_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("c++17");
     assert_eq!(gen.args["C++"], "c++17");
     Ok(())
@@ -59,8 +56,8 @@ fn add_cpp_version_cpp17_test() -> Result<(), GeneratorError> {
 #[test]
 fn add_cpp_version_cpp17_uppercase_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("C++17");
     assert_eq!(gen.args["C++"], "c++17");
     Ok(())
@@ -69,8 +66,8 @@ fn add_cpp_version_cpp17_uppercase_test() -> Result<(), GeneratorError> {
 #[test]
 fn add_cpp_version_cpp20_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("c++20");
     assert_eq!(gen.args["C++"], "c++20");
     Ok(())
@@ -79,8 +76,8 @@ fn add_cpp_version_cpp20_test() -> Result<(), GeneratorError> {
 #[test]
 fn generate_strict_mk_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("strict.mk");
     gen.generate_strict_mk().unwrap();
     assert_eq!(format!("\
@@ -147,8 +144,8 @@ fn generate_strict_mk_test() -> std::io::Result<()> {
 #[test]
 fn generate_debug_mk_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("debug.mk");
     gen.generate_debug_mk().unwrap();
     assert_eq!(
@@ -173,8 +170,8 @@ fn generate_debug_mk_test() -> std::io::Result<()> {
 #[test]
 fn generate_debug_mk_with_address_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("debug.mk");
     gen.set_sanitizer("address");
     gen.generate_debug_mk().unwrap();
@@ -203,8 +200,8 @@ fn generate_debug_mk_with_address_sanitizer_test() -> std::io::Result<()> {
 #[test]
 fn generate_debug_mk_with_thread_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("debug.mk");
     gen.set_sanitizer("thread");
     gen.generate_debug_mk().unwrap();
@@ -233,8 +230,8 @@ fn generate_debug_mk_with_thread_sanitizer_test() -> std::io::Result<()> {
 #[test]
 fn generate_release_mk_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("release.mk");
     gen.generate_release_mk().unwrap();
     assert_eq!(
@@ -251,8 +248,8 @@ fn generate_release_mk_test() -> std::io::Result<()> {
 #[test]
 fn generate_default_mk_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("default_make.mk");
     gen.generate_default_mk().unwrap();
     assert_eq!("\
@@ -268,8 +265,8 @@ fn generate_default_mk_test() -> std::io::Result<()> {
 #[test]
 fn change_directory_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
 
     assert_eq!(gen.output_directory, output_directory);
 
@@ -283,8 +280,8 @@ fn change_directory_test() -> std::io::Result<()> {
 #[test]
 fn generate_flags_sanitizer_no_sanitizers_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let gen = construct_generator(&output_directory, &toolchain);
+
+    let gen = construct_generator(&output_directory);
     let actual = gen.generate_flags_sanitizer();
     let expected = String::new();
     assert_eq!(expected, actual);
@@ -294,8 +291,8 @@ fn generate_flags_sanitizer_no_sanitizers_test() -> std::io::Result<()> {
 #[test]
 fn generate_flags_sanitizer_address_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     gen.set_sanitizer("address");
     let actual = gen.generate_flags_sanitizer();
     let expected = String::from(
@@ -311,8 +308,8 @@ fn generate_flags_sanitizer_address_sanitizer_test() -> std::io::Result<()> {
 #[test]
 fn generate_flags_sanitizer_thread_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     gen.set_sanitizer("thread");
     let actual = gen.generate_flags_sanitizer();
     let expected = String::from(
@@ -328,8 +325,8 @@ fn generate_flags_sanitizer_thread_sanitizer_test() -> std::io::Result<()> {
 #[test]
 fn generate_defines_mk_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-    let toolchain = Toolchain::new().set_sample_config();
-    let mut gen = construct_generator(&output_directory, &toolchain);
+
+    let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("defines.mk");
     gen.generate_defines_mk().unwrap();
     assert_eq!(

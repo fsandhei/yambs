@@ -3,7 +3,7 @@
 
 //TODO: Burde ha muligheten til å kunne bruke path som bruker relativ-path-direktiver (../)
 
-use error::{FsError, MyMakeError, ParseError, ToolchainError};
+use error::{FsError, MyMakeError, ParseError};
 use regex::Regex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -15,33 +15,6 @@ pub use keyword::Keyword;
 
 mod mmk_constants;
 pub use mmk_constants::{Constant, Constants};
-
-mod toolchain;
-pub use toolchain::Toolchain;
-
-pub fn read_toolchain(path: &PathBuf) -> Result<Toolchain, ToolchainError> {
-    let mut toolchain = Toolchain::new();
-    let content = toolchain.get_content(path)?;
-    toolchain.parse(content)?;
-    Ok(toolchain)
-}
-
-pub fn find_toolchain_file(path: &Path) -> Result<PathBuf, ToolchainError> {
-    let toolchain_filename = "toolchain.mmk";
-    let mymake_includes = path.join("mymake");
-
-    if path.join(toolchain_filename).is_file() {
-        return Ok(path.join(toolchain_filename));
-    } else if mymake_includes.is_dir() {
-        let toolchain_file = mymake_includes.join(toolchain_filename);
-        if toolchain_file.is_file() {
-            return Ok(toolchain_file);
-        } else {
-            return Err(ToolchainError::FileNotFound(path.into()));
-        }
-    }
-    return find_toolchain_file(path.parent().unwrap());
-}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Mmk {

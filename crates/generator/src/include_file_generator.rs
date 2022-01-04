@@ -4,8 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use crate::generator::{Sanitizer, UtilityGenerator};
-use error::GeneratorError;
-use mmk_parser::{Constant, Toolchain};
+use error::{FsError, GeneratorError};
 use utility;
 
 #[allow(dead_code)]
@@ -13,13 +12,12 @@ pub struct IncludeFileGenerator<'generator> {
     file: Option<File>,
     output_directory: PathBuf,
     args: HashMap<&'generator str, String>,
-    toolchain: &'generator Toolchain,
     compiler_constants: HashMap<&'generator str, &'generator str>,
 }
 
 #[allow(dead_code)]
 impl<'generator> IncludeFileGenerator<'generator> {
-    pub fn new(output_directory: &std::path::PathBuf, toolchain: &'generator Toolchain) -> Self {
+    pub fn new(output_directory: &std::path::PathBuf) -> Self {
         utility::create_dir(&output_directory).unwrap();
 
         let mut compiler_constants = HashMap::with_capacity(30);
@@ -30,7 +28,6 @@ impl<'generator> IncludeFileGenerator<'generator> {
             file: None,
             output_directory: output_directory.clone(),
             args: HashMap::new(),
-            toolchain,
             compiler_constants,
         }
     }
@@ -198,18 +195,11 @@ impl<'generator> IncludeFileGenerator<'generator> {
         # Defines.mk\n\
         # Contains a number of defines determined from MyMake configuration time.\n\
         \n\
-        CC := {compiler_path}\n\
         {compiler_conditional_flags}\n\
         CP := /usr/bin/cp\n\
         CP_FORCE := -f\n\
         \n\
         ",
-            compiler_path = self
-                .toolchain
-                .get_item(&Constant::new("compiler"))?
-                .to_str()
-                .ok_or_else(|| "/usr/bin/gcc")
-                .unwrap(),
             compiler_conditional_flags = self.evaluate_compiler().unwrap()
         );
         self.file
@@ -221,17 +211,16 @@ impl<'generator> IncludeFileGenerator<'generator> {
     }
 
     fn evaluate_compiler(&mut self) -> Result<String, GeneratorError> {
-        let compiler_path = self.toolchain.get_item(&Constant::new("compiler"))?;
-        let compiler = utility::get_head_directory(compiler_path);
-        let compiler_str = compiler.display().to_string();
-        match compiler_str.as_str() {
+        let compiler = std::env::var("CXX")
+            .map_err(|err| FsError::EnvVariableNotSet("CXX".to_string(), err))?;
+        match compiler.as_str() {
             "gcc" => {
                 self.compiler_constants.insert("CC_USES_GCC", "true");
             }
             "clang" => {
                 self.compiler_constants.insert("CC_USES_CLANG", "true");
             }
-            _ => return Err(GeneratorError::NoCompiler(compiler.to_path_buf())),
+            _ => return Err(GeneratorError::NoCompiler(compiler)),
         };
 
         let (gcc_key, gcc_value) = self

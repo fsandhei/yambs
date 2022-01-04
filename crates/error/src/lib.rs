@@ -102,6 +102,8 @@ pub enum FsError {
     NoIncludeDirectory(std::path::PathBuf),
     #[error("{0:?} does not contain a lib.mmk file!")]
     NoLibraryFile(std::path::PathBuf),
+    #[error("Environment variable ${0} is not set.")]
+    EnvVariableNotSet(String, #[source] std::env::VarError),
 }
 
 #[non_exhaustive]
@@ -109,10 +111,8 @@ pub enum FsError {
 pub enum GeneratorError {
     #[error(transparent)]
     Fs(#[from] FsError),
-    #[error(transparent)]
-    Toolchain(#[from] ToolchainError),
     #[error("No settings exist for compiler {0:?}")]
-    NoCompiler(PathBuf),
+    NoCompiler(String),
     #[error(transparent)]
     Dependency(#[from] DependencyError),
     #[error("Error occured creating rule")]

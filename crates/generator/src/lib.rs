@@ -131,7 +131,7 @@ impl MakefileGenerator {
                 formatted_string.push_str("/");
                 formatted_string.push_str(source_name);
                 formatted_string.push_str("\n");
-                formatted_string.push_str(&format!("\t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) \
+                formatted_string.push_str(&format!("\t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) \
                                                           $(WARNINGS) {dependencies} $< -c -o $@)\n\n"
                 , dependencies = self.print_dependencies()?));
             }
@@ -403,7 +403,7 @@ impl Generator for MakefileGenerator {
         \n\
         .PHONY: {executable}\n\
         {executable}: {prerequisites}\n\
-        \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)\n\
+        \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)\n\
         \n\
         {sources_to_objects}\n\
         \n\

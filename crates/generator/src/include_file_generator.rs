@@ -21,8 +21,8 @@ impl<'generator> IncludeFileGenerator<'generator> {
         utility::create_dir(&output_directory).unwrap();
 
         let mut compiler_constants = HashMap::with_capacity(30);
-        compiler_constants.insert("CC_USES_CLANG", "false");
-        compiler_constants.insert("CC_USES_GCC", "false");
+        compiler_constants.insert("CXX_USES_CLANG", "false");
+        compiler_constants.insert("CXX_USES_GCC", "false");
 
         IncludeFileGenerator {
             file: None,
@@ -81,7 +81,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
                           -Wformat=2\n\
         \n\
         \n\
-        ifeq ($(CC_USES_GCC), true)
+        ifeq ($(CXX_USES_GCC), true)
             CXXFLAGS += $(GLINUX_WARNINGS) \\
                         -Wmisleading-indentation \\
                         -Wduplicated-cond \\
@@ -90,7 +90,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
                         -Wuseless-cast\n\
        \n\
        \n\
-       else ifeq ($(CC_USES_CLANG), true)
+       else ifeq ($(CXX_USES_CLANG), true)
             CXXFLAGS += $(GLINUX_WARNINGS)\n\
        endif\n\
        \n\
@@ -214,22 +214,22 @@ impl<'generator> IncludeFileGenerator<'generator> {
         let compiler = std::env::var("CXX")
             .map_err(|err| FsError::EnvVariableNotSet("CXX".to_string(), err))?;
         match compiler.as_str() {
-            "gcc" => {
-                self.compiler_constants.insert("CC_USES_GCC", "true");
+            "gcc" | "g++" => {
+                self.compiler_constants.insert("CXX_USES_GCC", "true");
             }
             "clang" => {
-                self.compiler_constants.insert("CC_USES_CLANG", "true");
+                self.compiler_constants.insert("CXX_USES_CLANG", "true");
             }
             _ => return Err(GeneratorError::NoCompiler(compiler)),
         };
 
         let (gcc_key, gcc_value) = self
-            .get_makefile_constant("CC_USES_GCC")
-            .unwrap_or((&"CC_USES_GCC", &"true"));
+            .get_makefile_constant("CXX_USES_GCC")
+            .unwrap_or((&"CXX_USES_GCC", &"true"));
 
         let (clang_key, clang_value) = self
-            .get_makefile_constant("CC_USES_CLANG")
-            .unwrap_or((&"CC_USES_CLANG", &"true"));
+            .get_makefile_constant("CXX_USES_CLANG")
+            .unwrap_or((&"CXX_USES_CLANG", &"true"));
 
         Ok(format!(
             "{} := {}\n\

@@ -16,8 +16,7 @@ fn expected_library_name(path: &std::path::Path) -> String {
 }
 
 fn construct_generator(path: PathBuf) -> MakefileGenerator {
-    let toolchain = Toolchain::new().set_sample_config();
-    MakefileGenerator::new(path, &toolchain)
+    MakefileGenerator::new(path)
 }
 
 #[test]
@@ -178,11 +177,11 @@ fn generate_package_test() -> std::io::Result<()> {
     \n\
     {directory}/filename.o: \\\n\
     \t{dep_directory}/filename.cpp\n\
-    \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
+    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
     \n\
     {directory}/ofilename.o: \\\n\
     \t{dep_directory}/ofilename.cpp\n\
-    \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
+    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
     \n\
     sinclude {directory}/filename.d\n\
     sinclude {directory}/ofilename.d\n\
@@ -239,15 +238,15 @@ fn generate_executable_test() -> std::io::Result<()> {
     \t{directory}/filename.o \\\n\
     \t{directory}/ofilename.o \\\n\
     \t-lstdc++\n\
-    \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $^ -o $@)\n\
+    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $^ -o $@)\n\
     \n\
     {directory}/filename.o: \\\n\
     \t{dep_directory}/filename.cpp\n\
-    \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
+    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
     \n\
     {directory}/ofilename.o: \\\n\
     \t{dep_directory}/ofilename.cpp\n\
-    \t$(strip $(CC) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
+    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) -I{dep_directory} -I{dir_dep_str}/include -I{dir_second_dep_str}/include $< -c -o $@)\n\
     \n\
     sinclude {directory}/filename.d\n\
     sinclude {directory}/ofilename.d\n\

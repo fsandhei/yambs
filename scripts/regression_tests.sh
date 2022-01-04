@@ -232,8 +232,8 @@ cargo_test()
 {
    path=$1
    cd $path
-   echo "cargo test -p $path"
-   execute_command "$CARGO test"
+   echo "cargo test -q -p $path"
+   execute_command "$CARGO test -q"
    cd $ROOT_DIR
 }
 

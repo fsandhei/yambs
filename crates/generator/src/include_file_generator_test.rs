@@ -1,7 +1,10 @@
-use super::*;
-use pretty_assertions::assert_eq;
 use std::fs;
+
+use lazy_static::lazy_static;
+use pretty_assertions::assert_eq;
 use tempdir::TempDir;
+
+use super::*;
 
 fn produce_include_path(base_dir: TempDir) -> PathBuf {
     let build_dir = PathBuf::from(".build");
@@ -13,10 +16,38 @@ fn construct_generator<'generator>(path: &PathBuf) -> IncludeFileGenerator<'gene
     IncludeFileGenerator::new(path)
 }
 
+lazy_static! {
+    static ref MUTEX_GUARD: std::sync::Mutex<()> = Default::default();
+}
+
+struct EnvLock<'mutex> {
+    _mutex: std::sync::MutexGuard<'mutex, ()>,
+    env_var: String,
+    old_env_value: String,
+}
+
+impl<'mutex> EnvLock<'mutex> {
+    fn new(env_var: &str, new_value: &str) -> Self {
+        let _mutex = MUTEX_GUARD.lock().unwrap();
+        let old_env_value = std::env::var(env_var).unwrap();
+        std::env::set_var(&env_var, new_value);
+        Self {
+            _mutex,
+            env_var: env_var.to_string(),
+            old_env_value: old_env_value.to_string(),
+        }
+    }
+}
+
+impl<'mutex> Drop for EnvLock<'mutex> {
+    fn drop(&mut self) {
+        std::env::set_var(&self.env_var, &self.old_env_value);
+    }
+}
+
 #[test]
 fn add_cpp_version_cpp98_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("c++98");
     assert_eq!(gen.args["C++"], "c++98");
@@ -26,7 +57,6 @@ fn add_cpp_version_cpp98_test() -> Result<(), GeneratorError> {
 #[test]
 fn add_cpp_version_cpp11_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("c++11");
     assert_eq!(gen.args["C++"], "c++11");
@@ -56,7 +86,6 @@ fn add_cpp_version_cpp17_test() -> Result<(), GeneratorError> {
 #[test]
 fn add_cpp_version_cpp17_uppercase_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("C++17");
     assert_eq!(gen.args["C++"], "c++17");
@@ -66,7 +95,6 @@ fn add_cpp_version_cpp17_uppercase_test() -> Result<(), GeneratorError> {
 #[test]
 fn add_cpp_version_cpp20_test() -> Result<(), GeneratorError> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     gen.add_cpp_version("c++20");
     assert_eq!(gen.args["C++"], "c++20");
@@ -76,7 +104,6 @@ fn add_cpp_version_cpp20_test() -> Result<(), GeneratorError> {
 #[test]
 fn generate_strict_mk_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("strict.mk");
     gen.generate_strict_mk().unwrap();
@@ -102,7 +129,7 @@ fn generate_strict_mk_test() -> std::io::Result<()> {
                           -Wformat=2\n\
         \n\
         \n\
-        ifeq ($(CC_USES_GCC), true)
+        ifeq ($(CXX_USES_GCC), true)
             CXXFLAGS += $(GLINUX_WARNINGS) \\
                         -Wmisleading-indentation \\
                         -Wduplicated-cond \\
@@ -111,7 +138,7 @@ fn generate_strict_mk_test() -> std::io::Result<()> {
                         -Wuseless-cast\n\
        \n\
        \n\
-       else ifeq ($(CC_USES_CLANG), true)
+       else ifeq ($(CXX_USES_CLANG), true)
             CXXFLAGS += $(GLINUX_WARNINGS)\n\
        endif\n\
        \n\
@@ -144,7 +171,6 @@ fn generate_strict_mk_test() -> std::io::Result<()> {
 #[test]
 fn generate_debug_mk_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("debug.mk");
     gen.generate_debug_mk().unwrap();
@@ -170,7 +196,6 @@ fn generate_debug_mk_test() -> std::io::Result<()> {
 #[test]
 fn generate_debug_mk_with_address_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("debug.mk");
     gen.set_sanitizer("address");
@@ -248,7 +273,6 @@ fn generate_release_mk_test() -> std::io::Result<()> {
 #[test]
 fn generate_default_mk_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("default_make.mk");
     gen.generate_default_mk().unwrap();
@@ -280,7 +304,6 @@ fn change_directory_test() -> std::io::Result<()> {
 #[test]
 fn generate_flags_sanitizer_no_sanitizers_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let gen = construct_generator(&output_directory);
     let actual = gen.generate_flags_sanitizer();
     let expected = String::new();
@@ -308,7 +331,6 @@ fn generate_flags_sanitizer_address_sanitizer_test() -> std::io::Result<()> {
 #[test]
 fn generate_flags_sanitizer_thread_sanitizer_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     gen.set_sanitizer("thread");
     let actual = gen.generate_flags_sanitizer();
@@ -325,7 +347,6 @@ fn generate_flags_sanitizer_thread_sanitizer_test() -> std::io::Result<()> {
 #[test]
 fn generate_defines_mk_test() -> std::io::Result<()> {
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
     let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("defines.mk");
     gen.generate_defines_mk().unwrap();
@@ -334,9 +355,8 @@ fn generate_defines_mk_test() -> std::io::Result<()> {
     # Defines.mk\n\
     # Contains a number of defines determined from MyMake configuration time.\n\
     \n\
-    CC := /usr/bin/gcc\n\
-    CC_USES_GCC := true\n\
-    CC_USES_CLANG := false\n\
+    CXX_USES_GCC := true\n\
+    CXX_USES_CLANG := false\n\
     \n\
     CP := /usr/bin/cp\n\
     CP_FORCE := -f\n\
@@ -345,4 +365,51 @@ fn generate_defines_mk_test() -> std::io::Result<()> {
         fs::read_to_string(file_name.to_str().unwrap()).unwrap()
     );
     Ok(())
+}
+
+#[test]
+fn evaluate_compiler_with_gcc_results_in_gcc_set() {
+    let output_directory = produce_include_path(TempDir::new("example").unwrap());
+    let mut gen = construct_generator(&output_directory);
+    {
+        // std::env::set_var("CXX", "gcc");
+        let _lock = EnvLock::new("CXX", "gcc");
+        gen.evaluate_compiler().unwrap();
+        assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
+        assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
+    }
+
+    {
+        // std::env::set_var("CXX", "g++");
+        let _lock = EnvLock::new("CXX", "g++");
+        gen.evaluate_compiler().unwrap();
+        assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
+        assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
+    }
+}
+
+#[test]
+fn evaluate_compiler_with_clang_results_in_clang_set() {
+    let output_directory = produce_include_path(TempDir::new("example").unwrap());
+    let mut gen = construct_generator(&output_directory);
+    let _lock = EnvLock::new("CXX", "clang");
+    gen.evaluate_compiler().unwrap();
+    assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
+    assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "true");
+}
+
+#[test]
+fn evaluate_compiler_fails_when_cxx_is_not_set() {
+    let output_directory = produce_include_path(TempDir::new("example").unwrap());
+    let mut gen = construct_generator(&output_directory);
+    let _lock = EnvLock::new("CXX", "");
+    std::env::remove_var("CXX");
+
+    let result = gen.evaluate_compiler();
+    assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
+    assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "Environment variable $CXX is not set."
+    );
 }

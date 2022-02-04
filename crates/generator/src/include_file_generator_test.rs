@@ -1,6 +1,5 @@
 use std::fs;
 
-use lazy_static::lazy_static;
 use pretty_assertions::assert_eq;
 use tempdir::TempDir;
 
@@ -16,32 +15,35 @@ fn construct_generator<'generator>(path: &PathBuf) -> IncludeFileGenerator<'gene
     IncludeFileGenerator::new(path)
 }
 
-lazy_static! {
-    static ref MUTEX_GUARD: std::sync::Mutex<()> = Default::default();
+struct EnvLock {
+    mutex: std::sync::Mutex<()>,
+    env_var: Option<String>,
+    old_env_value: Option<String>,
 }
 
-struct EnvLock<'mutex> {
-    _mutex: std::sync::MutexGuard<'mutex, ()>,
-    env_var: String,
-    old_env_value: String,
-}
-
-impl<'mutex> EnvLock<'mutex> {
-    fn new(env_var: &str, new_value: &str) -> Self {
-        let _mutex = MUTEX_GUARD.lock().unwrap();
-        let old_env_value = std::env::var(env_var).unwrap();
-        std::env::set_var(&env_var, new_value);
+impl EnvLock {
+    fn new() -> Self {
         Self {
-            _mutex,
-            env_var: env_var.to_string(),
-            old_env_value: old_env_value.to_string(),
+            mutex: std::sync::Mutex::new(()),
+            env_var: None,
+            old_env_value: None,
         }
+    }
+    fn lock(&mut self, env_var: &str, new_value: &str) {
+        let _lock = self.mutex.lock().unwrap();
+        self.old_env_value = std::env::var(env_var).ok();
+        self.env_var = Some(env_var.to_string());
+        std::env::set_var(&env_var, new_value);
     }
 }
 
-impl<'mutex> Drop for EnvLock<'mutex> {
+impl Drop for EnvLock {
     fn drop(&mut self) {
-        std::env::set_var(&self.env_var, &self.old_env_value);
+        if let Some(ref env_var) = self.env_var {
+            if let Some(ref old_env_value) = self.old_env_value {
+                std::env::set_var(env_var, old_env_value);
+            }
+        }
     }
 }
 
@@ -346,6 +348,8 @@ fn generate_flags_sanitizer_thread_sanitizer_test() -> std::io::Result<()> {
 
 #[test]
 fn generate_defines_mk_test() -> std::io::Result<()> {
+    let mut lock = EnvLock::new();
+    lock.lock("CXX", "gcc");
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let mut gen = construct_generator(&output_directory);
     let file_name = output_directory.join("defines.mk");
@@ -369,19 +373,31 @@ fn generate_defines_mk_test() -> std::io::Result<()> {
 
 #[test]
 fn evaluate_compiler_with_gcc_results_in_gcc_set() {
+    let mut lock = EnvLock::new();
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let mut gen = construct_generator(&output_directory);
     {
-        // std::env::set_var("CXX", "gcc");
-        let _lock = EnvLock::new("CXX", "gcc");
+        lock.lock("CXX", "gcc");
         gen.evaluate_compiler().unwrap();
         assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
         assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
     }
 
     {
-        // std::env::set_var("CXX", "g++");
-        let _lock = EnvLock::new("CXX", "g++");
+        lock.lock("CXX", "/usr/bin/gcc");
+        gen.evaluate_compiler().unwrap();
+        assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
+        assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
+    }
+
+    {
+        lock.lock("CXX", "g++");
+        gen.evaluate_compiler().unwrap();
+        assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
+        assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
+    }
+    {
+        lock.lock("CXX", "/usr/bin/g++");
         gen.evaluate_compiler().unwrap();
         assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
         assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
@@ -390,19 +406,29 @@ fn evaluate_compiler_with_gcc_results_in_gcc_set() {
 
 #[test]
 fn evaluate_compiler_with_clang_results_in_clang_set() {
+    let mut lock = EnvLock::new();
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let mut gen = construct_generator(&output_directory);
-    let _lock = EnvLock::new("CXX", "clang");
-    gen.evaluate_compiler().unwrap();
-    assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
-    assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "true");
+    {
+        lock.lock("CXX", "clang");
+        gen.evaluate_compiler().unwrap();
+        assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
+        assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "true");
+    }
+    {
+        lock.lock("CXX", "/usr/bin/clang");
+        gen.evaluate_compiler().unwrap();
+        assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
+        assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "true");
+    }
 }
 
 #[test]
 fn evaluate_compiler_fails_when_cxx_is_not_set() {
+    let mut lock = EnvLock::new();
     let output_directory = produce_include_path(TempDir::new("example").unwrap());
     let mut gen = construct_generator(&output_directory);
-    let _lock = EnvLock::new("CXX", "");
+    lock.lock("CXX", "");
     std::env::remove_var("CXX");
 
     let result = gen.evaluate_compiler();

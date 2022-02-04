@@ -200,7 +200,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
         CP_FORCE := -f\n\
         \n\
         ",
-            compiler_conditional_flags = self.evaluate_compiler().unwrap()
+            compiler_conditional_flags = self.evaluate_compiler()?
         );
         self.file
             .as_ref()
@@ -213,11 +213,11 @@ impl<'generator> IncludeFileGenerator<'generator> {
     fn evaluate_compiler(&mut self) -> Result<String, GeneratorError> {
         let compiler = std::env::var("CXX")
             .map_err(|err| FsError::EnvVariableNotSet("CXX".to_string(), err))?;
-        match compiler.as_str() {
-            "gcc" | "g++" => {
+        match compiler.as_str().split("/").last() {
+            Some("gcc") | Some("g++") => {
                 self.compiler_constants.insert("CXX_USES_GCC", "true");
             }
-            "clang" => {
+            Some("clang") => {
                 self.compiler_constants.insert("CXX_USES_CLANG", "true");
             }
             _ => return Err(GeneratorError::NoCompiler(compiler)),

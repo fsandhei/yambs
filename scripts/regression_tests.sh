@@ -12,6 +12,7 @@ ROOT_DIR="/home/fredrik/bin/rsmake"
 RSMAKE="$ROOT_DIR/target/release/rsmake"
 RSMAKE_RELEASE="$ROOT_DIR/target/release/rsmake"
 CWD=`pwd`
+GCC_CXX=`which g++`
    
 TEST_DIR="$ROOT_DIR/test_project"
 TEST_DIR_DEP="$ROOT_DIR/test_dependency_project"
@@ -20,12 +21,15 @@ usage() {
    echo "$(basename $0)"
    echo "Regression test sript to run all tests for RsMake."
    echo "Usage:"
-   echo "   $(basename $0) [--acceptance-tests-only | -h | --help]"
+   echo "   $(basename $0) [--acceptance-tests | -h | --help]"
    echo "Flags:"
-   echo "  --acceptance-tests-only   Only run acceptance tests, skipping unit tests."
-   echo "  -h, --help                Display help message and exit."
+   echo "  --acceptance-tests   Only run acceptance tests, skipping unit tests."
+   echo "  -h, --help           Display help message and exit."
 }
 
+set_env_variables() {
+   export CXX="$GCC_CXX"
+}
 
 remove_build_and_test_files() {
    if [[ "$1" != "0" ]]; then
@@ -245,7 +249,7 @@ run_rsmake_test()
 
 while :; do
    case $1 in
-      --acceptance-tests-only)
+      --acceptance-tests)
          ACCEPTANCE_TESTS_ONLY="true"
          ;;
       -h | --help)
@@ -268,7 +272,7 @@ if [[ "$ACCEPTANCE_TESTS_ONLY" == "false" ]]; then
 fi
    
 cd $ROOT_DIR && build_mymake
-
+set_env_variables
 echo "--------------------------- RUNNING ACCEPTANCE TESTS ---------------------------"
 run_rsmake_test test_mymake_minimal_build
 run_rsmake_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release

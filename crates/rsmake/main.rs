@@ -14,7 +14,7 @@ fn main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();
     let myfile = &command_line.input_file;
 
-    let mut generator = MakefileGenerator::new(std::env::current_dir().unwrap());
+    let mut generator = MakefileGenerator::new(&command_line.build_directory);
     let mut builder = Builder::new(&mut generator);
 
     builder

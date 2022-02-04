@@ -8,6 +8,7 @@ pub trait Generator: DependencyAccessor + Sanitizer + RuntimeSettings {
     fn generate_appending_flags(&mut self) -> Result<(), GeneratorError>;
 
     // Finish status: Just for display purposes. Will be removed.
+    #[deprecated = "Figured that this function is redundant. Will be removed."]
     fn print_ok(&self);
 }
 

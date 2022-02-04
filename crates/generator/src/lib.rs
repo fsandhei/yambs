@@ -11,7 +11,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use cli::build_configurations::{BuildConfigurations, Configuration};
+use cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use dependency::{DependencyAccessor, DependencyNode};
 use error::GeneratorError;
 use include_file_generator::IncludeFileGenerator;
@@ -33,8 +33,8 @@ pub struct MakefileGenerator {
 }
 
 impl MakefileGenerator {
-    pub fn new(build_directory: std::path::PathBuf) -> MakefileGenerator {
-        let output_directory = build_directory;
+    pub fn new(build_directory: &BuildDirectory) -> MakefileGenerator {
+        let output_directory = build_directory.as_path();
         utility::create_dir(&output_directory).unwrap();
 
         MakefileGenerator {

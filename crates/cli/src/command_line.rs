@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use structopt::StructOpt;
 
-use crate::build_configurations::BuildConfigurations;
+use crate::build_configurations::{BuildConfigurations, BuildDirectory};
 use error::CommandLineError;
 
 // TODO: Need to add tests for C++ validation and sanitizer validation
@@ -41,6 +41,15 @@ pub struct CommandLine {
     #[structopt(short = "j", long = "jobs", default_value = "10")]
     ///"Set parallelization of builds for Make."
     pub jobs: u8,
+    /// Set build directory. Generated output by RsMake will be put here. Defaults to current working directory.
+    #[structopt(
+        long,
+        short = "b",
+        default_value,
+        hide_default_value(true),
+        parse(try_from_str)
+    )]
+    pub build_directory: BuildDirectory,
 }
 
 fn validate_file_path(path: &str) -> Result<PathBuf, CommandLineError> {

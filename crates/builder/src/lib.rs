@@ -1,9 +1,8 @@
-use std::env;
 use std::path::PathBuf;
 use std::process::Output;
 use std::rc::Rc;
 
-use cli::build_configurations::{BuildConfigurations, Configuration};
+use cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use cli::command_line::CommandLine;
 use colored::Colorize;
 use dependency::{Dependency, DependencyNode, DependencyRegistry};
@@ -21,7 +20,7 @@ pub struct Builder<'a> {
     debug: bool,
     verbose: bool,
     make: Make,
-    top_build_directory: Option<PathBuf>,
+    top_build_directory: BuildDirectory,
 }
 
 impl<'a> Builder<'a> {
@@ -33,7 +32,7 @@ impl<'a> Builder<'a> {
             debug: false,
             verbose: false,
             make: Make::new(),
-            top_build_directory: Some(env::current_dir().unwrap()), //At the moment hardcoded as current working directory.
+            top_build_directory: BuildDirectory::default(),
         }
     }
 
@@ -42,6 +41,7 @@ impl<'a> Builder<'a> {
             self.set_verbose(true);
         }
         self.add_make("-j", &command_line.jobs.to_string());
+        self.top_build_directory = command_line.build_directory.to_owned();
 
         self.use_configuration(&command_line.configuration)?;
 
@@ -86,7 +86,7 @@ impl<'a> Builder<'a> {
     pub fn create_log_file(&mut self) -> Result<(), BuilderError> {
         if let Some(top_dependency) = &self.top_dependency {
             if top_dependency.borrow().is_makefile_made() {
-                let log_file_name = env::current_dir().unwrap().join("rsmake_log.txt");
+                let log_file_name = self.top_build_directory.as_path().join("rsmake_log.txt");
                 self.make.add_logger(&log_file_name)?;
             }
         }
@@ -123,10 +123,12 @@ impl<'a> Builder<'a> {
 
     pub fn build_project(&mut self) -> Result<(), BuilderError> {
         self.create_log_file()?;
-        let build_directory = std::env::current_dir().unwrap();
-
         if let Some(top_dependency) = &self.top_dependency {
-            let output = self.build_dependency(&top_dependency, &build_directory, self.verbose);
+            let output = self.build_dependency(
+                &top_dependency,
+                &self.top_build_directory.as_path(),
+                self.verbose,
+            );
             let build_status_message: String;
             if output.is_ok() && output.unwrap().status.success() {
                 build_status_message = format!("rsmake: {}", "Build SUCCESS".green());
@@ -135,11 +137,7 @@ impl<'a> Builder<'a> {
             }
             println!("{}", build_status_message);
             self.make.log_text(build_status_message)?;
-            let log_path = self
-                .top_build_directory
-                .as_ref()
-                .unwrap()
-                .join("rsmake_log.txt");
+            let log_path = self.top_build_directory.as_path().join("rsmake_log.txt");
             println!("rsmake: Build log available at {:?}", log_path);
         }
         Ok(())
@@ -160,7 +158,7 @@ impl<'a> Builder<'a> {
 
             if required_dependency.borrow().is_build_completed() {
                 let top_build_directory_resolved =
-                    self.resolve_build_directory(self.top_build_directory.as_ref().unwrap());
+                    self.resolve_build_directory(&self.top_build_directory.as_path());
                 let directory_to_link = top_build_directory_resolved
                     .join("libs")
                     .join(required_dependency.borrow().get_project_name());

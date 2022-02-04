@@ -1,10 +1,12 @@
-use super::*;
-use dependency::Dependency;
-use mmk_parser::Keyword;
-use pretty_assertions::assert_eq;
 use std::cell::RefCell;
 use std::fs;
 use std::rc::Rc;
+
+use super::*;
+use cli::build_configurations::BuildDirectory;
+use dependency::Dependency;
+use mmk_parser::Keyword;
+use pretty_assertions::assert_eq;
 use tempdir::TempDir;
 
 #[allow(dead_code)]
@@ -16,7 +18,7 @@ fn expected_library_name(path: &std::path::Path) -> String {
 }
 
 fn construct_generator(path: PathBuf) -> MakefileGenerator {
-    MakefileGenerator::new(path)
+    MakefileGenerator::new(&BuildDirectory::from(path))
 }
 
 #[test]

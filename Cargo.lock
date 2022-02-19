@@ -346,6 +346,7 @@ dependencies = [
  "mmk_parser",
  "regex",
  "structopt",
+ "thiserror",
 ]
 
 [[package]]

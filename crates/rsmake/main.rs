@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{io::Write, sync::atomic::compiler_fence};
 
 use structopt::StructOpt;
 
@@ -8,11 +8,14 @@ use error::MyMakeError;
 use generator::MakefileGenerator;
 use unwrap_or_terminate::MyMakeUnwrap;
 
+mod compiler;
 mod unwrap_or_terminate;
 
 fn main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();
     let myfile = &command_line.input_file;
+
+    let compiler = compiler::Compiler::new()?;
 
     let mut generator = MakefileGenerator::new(&command_line.build_directory);
     let mut builder = Builder::new(&mut generator);

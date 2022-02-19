@@ -13,6 +13,14 @@ pub enum MyMakeError {
     Fs(#[from] FsError),
     #[error(transparent)]
     ConfigurationTime(#[from] BuilderError),
+    #[error(transparent)]
+    CompilerError(#[from] CompilerError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CompilerError {
+    #[error("Environment variable CXX was not set. Please set it to a valid C++ compiler.")]
+    CXXEnvNotSet,
 }
 
 #[non_exhaustive]

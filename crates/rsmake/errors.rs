@@ -5,10 +5,6 @@ use thiserror;
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum MyMakeError {
-    #[error("Error occured when parsing command line")]
-    CommandLine(#[source] CommandLineError),
-    #[error("Error occured during parsing")]
-    Parse(#[source] ParseError),
     #[error(transparent)]
     Fs(#[from] FsError),
     #[error(transparent)]
@@ -70,8 +66,6 @@ pub enum DependencyError {
     Circulation(PathBuf, PathBuf),
     #[error("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!")]
     NotSet,
-    #[error("Dependency does not have a makefile")]
-    NoMakefile,
 }
 
 #[non_exhaustive]

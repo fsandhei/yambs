@@ -48,12 +48,6 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
-    pub fn add_generator(&mut self, generator: &'a mut dyn GeneratorExecutor) {
-        if let Some(_) = &self.top_dependency {
-            self.generator = Box::new(generator);
-        }
-    }
-
     pub fn add_make(&mut self, flag: &str, value: &str) {
         self.make.with_flag(flag, value);
     }
@@ -71,16 +65,8 @@ impl<'a> Builder<'a> {
         self.generator.as_mut().release();
     }
 
-    pub fn is_verbose(&self) -> bool {
-        self.verbose
-    }
-
     pub fn set_verbose(&mut self, value: bool) {
         self.verbose = value;
-    }
-
-    pub fn top_dependency(&self) -> &Option<DependencyNode> {
-        &self.top_dependency
     }
 
     pub fn create_log_file(&mut self) -> Result<(), BuilderError> {
@@ -192,18 +178,13 @@ impl<'a> Builder<'a> {
     }
 
     fn construct_build_message(dependency: &DependencyNode) -> String {
-        let dep_type: &str;
-        let dep_type_name: String;
-
-        if dependency.borrow().is_executable() {
-            dep_type = "executable";
-            dep_type_name = dependency.borrow().mmk_data().data()["MMK_EXECUTABLE"][0]
-                .argument()
-                .clone();
+        let dep_type = if dependency.borrow().is_executable() {
+            "executable"
         } else {
-            dep_type = "library";
-            dep_type_name = dependency.borrow().library_name();
-        }
+            "library"
+        };
+        let dep_type_name = dependency.borrow().get_pretty_name();
+
         let green_building = format!("{}", "Building".green());
         let target = format!("{} {:?}", dep_type, dep_type_name);
         format!("{} {}", green_building, target)

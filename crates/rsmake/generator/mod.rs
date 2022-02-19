@@ -1,18 +1,16 @@
-mod generator;
-pub mod generator_mock;
-mod include_file_generator;
-
-pub use generator::{Generator, GeneratorExecutor, RuntimeSettings, Sanitizer, UtilityGenerator};
-
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+mod generator;
+mod include_file_generator;
+
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::dependency::{DependencyAccessor, DependencyNode};
 use crate::errors::{DependencyError, FsError, GeneratorError};
 use crate::utility;
+pub use generator::{Generator, GeneratorExecutor, RuntimeSettings, Sanitizer, UtilityGenerator};
 use include_file_generator::IncludeFileGenerator;
 
 #[derive(PartialEq, Eq)]

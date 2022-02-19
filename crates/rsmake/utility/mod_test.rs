@@ -2,20 +2,6 @@ use super::*;
 use tempdir::TempDir;
 
 #[test]
-fn get_source_directory_from_path_test() {
-    let dir = TempDir::new("example").unwrap();
-    let source_dir = dir.path().join("src");
-    create_dir(&source_dir).unwrap();
-    assert_eq!(get_source_directory_from_path(dir.path()), source_dir);
-}
-
-#[test]
-fn get_source_directory_from_path_no_source_directory_defaults_to_original_path_test() {
-    let dir = TempDir::new("example").unwrap();
-    assert_eq!(get_source_directory_from_path(dir.path()), dir.path());
-}
-
-#[test]
 fn get_include_directory_from_path_test() {
     let dir = TempDir::new("example").unwrap();
     let include_dir = dir.path().join("include");
@@ -85,7 +71,6 @@ fn get_head_directory_gets_head_test() {
     assert_eq!(get_head_directory(&dir), &expected);
 }
 
-
 #[test]
 fn print_full_path_no_newline_test() {
     let mut formatted_string = String::new();
@@ -98,7 +83,6 @@ fn print_full_path_no_newline_test() {
     assert_eq!(formatted_string, expected);
 }
 
-
 #[test]
 fn print_full_path_with_newline_test() {
     let mut formatted_string = String::new();
@@ -106,7 +90,7 @@ fn print_full_path_with_newline_test() {
     let dir_path = "/this/is/some/str/path";
     let no_newline = false;
     let expected = String::from("/this/is/some/str/path/filename.rs \\\n");
-    
+
     print_full_path(&mut formatted_string, dir_path, filename, no_newline);
     assert_eq!(formatted_string, expected);
 }

@@ -22,22 +22,6 @@ impl DependencyRegistry {
         self.registry.push(dependency);
     }
 
-    pub fn get_last_dependency(&self) -> &Rc<RefCell<Dependency>> {
-        self.registry.last().unwrap()
-    }
-
-    pub fn get_last_dependency_mut(&mut self) -> &mut Rc<RefCell<Dependency>> {
-        self.registry.last_mut().unwrap()
-    }
-
-    pub fn get_root_dependency(&self) -> &Rc<RefCell<Dependency>> {
-        self.registry.first().unwrap()
-    }
-
-    pub fn get_root_dependency_mut(&mut self) -> &mut Rc<RefCell<Dependency>> {
-        self.registry.first_mut().unwrap()
-    }
-
     pub fn dependency_from_path(&self, path: &PathBuf) -> Option<Rc<RefCell<Dependency>>> {
         for dependency in &self.registry {
             let borrowed_dep = dependency.try_borrow();

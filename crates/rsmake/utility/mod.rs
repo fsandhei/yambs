@@ -3,17 +3,6 @@ use std::path::{Path, PathBuf};
 
 use crate::errors::FsError;
 
-// TODO: Vurder om denne skal returnere Result<PathBuf, MyMakeError>
-pub fn get_source_directory_from_path<P: AsRef<Path>>(path: P) -> PathBuf {
-    if path.as_ref().join("source").is_dir() {
-        return path.as_ref().join("source");
-    } else if path.as_ref().join("src").is_dir() {
-        return path.as_ref().join("src");
-    } else {
-        return path.as_ref().to_path_buf();
-    }
-}
-
 pub fn get_include_directory_from_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, FsError> {
     if path.as_ref().join("include").is_dir() {
         return Ok(path.as_ref().join("include"));
@@ -66,14 +55,6 @@ pub fn create_dir<D: AsRef<Path>>(dir: D) -> Result<(), FsError> {
     if !dir.as_ref().is_dir() {
         std::fs::create_dir_all(dir.as_ref())
             .map_err(|err| FsError::CreateDirectory(dir.as_ref().to_path_buf(), err))?;
-    }
-    Ok(())
-}
-
-pub fn remove_dir(dir: &std::path::PathBuf) -> Result<(), FsError> {
-    if dir.is_dir() {
-        std::fs::remove_dir_all(dir)
-            .map_err(|err| FsError::RemoveDirectory(dir.to_path_buf(), err))?;
     }
     Ok(())
 }

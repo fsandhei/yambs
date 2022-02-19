@@ -188,6 +188,7 @@ impl Dependency {
         &self.mmk_data
     }
 
+    #[allow(unused)]
     pub fn mmk_data_mut(&mut self) -> &mut mmk_parser::Mmk {
         &mut self.mmk_data
     }
@@ -196,7 +197,7 @@ impl Dependency {
         self.library_name.clone()
     }
 
-    pub fn print_library_name(&self) -> String {
+    fn print_library_name(&self) -> String {
         if self.mmk_data().has_library_label() {
             return self.mmk_data().to_string("MMK_LIBRARY_LABEL");
         } else {

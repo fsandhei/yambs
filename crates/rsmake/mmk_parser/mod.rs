@@ -40,6 +40,7 @@ impl Mmk {
         &self.data
     }
 
+    #[allow(unused)]
     pub fn data_mut(&mut self) -> &mut HashMap<String, Vec<Keyword>> {
         &mut self.data
     }
@@ -110,11 +111,11 @@ impl Mmk {
         }
     }
 
-    pub fn sources_to_objects(self: &Self) -> String {
-        let sources = &self.to_string("MMK_SOURCES");
-        let objects = sources.replace(".cpp", ".o");
-        objects
-    }
+    // pub fn sources_to_objects(self: &Self) -> String {
+    //     let sources = &self.to_string("MMK_SOURCES");
+    //     let objects = sources.replace(".cpp", ".o");
+    //     objects
+    // }
 
     fn parse_mmk_expression(
         &mut self,

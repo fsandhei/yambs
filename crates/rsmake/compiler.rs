@@ -1,4 +1,4 @@
-use error::CompilerError;
+use crate::errors::CompilerError;
 
 pub(crate) struct Compiler {
     compiler_exe: std::path::PathBuf,

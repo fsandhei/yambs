@@ -1,15 +1,23 @@
-use std::{io::Write, sync::atomic::compiler_fence};
+use std::io::Write;
 
 use structopt::StructOpt;
 
+mod builder;
+mod cli;
+mod compiler;
+mod dependency;
+mod errors;
+mod external;
+mod generator;
+mod mmk_parser;
+mod unwrap_or_terminate;
+mod utility;
+
 use builder::*;
 use cli::command_line::CommandLine;
-use error::MyMakeError;
+use errors::MyMakeError;
 use generator::MakefileGenerator;
 use unwrap_or_terminate::MyMakeUnwrap;
-
-mod compiler;
-mod unwrap_or_terminate;
 
 fn main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();

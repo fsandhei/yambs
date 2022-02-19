@@ -3,18 +3,9 @@ name = "rsmake"
 version = "0.1.0"
 authors = ["Fredrik Sandhei <fredrik.sandhei@gmail.com>"]
 edition = "2018"
+description = "RsMake is a command-line based build system for C++, written solely in Rust."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[workspace]
-members = [
-   "crates/cli",
-   "crates/builder",
-   "crates/mmk_parser",
-   "crates/generator",
-   "crates/external",
-   "crates/error"
-]
 
 [[bin]]
 name = "rsmake"
@@ -22,15 +13,13 @@ bench = false
 path  = "crates/rsmake/main.rs"
 
 [dependencies]
-builder = { path = 'crates/builder/' }
-cli = { path = 'crates/cli' }
-mmk_parser = { path = 'crates/mmk_parser/' }
-generator = { path = 'crates/generator/' }
-external = { path = 'crates/external/' }
-error    = { path = 'crates/error/' }
-
 colored = "2.0.0"
 structopt = "0.3"
 regex = "1.0"
 lazy_static = "1.4"
 thiserror = "1.0.29"
+
+
+#[dev-dependencies]
+pretty_assertions = "0.6.1"
+tempdir = "0.3.7"

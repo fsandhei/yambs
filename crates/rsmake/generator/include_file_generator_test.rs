@@ -431,20 +431,3 @@ fn evaluate_compiler_with_clang_results_in_clang_set() {
         assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "true");
     }
 }
-
-// #[test]
-// fn evaluate_compiler_fails_when_cxx_is_not_set() {
-//     let mut lock = EnvLock::new();
-//     let output_directory = produce_include_path(TempDir::new("example").unwrap());
-//     let mut gen = construct_generator(&output_directory);
-//     lock.lock("CXX", "");
-//     std::env::remove_var("CXX");
-
-//     let result = gen.evaluate_compiler();
-//     assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
-//     assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
-//     assert_eq!(
-//         result.unwrap_err().to_string(),
-//         "Environment variable $CXX is not set."
-//     );
-// }

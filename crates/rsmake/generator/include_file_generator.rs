@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::compiler::Compiler;
+use crate::compiler::{Compiler, Type};
 use crate::errors::{FsError, GeneratorError};
 use crate::generator::{Sanitizer, UtilityGenerator};
 use crate::utility;
@@ -12,14 +12,9 @@ fn evaluate_compiler(
     compiler_constants: &mut std::collections::HashMap<&str, &str>,
     compiler: &Compiler,
 ) {
-    match compiler.to_string().split("/").last() {
-        Some("gcc") | Some("g++") => {
-            compiler_constants.insert("CXX_USES_GCC", "true");
-        }
-        Some("clang") => {
-            compiler_constants.insert("CXX_USES_CLANG", "true");
-        }
-        _ => (),
+    match compiler.compiler_type() {
+        &Type::Gcc => compiler_constants.insert("CXX_USES_GCC", "true"),
+        &Type::Clang => compiler_constants.insert("CXX_USES_CLANG", "true"),
     };
 }
 

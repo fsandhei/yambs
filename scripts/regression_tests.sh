@@ -12,7 +12,6 @@ ROOT_DIR="/home/fredrik/bin/rsmake"
 RSMAKE="$ROOT_DIR/target/release/rsmake"
 RSMAKE_RELEASE="$ROOT_DIR/target/release/rsmake"
 CWD=`pwd`
-GCC_CXX=`which g++`
    
 TEST_DIR="$ROOT_DIR/test_project"
 TEST_DIR_DEP="$ROOT_DIR/test_dependency_project"
@@ -27,8 +26,8 @@ usage() {
    echo "  -h, --help           Display help message and exit."
 }
 
-set_env_variables() {
-   export CXX="$GCC_CXX"
+set_CXX() {
+   export CXX="$1"
 }
 
 remove_build_and_test_files() {
@@ -267,8 +266,17 @@ if [[ "$ACCEPTANCE_TESTS_ONLY" == "false" ]]; then
 fi
    
 cd $ROOT_DIR && build_mymake
-set_env_variables
+gcc_exe=`which g++`
+set_CXX "$gcc_exe"
 echo "--------------------------- RUNNING ACCEPTANCE TESTS ---------------------------"
+echo "GCC = $gcc_exe"
+run_rsmake_test test_mymake_minimal_build
+run_rsmake_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release
+run_rsmake_test test_mymake_with_one_dependency_build
+
+clang_exe=`which clang++`
+set_CXX "$clang_exe"
+echo "GCC = $clang_exe"
 run_rsmake_test test_mymake_minimal_build
 run_rsmake_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release
 run_rsmake_test test_mymake_with_one_dependency_build

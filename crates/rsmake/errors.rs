@@ -17,6 +17,8 @@ pub enum MyMakeError {
 pub enum CompilerError {
     #[error("Environment variable CXX was not set. Please set it to a valid C++ compiler.")]
     CXXEnvNotSet,
+    #[error("The compiler requested is an invalid compiler for RsMake.")]
+    InvalidCompiler,
 }
 
 #[non_exhaustive]

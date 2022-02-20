@@ -18,7 +18,7 @@ use errors::MyMakeError;
 use generator::MakefileGenerator;
 use unwrap_or_terminate::MyMakeUnwrap;
 
-fn main() -> Result<(), MyMakeError> {
+fn try_main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();
     let myfile = &command_line.input_file;
 
@@ -43,4 +43,8 @@ fn main() -> Result<(), MyMakeError> {
     println!();
     builder.build_project().unwrap_or_terminate();
     Ok(())
+}
+
+fn main() {
+    try_main().unwrap_or_terminate();
 }

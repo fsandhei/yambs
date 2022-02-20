@@ -263,12 +263,7 @@ done
 
 if [[ "$ACCEPTANCE_TESTS_ONLY" == "false" ]]; then
    [ $CWD != $ROOT_DIR ] && cd $ROOT_DIR
-   cargo_test "${ROOT_DIR}/crates/mmk_parser"
-   cargo_test "${ROOT_DIR}/crates/builder"
-   cargo_test "${ROOT_DIR}/crates/cli"
-   cargo_test "${ROOT_DIR}/crates/dependency"
-   cargo_test "${ROOT_DIR}/crates/generator"
-   cargo_test "${ROOT_DIR}/crates/utility"
+   cargo_test "${ROOT_DIR}/crates/rsmake"
 fi
    
 cd $ROOT_DIR && build_mymake

@@ -113,8 +113,6 @@ pub enum FsError {
 pub enum GeneratorError {
     #[error(transparent)]
     Fs(#[from] FsError),
-    #[error("No settings exist for compiler {0:?}")]
-    NoCompiler(String),
     #[error(transparent)]
     Dependency(#[from] DependencyError),
     #[error("Error occured creating rule")]

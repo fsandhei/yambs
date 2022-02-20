@@ -1,5 +1,4 @@
 use std::io::Write;
-
 use structopt::StructOpt;
 
 mod builder;
@@ -25,7 +24,7 @@ fn main() -> Result<(), MyMakeError> {
 
     let compiler = compiler::Compiler::new()?;
 
-    let mut generator = MakefileGenerator::new(&command_line.build_directory);
+    let mut generator = MakefileGenerator::new(&command_line.build_directory, compiler);
     let mut builder = Builder::new(&mut generator);
 
     builder

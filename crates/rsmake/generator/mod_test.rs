@@ -7,6 +7,7 @@ use tempdir::TempDir;
 
 use super::*;
 use crate::cli::build_configurations::BuildDirectory;
+use crate::compiler::Compiler;
 use crate::dependency::Dependency;
 use crate::mmk_parser::Keyword;
 
@@ -19,7 +20,8 @@ fn expected_library_name(path: &std::path::Path) -> String {
 }
 
 fn construct_generator(path: PathBuf) -> MakefileGenerator {
-    MakefileGenerator::new(&BuildDirectory::from(path))
+    std::env::set_var("CXX", "g++");
+    MakefileGenerator::new(&BuildDirectory::from(path), Compiler::new().unwrap())
 }
 
 #[test]

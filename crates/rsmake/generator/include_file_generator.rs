@@ -3,9 +3,25 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+use crate::compiler::Compiler;
 use crate::errors::{FsError, GeneratorError};
 use crate::generator::{Sanitizer, UtilityGenerator};
 use crate::utility;
+
+fn evaluate_compiler(
+    compiler_constants: &mut std::collections::HashMap<&str, &str>,
+    compiler: &Compiler,
+) {
+    match compiler.to_string().split("/").last() {
+        Some("gcc") | Some("g++") => {
+            compiler_constants.insert("CXX_USES_GCC", "true");
+        }
+        Some("clang") => {
+            compiler_constants.insert("CXX_USES_CLANG", "true");
+        }
+        _ => (),
+    };
+}
 
 #[allow(dead_code)]
 pub struct IncludeFileGenerator<'generator> {
@@ -17,12 +33,13 @@ pub struct IncludeFileGenerator<'generator> {
 
 #[allow(dead_code)]
 impl<'generator> IncludeFileGenerator<'generator> {
-    pub fn new(output_directory: &std::path::PathBuf) -> Self {
+    pub fn new(output_directory: &std::path::PathBuf, compiler: Compiler) -> Self {
         utility::create_dir(&output_directory).unwrap();
 
-        let mut compiler_constants = HashMap::with_capacity(30);
+        let mut compiler_constants = HashMap::new();
         compiler_constants.insert("CXX_USES_CLANG", "false");
         compiler_constants.insert("CXX_USES_GCC", "false");
+        evaluate_compiler(&mut compiler_constants, &compiler);
 
         IncludeFileGenerator {
             file: None,
@@ -200,7 +217,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
         CP_FORCE := -f\n\
         \n\
         ",
-            compiler_conditional_flags = self.evaluate_compiler()?
+            compiler_conditional_flags = self.compiler_conditional_flags()
         );
         self.file
             .as_ref()
@@ -210,19 +227,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
         Ok(())
     }
 
-    fn evaluate_compiler(&mut self) -> Result<String, GeneratorError> {
-        let compiler = std::env::var("CXX")
-            .map_err(|err| FsError::EnvVariableNotSet("CXX".to_string(), err))?;
-        match compiler.as_str().split("/").last() {
-            Some("gcc") | Some("g++") => {
-                self.compiler_constants.insert("CXX_USES_GCC", "true");
-            }
-            Some("clang") => {
-                self.compiler_constants.insert("CXX_USES_CLANG", "true");
-            }
-            _ => return Err(GeneratorError::NoCompiler(compiler)),
-        };
-
+    fn compiler_conditional_flags(&mut self) -> String {
         let (gcc_key, gcc_value) = self
             .get_makefile_constant("CXX_USES_GCC")
             .unwrap_or((&"CXX_USES_GCC", &"true"));
@@ -231,11 +236,11 @@ impl<'generator> IncludeFileGenerator<'generator> {
             .get_makefile_constant("CXX_USES_CLANG")
             .unwrap_or((&"CXX_USES_CLANG", &"true"));
 
-        Ok(format!(
+        format!(
             "{} := {}\n\
-                    {} := {}\n",
+             {} := {}\n",
             gcc_key, gcc_value, clang_key, clang_value
-        ))
+        )
     }
 
     fn get_makefile_constant(&self, key: &str) -> Option<(&&str, &&str)> {

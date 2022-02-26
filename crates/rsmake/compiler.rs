@@ -1,5 +1,9 @@
-use crate::errors::CompilerError;
+use std::io::Write;
+
 use regex::Regex;
+use textwrap::indent;
+
+use crate::errors::CompilerError;
 
 #[derive(Debug, Clone)]
 pub struct Compiler {
@@ -17,6 +21,45 @@ impl Compiler {
             compiler_exe,
             compiler_type,
         })
+    }
+
+    pub fn evaluate(&self, test_dir: &std::path::Path) -> Result<(), CompilerError> {
+        let main_cpp =
+            create_sample_cpp_main(test_dir).map_err(CompilerError::FailedToCreateSample)?;
+        self.sample_compile(&main_cpp, test_dir)
+    }
+
+    fn create_sample_compile_args(&self, destination_dir: &std::path::Path) -> Vec<String> {
+        match self.compiler_type {
+            Type::Gcc | Type::Clang => vec![
+                format!("-I{}", destination_dir.display().to_string()),
+                "-o".to_string(),
+                destination_dir.join("a.out").display().to_string(),
+            ],
+        }
+    }
+
+    fn sample_compile(
+        &self,
+        input_file: &std::path::Path,
+        test_dir: &std::path::Path,
+    ) -> Result<(), CompilerError> {
+        let compiler_args = self.create_sample_compile_args(test_dir);
+        let args =
+            std::iter::once(input_file.display().to_string()).chain(compiler_args.into_iter());
+        let output = std::process::Command::new(&self.compiler_exe)
+            .current_dir(test_dir)
+            .args(args)
+            .env("TMPDIR", test_dir)
+            .output()
+            .map_err(CompilerError::FailedToRunCompiler)?;
+
+        if !output.status.success() {
+            let stderr =
+                String::from_utf8(output.stderr).expect("Failed to create string from u8 array.");
+            return Err(CompilerError::FailedToCompileSample(stderr));
+        }
+        Ok(())
     }
 
     pub fn compiler_type(&self) -> &Type {
@@ -44,9 +87,20 @@ impl Compiler {
         }
         Err(CompilerError::CXXEnvNotSet)
     }
-    // fn evaluate(compiler_exe: &std::path::Path) -> Result<(), CompilerError> {
+}
 
-    // }
+fn create_sample_cpp_main(test_dir: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
+    if !test_dir.is_dir() {
+        std::fs::create_dir_all(test_dir)?;
+    }
+    let main_cpp_path = test_dir.join("main.cpp");
+    let mut main_cpp = std::fs::File::create(&main_cpp_path)?;
+
+    writeln!(&mut main_cpp, "int main()")?;
+    writeln!(&mut main_cpp, "{{")?;
+    writeln!(&mut main_cpp, "{}", indent("return 0;", "    "))?;
+    writeln!(&mut main_cpp, "}}")?;
+    Ok(main_cpp_path)
 }
 
 #[derive(Debug, Clone)]

@@ -23,6 +23,7 @@ fn try_main() -> Result<(), MyMakeError> {
     let myfile = &command_line.input_file;
 
     let compiler = compiler::Compiler::new()?;
+    evaluate_compiler(&compiler, &command_line)?;
 
     let mut generator = MakefileGenerator::new(&command_line.build_directory, compiler);
     let mut builder = Builder::new(&mut generator);
@@ -47,4 +48,15 @@ fn try_main() -> Result<(), MyMakeError> {
 
 fn main() {
     try_main().unwrap_or_terminate();
+}
+
+fn evaluate_compiler(
+    compiler: &compiler::Compiler,
+    command_line: &CommandLine,
+) -> Result<(), MyMakeError> {
+    let test_dir = command_line.build_directory.as_path().join("sample");
+    println!("rsmake: Evaluating compiler by doing a sample build...");
+    compiler.evaluate(&test_dir)?;
+    println!("rsmake: Evaluating compiler by doing a sample build... Done!");
+    Ok(())
 }

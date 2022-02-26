@@ -92,7 +92,7 @@ impl Make {
             .stderr(std::process::Stdio::piped())
             .args(&self.configs)
             .spawn()
-            .map_err(|_| FsError::Spawn(Command::new("usr/bin/make")))
+            .map_err(|_| FsError::Spawn(Command::new("/usr/bin/make")))
             .map_err(MakeError::Fs)?;
         let output = spawn.wait_with_output().unwrap();
         self.log(&output)?;

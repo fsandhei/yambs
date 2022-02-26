@@ -7,8 +7,8 @@ use crate::errors::CommandLineError;
 pub struct BuildDirectory(std::path::PathBuf);
 
 impl BuildDirectory {
-    pub fn as_path(&self) -> std::path::PathBuf {
-        self.0.to_owned()
+    pub fn as_path(&self) -> &std::path::Path {
+        self.0.as_path()
     }
 }
 

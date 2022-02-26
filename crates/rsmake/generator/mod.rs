@@ -38,8 +38,8 @@ impl MakefileGenerator {
         MakefileGenerator {
             filename: None,
             dependency: None,
-            build_directory: output_directory.clone(),
-            output_directory,
+            build_directory: output_directory.to_path_buf(),
+            output_directory: output_directory.to_path_buf(),
             build_configurations: BuildConfigurations::new(),
             state: GeneratorState::IncludeNotGenerated,
             compiler,

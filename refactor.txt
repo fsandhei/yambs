@@ -1,0 +1,14 @@
+RsMake:
+   * Create Output / Log class for handling stdout and stderr messages?
+   * Look into using a log framework to help with this? spdlog?
+      * log crate (https://docs.rs/log/latest/log/)
+
+Utility:
+   * Remove create_file?
+
+
+Bugs: 
+   [fredrik@Core ~/dev/test/cpp/AStarPathFinder (master)●1⌗1]$ ~/dev/private/rsmake/target/debug/rsmake -g build-rsmake -c c++17,debug
+   gives the following error:
+      * error: Invalid value for '-g <input-file>': The path "/home/fredrik/dev/test/cpp/AStarPathFinder/build-rsmake" does not exist
+   This is a bit confusing. Should be cleaned up.

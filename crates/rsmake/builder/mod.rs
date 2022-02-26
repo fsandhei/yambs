@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::process::Output;
 use std::rc::Rc;
 
@@ -132,7 +131,7 @@ impl<'a> Builder<'a> {
     pub fn build_dependency(
         &self,
         dependency: &DependencyNode,
-        build_path: &PathBuf,
+        build_path: &std::path::Path,
         verbosity: bool,
     ) -> Result<Output, BuilderError> {
         let build_directory = self.resolve_build_directory(build_path);
@@ -199,7 +198,7 @@ impl<'a> Builder<'a> {
         std::env::set_current_dir(directory).unwrap()
     }
 
-    fn resolve_build_directory(&self, path: &PathBuf) -> PathBuf {
+    fn resolve_build_directory(&self, path: &std::path::Path) -> std::path::PathBuf {
         if self.debug {
             return path.join("debug");
         } else {

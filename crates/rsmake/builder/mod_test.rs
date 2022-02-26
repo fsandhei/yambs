@@ -383,7 +383,7 @@ fn resolve_build_directory_debug() {
     let mut generator = GeneratorMock::new();
     let mut builder = Builder::new(&mut generator);
     builder.debug();
-    let path = PathBuf::from("some/path");
+    let path = std::path::PathBuf::from("some/path");
     let expected = path.join("debug");
     assert_eq!(builder.resolve_build_directory(&path), expected);
 }
@@ -392,7 +392,7 @@ fn resolve_build_directory_debug() {
 fn resolve_build_directory_release() {
     let mut generator = GeneratorMock::new();
     let builder = Builder::new(&mut generator);
-    let path = PathBuf::from("some/path");
+    let path = std::path::PathBuf::from("some/path");
     let expected = path.join("release");
     assert_eq!(builder.resolve_build_directory(&path), expected);
 }

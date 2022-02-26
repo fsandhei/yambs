@@ -19,6 +19,22 @@ pub enum CompilerError {
     CXXEnvNotSet,
     #[error("The compiler requested is an invalid compiler for RsMake.")]
     InvalidCompiler,
+    #[error(
+        "\
+        Failed to run compiler.\n\
+        This may be caused by permission issues.\n\
+        Do you have permission to use the compiler?"
+    )]
+    FailedToRunCompiler(#[source] std::io::Error),
+    #[error(
+        "\
+        Error occured when doing a sample compilation.\n\
+        Compilation failed with the following error message:\n\
+        {0}"
+    )]
+    FailedToCompileSample(String),
+    #[error("Failed to create sample main.cpp for compiler assertion")]
+    FailedToCreateSample(#[source] std::io::Error),
 }
 
 #[non_exhaustive]

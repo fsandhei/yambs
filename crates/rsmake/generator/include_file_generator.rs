@@ -48,7 +48,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
         let mut filename = PathBuf::from(filename_prefix);
         filename.set_extension("mk");
         let file =
-            utility::create_file(&self.output_directory, filename.to_str().unwrap()).unwrap();
+            utility::create_file(&self.output_directory.join(filename.to_str().unwrap())).unwrap();
         self.file = Some(file);
     }
 

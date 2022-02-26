@@ -73,13 +73,8 @@ where
     })
 }
 
-pub fn create_file(dir: &PathBuf, filename: &str) -> Result<File, FsError> {
-    let file = dir.join(filename);
-    if file.is_file() {
-        std::fs::remove_file(&file).map_err(|err| FsError::RemoveFile(file.to_path_buf(), err))?;
-    }
-    let filename = File::create(&file).map_err(|err| FsError::CreateFile(file, err))?;
-    Ok(filename)
+pub fn create_file(file: &Path) -> Result<File, FsError> {
+    File::create(&file).map_err(|err| FsError::CreateFile(file.to_path_buf(), err))
 }
 
 // This should be separated into its own "Make" mod.

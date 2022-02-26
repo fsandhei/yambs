@@ -78,7 +78,7 @@ impl MakefileGenerator {
     }
 
     pub fn create_makefile(&mut self) {
-        let filename = utility::create_file(&self.output_directory, "makefile").unwrap();
+        let filename = utility::create_file(&self.output_directory.join("makefile")).unwrap();
         self.filename = Some(filename);
     }
 

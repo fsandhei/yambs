@@ -1,11 +1,15 @@
 use std::io::Write;
 
 use regex::Regex;
+use serde::Serialize;
 use textwrap::indent;
 
+use crate::cache::{Cache, Cacher};
 use crate::errors::CompilerError;
 
-#[derive(Debug, Clone)]
+const CACHE_FILE_NAME: &str = "compiler-data";
+
+#[derive(Debug, Clone, Serialize)]
 pub struct Compiler {
     compiler_exe: std::path::PathBuf,
     compiler_type: Type,
@@ -23,10 +27,20 @@ impl Compiler {
         })
     }
 
+    // pub fn cache(&self, cache: &Cache) -> Result<(), CompilerError> {
+    //     cache
+    //         .cache(&self, CACHE_FILE_NAME)
+    //         .map_err(CompilerError::FailedToCache)
+    // }
+
     pub fn evaluate(&self, test_dir: &std::path::Path) -> Result<(), CompilerError> {
         let main_cpp =
             create_sample_cpp_main(test_dir).map_err(CompilerError::FailedToCreateSample)?;
         self.sample_compile(&main_cpp, test_dir)
+    }
+
+    pub fn compiler_type(&self) -> &Type {
+        &self.compiler_type
     }
 
     fn create_sample_compile_args(&self, destination_dir: &std::path::Path) -> Vec<String> {
@@ -60,10 +74,6 @@ impl Compiler {
             return Err(CompilerError::FailedToCompileSample(stderr));
         }
         Ok(())
-    }
-
-    pub fn compiler_type(&self) -> &Type {
-        &self.compiler_type
     }
 
     fn evaluate_compiler_type(compiler_exe: &std::path::Path) -> Result<Type, CompilerError> {
@@ -103,11 +113,21 @@ fn create_sample_cpp_main(test_dir: &std::path::Path) -> std::io::Result<std::pa
     Ok(main_cpp_path)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 #[allow(non_camel_case_types)]
 pub enum Type {
     Gcc,
     Clang,
+}
+
+impl Cacher for Compiler {
+    type Err = CompilerError;
+
+    fn cache(&self, cache: &Cache) -> Result<(), Self::Err> {
+        cache
+            .cache(&self, CACHE_FILE_NAME)
+            .map_err(CompilerError::FailedToCache)
+    }
 }
 
 impl std::string::ToString for Compiler {

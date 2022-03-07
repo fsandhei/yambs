@@ -2,6 +2,7 @@ use std::io::Write;
 use structopt::StructOpt;
 
 mod builder;
+mod cache;
 mod cli;
 mod compiler;
 mod dependency;

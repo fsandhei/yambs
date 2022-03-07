@@ -35,6 +35,8 @@ pub enum CompilerError {
     FailedToCompileSample(String),
     #[error("Failed to create sample main.cpp for compiler assertion")]
     FailedToCreateSample(#[source] std::io::Error),
+    #[error("Failed to cache of compiler data")]
+    FailedToCache(#[source] CacheError),
 }
 
 #[non_exhaustive]
@@ -50,6 +52,14 @@ pub enum BuilderError {
     Fs(#[from] FsError),
     #[error(transparent)]
     Make(#[from] MakeError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CacheError {
+    #[error("Error occured when creating cache")]
+    FailedToCache(std::io::Error),
+    #[error("Error occured when writing to cache")]
+    FailedToWrite(serde_json::Error),
 }
 
 #[non_exhaustive]

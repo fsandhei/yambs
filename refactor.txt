@@ -2,6 +2,7 @@ RsMake:
    * Create Output / Log class for handling stdout and stderr messages?
    * Look into using a log framework to help with this? spdlog?
       * log crate (https://docs.rs/log/latest/log/)
+   * RsMake is currently dynamically linking stdlibc++ to executables and libraries. Should this be statically instead?
 
 Utility:
    * Remove create_file?
@@ -12,3 +13,8 @@ Bugs:
    gives the following error:
       * error: Invalid value for '-g <input-file>': The path "/home/fredrik/dev/test/cpp/AStarPathFinder/build-rsmake" does not exist
    This is a bit confusing. Should be cleaned up.
+
+Environment variables:
+   RSMAKE_GENERATOR_BINARY (make, ninja, etc...)
+   CXX
+   * List required environment variables set for RsMake

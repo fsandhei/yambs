@@ -17,4 +17,5 @@ Bugs:
 Environment variables:
    RSMAKE_GENERATOR_BINARY (make, ninja, etc...)
    CXX
+   CC?
    * List required environment variables set for RsMake

@@ -8,7 +8,7 @@ trap "remove_build_and_test_files $?" INT
 ACCEPTANCE_TESTS_ONLY="false"
 BIN_DIR="/usr/bin/"
 CARGO="/home/fredrik/.cargo/bin/cargo"
-ROOT_DIR="/home/fredrik/bin/rsmake"
+ROOT_DIR="/home/fredrik/dev/private/rsmake"
 RSMAKE="$ROOT_DIR/target/release/rsmake"
 RSMAKE_RELEASE="$ROOT_DIR/target/release/rsmake"
 CWD=`pwd`
@@ -39,21 +39,6 @@ remove_build_and_test_files() {
    rm -rf "$TEST_DIR_DEP"
 }
 
-
-make_toolchain_file()
-{
-   LOCATION="$1"
-   if [ ! -d "$LOCATION" ]; then 
-      mkdir "$LOCATION"
-   fi
-   cat << EOF > "$LOCATION/toolchain.mmk"
-compiler = /usr/bin/gcc
-linker = /usr/bin/ld
-
-EOF
-}
-
-
 build_mymake()
 {
    echo "Building latest version of RsMake."
@@ -68,8 +53,6 @@ create_dummy_project() {
    fi
    mkdir $TEST_DIR && cd $TEST_DIR
    mkdir "$TEST_DIR/src"
-   make_toolchain_file "$TEST_DIR/mymake"
-
 }
 
 
@@ -184,7 +167,6 @@ int main()
 
 EOF
    create_dummy_library
-   make_toolchain_file "$TEST_DIR/mymake"
 
    cat << EOF > $TEST_DIR/run.mmk
 MMK_REQUIRE:
@@ -269,14 +251,14 @@ cd $ROOT_DIR && build_mymake
 gcc_exe=`which g++`
 set_CXX "$gcc_exe"
 echo "--------------------------- RUNNING ACCEPTANCE TESTS ---------------------------"
-echo "GCC = $gcc_exe"
+echo "CXX = $gcc_exe"
 run_rsmake_test test_mymake_minimal_build
 run_rsmake_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release
 run_rsmake_test test_mymake_with_one_dependency_build
 
 clang_exe=`which clang++`
 set_CXX "$clang_exe"
-echo "GCC = $clang_exe"
+echo "CXX = $clang_exe"
 run_rsmake_test test_mymake_minimal_build
 run_rsmake_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release
 run_rsmake_test test_mymake_with_one_dependency_build

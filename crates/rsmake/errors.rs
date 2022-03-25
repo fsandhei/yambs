@@ -8,6 +8,8 @@ pub enum MyMakeError {
     #[error(transparent)]
     Fs(#[from] FsError),
     #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
     ConfigurationTime(#[from] BuilderError),
     #[error(transparent)]
     CompilerError(#[from] CompilerError),

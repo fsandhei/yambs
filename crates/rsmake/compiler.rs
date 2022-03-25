@@ -1,15 +1,15 @@
 use std::io::Write;
 
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use textwrap::indent;
 
 use crate::cache::{Cache, Cacher};
 use crate::errors::CompilerError;
 
-const CACHE_FILE_NAME: &str = "compiler-data";
+const CACHE_FILE_NAME: &str = "compiler";
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Compiler {
     compiler_exe: std::path::PathBuf,
     compiler_type: Type,
@@ -26,12 +26,6 @@ impl Compiler {
             compiler_type,
         })
     }
-
-    // pub fn cache(&self, cache: &Cache) -> Result<(), CompilerError> {
-    //     cache
-    //         .cache(&self, CACHE_FILE_NAME)
-    //         .map_err(CompilerError::FailedToCache)
-    // }
 
     pub fn evaluate(&self, test_dir: &std::path::Path) -> Result<(), CompilerError> {
         let main_cpp =
@@ -113,7 +107,7 @@ fn create_sample_cpp_main(test_dir: &std::path::Path) -> std::io::Result<std::pa
     Ok(main_cpp_path)
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum Type {
     Gcc,
@@ -127,6 +121,9 @@ impl Cacher for Compiler {
         cache
             .cache(&self, CACHE_FILE_NAME)
             .map_err(CompilerError::FailedToCache)
+    }
+    fn is_changed(&self, cache: &Cache) -> bool {
+        cache.detect_change(self, CACHE_FILE_NAME)
     }
 }
 

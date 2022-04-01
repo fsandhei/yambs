@@ -2,6 +2,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use crate::errors::FsError;
+pub mod shell;
 
 pub fn get_include_directory_from_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, FsError> {
     if path.as_ref().join("include").is_dir() {

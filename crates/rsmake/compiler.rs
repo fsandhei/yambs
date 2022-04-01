@@ -6,6 +6,7 @@ use textwrap::indent;
 
 use crate::cache::{Cache, Cacher};
 use crate::errors::CompilerError;
+use crate::utility;
 
 const CACHE_FILE_NAME: &str = "compiler";
 
@@ -13,6 +14,7 @@ const CACHE_FILE_NAME: &str = "compiler";
 pub struct Compiler {
     compiler_exe: std::path::PathBuf,
     compiler_type: Type,
+    compiler_version: String,
 }
 
 impl Compiler {
@@ -21,9 +23,11 @@ impl Compiler {
             .map(std::path::PathBuf::from)
             .ok_or_else(|| CompilerError::CXXEnvNotSet)?;
         let compiler_type = Compiler::evaluate_compiler_type(&compiler_exe)?;
+        let compiler_version = parse_version(&compiler_exe)?;
         Ok(Self {
             compiler_exe,
             compiler_type,
+            compiler_version,
         })
     }
 
@@ -105,6 +109,32 @@ fn create_sample_cpp_main(test_dir: &std::path::Path) -> std::io::Result<std::pa
     writeln!(&mut main_cpp, "{}", indent("return 0;", "    "))?;
     writeln!(&mut main_cpp, "}}")?;
     Ok(main_cpp_path)
+}
+
+// TODO: Add test for this
+fn try_get_version(compiler_exe: &std::path::Path) -> Result<semver::Version, CompilerError> {
+    let version_regex = Regex::new(r"[0-9]+\.[0-9]+\.[0-9]+").unwrap();
+
+    let raw_version = compiler_version_raw(compiler_exe)?;
+
+    if version_regex.is_match(&raw_version) {
+        return Ok(version_regex
+            .captures(&raw_version)
+            .and_then(|captures| captures.get(0))
+            .and_then(|captured_version| Some(captured_version.as_str()))
+            .and_then(|version| semver::Version::parse(version).ok())
+            .unwrap());
+    }
+    Err(CompilerError::FailedToFindVersionPattern)
+}
+
+fn parse_version(compiler_exe: &std::path::Path) -> Result<String, CompilerError> {
+    try_get_version(compiler_exe).and_then(|version| Ok(version.to_string()))
+}
+
+fn compiler_version_raw(compiler_exe: &std::path::Path) -> Result<String, CompilerError> {
+    utility::shell::execute_get_stdout(compiler_exe, &["--version"])
+        .map_err(CompilerError::FailedToGetVersion)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

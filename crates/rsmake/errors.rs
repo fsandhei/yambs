@@ -39,6 +39,10 @@ pub enum CompilerError {
     FailedToCreateSample(#[source] std::io::Error),
     #[error("Failed to cache of compiler data")]
     FailedToCache(#[source] CacheError),
+    #[error("Failed to retrieve compiler version")]
+    FailedToGetVersion(#[source] FsError),
+    #[error("Failed to find version pattern")]
+    FailedToFindVersionPattern,
 }
 
 #[non_exhaustive]
@@ -136,6 +140,18 @@ pub enum FsError {
     NoLibraryFile(std::path::PathBuf),
     #[error("Environment variable ${0} is not set.")]
     EnvVariableNotSet(String, #[source] std::env::VarError),
+    #[error("Failed to convert utf8 array to string")]
+    FailedToCreateStringFromUtf8(#[source] std::string::FromUtf8Error),
+    #[error(
+        "Failed to execute \"{exe} {args}\"\n\
+            stderr: \n
+                {stderr}"
+    )]
+    FailedToExecute {
+        exe: std::path::PathBuf,
+        args: String,
+        stderr: String,
+    },
 }
 
 #[non_exhaustive]

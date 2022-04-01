@@ -62,7 +62,7 @@ fn evaluate_compiler(
         let test_dir = command_line.build_directory.as_path().join("sample");
         println!("rsmake: Evaluating compiler by doing a sample build...");
         compiler.evaluate(&test_dir)?;
-        println!("rsmake: Evaluating compiler by doing a sample build... Done!");
+        println!("rsmake: Evaluating compiler by doing a sample build... done");
         compiler.cache(cache)?;
     }
     Ok(())

@@ -203,7 +203,7 @@ mod tests {
             assert!(matches!(compiler.compiler_type(), &Type::Gcc));
         }
         {
-            lock.lock("gcc-11");
+            lock.lock("gcc");
             let compiler = Compiler::new().unwrap();
             assert!(matches!(compiler.compiler_type(), &Type::Gcc));
         }
@@ -213,12 +213,12 @@ mod tests {
     fn evaluate_compiler_type_clang() {
         let mut lock = EnvLock::new();
         {
-            lock.lock("clang-9");
+            lock.lock("clang");
             let compiler = Compiler::new().unwrap();
             assert!(matches!(compiler.compiler_type(), &Type::Clang));
         }
         {
-            lock.lock("clang-11");
+            lock.lock("clang-13");
             let compiler = Compiler::new().unwrap();
             assert!(matches!(compiler.compiler_type(), &Type::Clang));
         }

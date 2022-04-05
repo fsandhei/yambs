@@ -3,7 +3,7 @@ name = "rsmake"
 version = "0.1.0"
 authors = ["Fredrik Sandhei <fredrik.sandhei@gmail.com>"]
 edition = "2018"
-description = "RsMake is a command-line based build system for C++, written solely in Rust."
+description = "RsMake is a command-line based build system for C++."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

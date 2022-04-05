@@ -23,18 +23,9 @@ pub enum CompilerError {
     InvalidCompiler,
     #[error(
         "\
-        Failed to run compiler.\n\
-        This may be caused by permission issues.\n\
-        Do you have permission to use the compiler?"
+        Error occured when doing a sample compilation."
     )]
-    FailedToRunCompiler(#[source] std::io::Error),
-    #[error(
-        "\
-        Error occured when doing a sample compilation.\n\
-        Compilation failed with the following error message:\n\
-        {0}"
-    )]
-    FailedToCompileSample(String),
+    FailedToCompileSample(#[source] FsError),
     #[error("Failed to create sample main.cpp for compiler assertion")]
     FailedToCreateSample(#[source] std::io::Error),
     #[error("Failed to cache of compiler data")]
@@ -142,16 +133,8 @@ pub enum FsError {
     EnvVariableNotSet(String, #[source] std::env::VarError),
     #[error("Failed to convert utf8 array to string")]
     FailedToCreateStringFromUtf8(#[source] std::string::FromUtf8Error),
-    #[error(
-        "Failed to execute \"{exe} {args}\"\n\
-            stderr: \n
-                {stderr}"
-    )]
-    FailedToExecute {
-        exe: std::path::PathBuf,
-        args: String,
-        stderr: String,
-    },
+    #[error("Failed to execute external program")]
+    FailedToExecute(#[source] std::io::Error),
 }
 
 #[non_exhaustive]

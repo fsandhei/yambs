@@ -59,19 +59,8 @@ impl Compiler {
         let compiler_args = self.create_sample_compile_args(test_dir);
         let args =
             std::iter::once(input_file.display().to_string()).chain(compiler_args.into_iter());
-        let output = std::process::Command::new(&self.compiler_exe)
-            .current_dir(test_dir)
-            .args(args)
-            .env("TMPDIR", test_dir)
-            .output()
-            .map_err(CompilerError::FailedToRunCompiler)?;
-
-        if !output.status.success() {
-            let stderr =
-                String::from_utf8(output.stderr).expect("Failed to create string from u8 array.");
-            return Err(CompilerError::FailedToCompileSample(stderr));
-        }
-        Ok(())
+        utility::shell::execute(&self.compiler_exe, args)
+            .map_err(CompilerError::FailedToCompileSample)
     }
 
     fn evaluate_compiler_type(compiler_exe: &std::path::Path) -> Result<Type, CompilerError> {

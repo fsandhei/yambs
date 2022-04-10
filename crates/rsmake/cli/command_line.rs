@@ -50,6 +50,9 @@ pub struct CommandLine {
         parse(try_from_str)
     )]
     pub build_directory: BuildDirectory,
+    /// Create dottie graph of build tree.
+    #[structopt(long = "dottie-graph")]
+    pub create_dottie_graph: bool,
 }
 
 fn validate_file_path(path: &str) -> Result<PathBuf, CommandLineError> {

@@ -35,17 +35,14 @@ fn try_main() -> Result<(), MyMakeError> {
         .configure(&command_line)
         .map_err(MyMakeError::ConfigurationTime)?;
 
-    print!("rsmake: Reading MyMake files");
-    std::io::stdout().flush().unwrap();
-    builder
-        .read_mmk_files_from_path(&myfile)
-        .unwrap_or_terminate();
-    println!();
+    read_mmk_files_from_path(&mut builder, &myfile)?;
+    generate_makefiles(&mut builder)?;
 
-    print!("rsmake: Generating makefiles");
-    builder.generate_makefiles().unwrap_or_terminate();
-    println!();
-    builder.build_project().unwrap_or_terminate();
+    if command_line.create_dottie_graph {
+        return create_dottie_graph(&builder);
+    }
+
+    builder.build_project()?;
     Ok(())
 }
 
@@ -64,6 +61,34 @@ fn evaluate_compiler(
         compiler.evaluate(&test_dir)?;
         println!("rsmake: Evaluating compiler by doing a sample build... done");
         compiler.cache(cache)?;
+    }
+    Ok(())
+}
+
+fn generate_makefiles(builder: &mut Builder) -> Result<(), MyMakeError> {
+    print!("rsmake: Generating makefiles");
+    builder.generate_makefiles()?;
+    println!();
+    Ok(())
+}
+
+fn read_mmk_files_from_path(
+    builder: &mut Builder,
+    top_path: &std::path::Path,
+) -> Result<(), MyMakeError> {
+    print!("rsmake: Reading RsMake files");
+    std::io::stdout().flush().unwrap();
+    builder.read_mmk_files_from_path(&top_path)?;
+    println!();
+    Ok(())
+}
+
+fn create_dottie_graph(builder: &Builder) -> Result<(), MyMakeError> {
+    let mut dottie_buffer = String::new();
+    if let Some(dependency) = builder.top_dependency() {
+        if external::dottie(dependency, false, &mut dottie_buffer).is_ok() {
+            println!("rsmake: Created dottie file dependency.gv");
+        }
     }
     Ok(())
 }

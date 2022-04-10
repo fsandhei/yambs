@@ -26,7 +26,7 @@ pub struct Dependency {
 pub type DependencyNode = Rc<RefCell<Dependency>>;
 
 impl Dependency {
-    pub fn from(path: &std::path::PathBuf) -> Dependency {
+    pub fn from(path: &std::path::Path) -> Dependency {
         let source_path: PathBuf;
         if path.ends_with("run.mmk") || path.ends_with("lib.mmk") {
             source_path = path.to_owned();
@@ -48,7 +48,7 @@ impl Dependency {
     }
 
     pub fn create_dependency_from_path(
-        path: &std::path::PathBuf,
+        path: &std::path::Path,
         dep_registry: &mut DependencyRegistry,
     ) -> Result<DependencyNode, DependencyError> {
         let dependency = Rc::new(RefCell::new(Dependency::from(path)));

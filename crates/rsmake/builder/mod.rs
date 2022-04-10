@@ -35,6 +35,10 @@ impl<'a> Builder<'a> {
         }
     }
 
+    pub fn top_dependency(&self) -> Option<&DependencyNode> {
+        self.top_dependency.as_ref()
+    }
+
     pub fn configure(&mut self, command_line: &CommandLine) -> Result<(), BuilderError> {
         if command_line.verbose {
             self.set_verbose(true);
@@ -80,7 +84,7 @@ impl<'a> Builder<'a> {
 
     pub fn read_mmk_files_from_path(
         self: &mut Self,
-        top_path: &std::path::PathBuf,
+        top_path: &std::path::Path,
     ) -> Result<(), BuilderError> {
         let top_dependency =
             Dependency::create_dependency_from_path(&top_path, &mut self.dep_registry)?;

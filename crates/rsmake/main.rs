@@ -10,6 +10,7 @@ mod errors;
 mod external;
 mod generator;
 mod mmk_parser;
+mod output;
 mod unwrap_or_terminate;
 mod utility;
 
@@ -18,15 +19,17 @@ use builder::*;
 use cli::command_line::CommandLine;
 use errors::MyMakeError;
 use generator::MakefileGenerator;
+use output::Output;
 use unwrap_or_terminate::MyMakeUnwrap;
 
 fn try_main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();
+    let output = Output::new();
     let myfile = &command_line.input_file;
     let cache = Cache::new(&command_line.build_directory)?;
 
     let compiler = compiler::Compiler::new()?;
-    evaluate_compiler(&compiler, &command_line, &cache)?;
+    evaluate_compiler(&compiler, &command_line, &cache, &output)?;
 
     let mut generator = MakefileGenerator::new(&command_line.build_directory, compiler);
     let mut builder = Builder::new(&mut generator);
@@ -39,7 +42,7 @@ fn try_main() -> Result<(), MyMakeError> {
     generate_makefiles(&mut builder)?;
 
     if command_line.create_dottie_graph {
-        return create_dottie_graph(&builder);
+        return create_dottie_graph(&builder, &output);
     }
 
     builder.build_project()?;
@@ -54,12 +57,13 @@ fn evaluate_compiler(
     compiler: &compiler::Compiler,
     command_line: &CommandLine,
     cache: &Cache,
+    output: &Output,
 ) -> Result<(), MyMakeError> {
     if !compiler.is_changed(cache) {
         let test_dir = command_line.build_directory.as_path().join("sample");
-        println!("rsmake: Evaluating compiler by doing a sample build...");
+        output.status("Evaluating compiler by doing a sample build...");
         compiler.evaluate(&test_dir)?;
-        println!("rsmake: Evaluating compiler by doing a sample build... done");
+        output.status("Evaluating compiler by doing a sample build... done");
         compiler.cache(cache)?;
     }
     Ok(())
@@ -83,11 +87,11 @@ fn read_mmk_files_from_path(
     Ok(())
 }
 
-fn create_dottie_graph(builder: &Builder) -> Result<(), MyMakeError> {
+fn create_dottie_graph(builder: &Builder, output: &Output) -> Result<(), MyMakeError> {
     let mut dottie_buffer = String::new();
     if let Some(dependency) = builder.top_dependency() {
         if external::dottie(dependency, false, &mut dottie_buffer).is_ok() {
-            println!("rsmake: Created dottie file dependency.gv");
+            output.status("rsmake: Created dottie file dependency.gv");
         }
     }
     Ok(())

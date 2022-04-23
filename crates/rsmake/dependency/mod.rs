@@ -65,40 +65,21 @@ impl Dependency {
             dependency.borrow_mut().add_dependency(dep);
         }
 
-        dependency.borrow().print_ok();
         dependency
             .borrow_mut()
             .change_state(DependencyState::Registered);
         Ok(dependency)
     }
 
-    fn detect_dependency(
-        &self,
-        dep_registry: &mut DependencyRegistry,
-    ) -> Result<Vec<DependencyNode>, DependencyError> {
-        let mut dep_vec: Vec<DependencyNode> = Vec::new();
-        if self.mmk_data().has_dependencies() {
-            for keyword in self.mmk_data().data()["MMK_REQUIRE"].clone() {
-                if keyword.argument() == "" {
-                    break;
-                }
-
-                let mmk_path = std::path::PathBuf::from(keyword.argument())
-                    .canonicalize()
-                    .unwrap();
-                let dep_path = &mmk_path.join("lib.mmk");
-
-                if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {
-                    self.detect_cycle_from_dependency(&dependency)?;
-                    dep_vec.push(dependency);
-                } else {
-                    let dependency =
-                        Dependency::create_dependency_from_path(&mmk_path, dep_registry)?;
-                    dep_vec.push(dependency);
-                }
+    pub fn num_of_dependencies(&self) -> usize {
+        let underlying_dependencies_sum = {
+            let mut underlying_dependencies_sum: usize = 0;
+            for dep in self.requires.borrow().iter() {
+                underlying_dependencies_sum += dep.borrow().num_of_dependencies();
             }
-        }
-        Ok(dep_vec)
+            underlying_dependencies_sum
+        };
+        self.requires.borrow().len() + underlying_dependencies_sum
     }
 
     pub fn add_dependency(self: &mut Self, dependency: DependencyNode) {
@@ -236,8 +217,33 @@ impl Dependency {
         Ok(())
     }
 
-    fn print_ok(self: &Self) {
-        print!(".");
+    fn detect_dependency(
+        &self,
+        dep_registry: &mut DependencyRegistry,
+    ) -> Result<Vec<DependencyNode>, DependencyError> {
+        let mut dep_vec: Vec<DependencyNode> = Vec::new();
+        if self.mmk_data().has_dependencies() {
+            for keyword in self.mmk_data().data()["MMK_REQUIRE"].clone() {
+                if keyword.argument() == "" {
+                    break;
+                }
+
+                let mmk_path = std::path::PathBuf::from(keyword.argument())
+                    .canonicalize()
+                    .unwrap();
+                let dep_path = &mmk_path.join("lib.mmk");
+
+                if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {
+                    self.detect_cycle_from_dependency(&dependency)?;
+                    dep_vec.push(dependency);
+                } else {
+                    let dependency =
+                        Dependency::create_dependency_from_path(&mmk_path, dep_registry)?;
+                    dep_vec.push(dependency);
+                }
+            }
+        }
+        Ok(dep_vec)
     }
 }
 

@@ -1,4 +1,3 @@
-use std::io::Write;
 use structopt::StructOpt;
 
 mod builder;
@@ -25,7 +24,6 @@ use unwrap_or_terminate::MyMakeUnwrap;
 fn try_main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();
     let output = Output::new();
-    let myfile = &command_line.input_file;
     let cache = Cache::new(&command_line.build_directory)?;
 
     let compiler = compiler::Compiler::new()?;
@@ -38,12 +36,13 @@ fn try_main() -> Result<(), MyMakeError> {
         .configure(&command_line)
         .map_err(MyMakeError::ConfigurationTime)?;
 
-    read_mmk_files_from_path(&mut builder, &myfile)?;
-    generate_makefiles(&mut builder)?;
+    read_mmk_files_from_path(&mut builder, &command_line.input_file, &output)?;
 
     if command_line.create_dottie_graph {
         return create_dottie_graph(&builder, &output);
     }
+
+    generate_makefiles(&mut builder, &output, &command_line)?;
 
     builder.build_project()?;
     Ok(())
@@ -69,21 +68,36 @@ fn evaluate_compiler(
     Ok(())
 }
 
-fn generate_makefiles(builder: &mut Builder) -> Result<(), MyMakeError> {
-    print!("rsmake: Generating makefiles");
+fn generate_makefiles(
+    builder: &mut Builder,
+    output: &Output,
+    command_line: &CommandLine,
+) -> Result<(), MyMakeError> {
     builder.generate_makefiles()?;
-    println!();
+    output.status(&format!(
+        "Generated build files in {}",
+        command_line.build_directory.as_path().display()
+    ));
     Ok(())
 }
 
 fn read_mmk_files_from_path(
     builder: &mut Builder,
     top_path: &std::path::Path,
+    output: &Output,
 ) -> Result<(), MyMakeError> {
-    print!("rsmake: Reading RsMake files");
-    std::io::stdout().flush().unwrap();
     builder.read_mmk_files_from_path(&top_path)?;
-    println!();
+    if let Some(top_dependency) = builder.top_dependency() {
+        let number_of_mmk_files = {
+            let num_of_dependencies = top_dependency.borrow().num_of_dependencies();
+            if num_of_dependencies == 0 {
+                1
+            } else {
+                num_of_dependencies
+            }
+        };
+        output.status(&format!("Read {} RsMake files", number_of_mmk_files));
+    }
     Ok(())
 }
 

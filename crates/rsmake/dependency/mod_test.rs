@@ -740,3 +740,41 @@ fn is_executable_false_test() {
     let dependency = Dependency::from(&project_path);
     assert!(!dependency.is_executable());
 }
+
+#[test]
+fn num_of_dependencies_is_zero_when_no_dependencies() {
+    let project_path = std::path::PathBuf::from("/some/path/name/for/MyProject/test/run.mmk");
+    let dependency = Dependency::from(&project_path);
+    assert_eq!(dependency.num_of_dependencies(), 0);
+}
+
+#[test]
+fn num_of_dependencies_is_one_when_it_has_one_dependency() {
+    let project_path = std::path::PathBuf::from("/some/path/name/for/MyProject/test/run.mmk");
+    let mut dependency = Dependency::from(&project_path);
+    let req_dependency = Dependency::from(&project_path);
+    dependency.add_dependency(Rc::new(RefCell::new(req_dependency)));
+    assert_eq!(dependency.num_of_dependencies(), 1);
+}
+
+#[test]
+fn num_of_dependencies_is_two_when_it_has_two_dependencies() {
+    let project_path = std::path::PathBuf::from("/some/path/name/for/MyProject/test/run.mmk");
+    let mut dependency = Dependency::from(&project_path);
+    let req_dependency = Dependency::from(&project_path);
+    let req_dependency_two = Dependency::from(&project_path);
+    dependency.add_dependency(Rc::new(RefCell::new(req_dependency)));
+    dependency.add_dependency(Rc::new(RefCell::new(req_dependency_two)));
+    assert_eq!(dependency.num_of_dependencies(), 2);
+}
+
+#[test]
+fn num_of_dependencies_is_two_when_it_has_one_dependency_with_its_own_dependency() {
+    let project_path = std::path::PathBuf::from("/some/path/name/for/MyProject/test/run.mmk");
+    let mut dependency = Dependency::from(&project_path);
+    let mut req_dependency = Dependency::from(&project_path);
+    let req_dependency_two = Dependency::from(&project_path);
+    req_dependency.add_dependency(Rc::new(RefCell::new(req_dependency_two)));
+    dependency.add_dependency(Rc::new(RefCell::new(req_dependency)));
+    assert_eq!(dependency.num_of_dependencies(), 2);
+}

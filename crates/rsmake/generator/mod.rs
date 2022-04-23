@@ -368,7 +368,6 @@ impl Generator for MakefileGenerator {
         } else {
             self.generate_rule_package()?;
         }
-        self.print_ok();
         Ok(())
     }
 
@@ -475,10 +474,6 @@ impl Generator for MakefileGenerator {
                 .map_err(|_| GeneratorError::CreateRule)?;
         }
         Ok(())
-    }
-
-    fn print_ok(self: &Self) -> () {
-        print!(".");
     }
 }
 

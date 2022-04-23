@@ -46,8 +46,6 @@ impl Generator for GeneratorMock {
     fn generate_appending_flags(&mut self) -> Result<(), GeneratorError> {
         Ok(())
     }
-
-    fn print_ok(&self) {}
 }
 
 impl RuntimeSettings for GeneratorMock {

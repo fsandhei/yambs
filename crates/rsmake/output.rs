@@ -8,7 +8,7 @@ use colored::Colorize;
 // ```
 //  output.task("Generating makefiles", || { builder.generate_makefiles() })
 //
-//
+// Skal output - rammeverket ha forhold til logging?
 
 const RSMAKE_PREFIX: &str = "rsmake";
 

@@ -47,8 +47,6 @@ pub enum BuilderError {
     UnexpectedCall(String),
     #[error(transparent)]
     Fs(#[from] FsError),
-    #[error(transparent)]
-    Make(#[from] MakeError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -166,13 +164,6 @@ pub enum ParseError {
     InvalidFilename(String),
     #[error(transparent)]
     Toolchain(#[from] ToolchainError),
-}
-
-#[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
-pub enum MakeError {
-    #[error("The following error occured from the file system: {0})")]
-    Fs(#[source] FsError),
 }
 
 #[non_exhaustive]

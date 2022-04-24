@@ -71,17 +71,6 @@ impl Dependency {
         Ok(dependency)
     }
 
-    pub fn num_of_dependencies(&self) -> usize {
-        let underlying_dependencies_sum = {
-            let mut underlying_dependencies_sum: usize = 0;
-            for dep in self.requires.borrow().iter() {
-                underlying_dependencies_sum += dep.borrow().num_of_dependencies();
-            }
-            underlying_dependencies_sum
-        };
-        self.requires.borrow().len() + underlying_dependencies_sum
-    }
-
     pub fn add_dependency(self: &mut Self, dependency: DependencyNode) {
         self.requires.borrow_mut().push(dependency);
     }

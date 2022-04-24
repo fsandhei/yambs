@@ -18,6 +18,10 @@ impl DependencyRegistry {
         }
     }
 
+    pub fn number_of_dependencies(&self) -> usize {
+        self.registry.len()
+    }
+
     pub fn add_dependency(&mut self, dependency: Rc<RefCell<Dependency>>) {
         self.registry.push(dependency);
     }

@@ -12,6 +12,14 @@ name = "rsmake"
 bench = false
 path  = "crates/rsmake/main.rs"
 
+[lib]
+name = "rsmake"
+path = "crates/rsmake/lib.rs"
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration_test.rs"
+
 [dependencies]
 colored = "2.0.0"
 structopt = "0.3"

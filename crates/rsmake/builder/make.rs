@@ -6,7 +6,7 @@ use std::process::Output;
 use std::vec::Vec;
 
 use crate::builder::filter;
-use crate::errors::{FsError, MakeError};
+use crate::errors::FsError;
 
 #[allow(dead_code)]
 pub struct Make {
@@ -28,19 +28,17 @@ impl Make {
         self
     }
 
-    pub fn add_logger(&mut self, log_file_name: &PathBuf) -> Result<(), MakeError> {
+    pub fn add_logger(&mut self, log_file_name: &PathBuf) -> Result<(), FsError> {
         let file = std::fs::File::create(&log_file_name);
 
         self.log_file = match file {
             Ok(file) => Some(file),
-            Err(err) => {
-                return Err(FsError::CreateFile(log_file_name.into(), err)).map_err(MakeError::Fs)
-            }
+            Err(err) => return Err(FsError::CreateFile(log_file_name.into(), err)),
         };
         Ok(())
     }
 
-    fn log(&self, output: &Output) -> Result<(), MakeError> {
+    fn log(&self, output: &Output) -> Result<(), FsError> {
         let stderr = String::from_utf8(output.stderr.clone()).unwrap();
         let stdout = String::from_utf8(output.stdout.clone()).unwrap();
 
@@ -53,47 +51,41 @@ impl Make {
             .as_ref()
             .unwrap()
             .write(stdout.as_bytes())
-            .map_err(FsError::WriteToFile)
-            .map_err(MakeError::Fs)?;
+            .map_err(FsError::WriteToFile)?;
         self.log_file
             .as_ref()
             .unwrap()
             .write(b"\n\n")
-            .map_err(FsError::WriteToFile)
-            .map_err(MakeError::Fs)?;
+            .map_err(FsError::WriteToFile)?;
         self.log_file
             .as_ref()
             .unwrap()
             .write(stderr.as_bytes())
-            .map_err(FsError::WriteToFile)
-            .map_err(MakeError::Fs)?;
+            .map_err(FsError::WriteToFile)?;
         self.log_file
             .as_ref()
             .unwrap()
             .write(b"\n\n")
-            .map_err(FsError::WriteToFile)
-            .map_err(MakeError::Fs)?;
+            .map_err(FsError::WriteToFile)?;
         Ok(())
     }
 
-    pub fn log_text(&self, text: String) -> Result<(), MakeError> {
+    pub fn log_text(&self, text: String) -> Result<(), FsError> {
         self.log_file
             .as_ref()
             .unwrap()
             .write(text.as_bytes())
-            .map_err(FsError::WriteToFile)
-            .map_err(MakeError::Fs)?;
+            .map_err(FsError::WriteToFile)?;
         Ok(())
     }
 
-    pub fn spawn(&self) -> Result<Output, MakeError> {
+    pub fn spawn(&self) -> Result<Output, FsError> {
         let spawn = Command::new("/usr/bin/make")
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .args(&self.configs)
             .spawn()
-            .map_err(|_| FsError::Spawn(Command::new("/usr/bin/make")))
-            .map_err(MakeError::Fs)?;
+            .map_err(|_| FsError::Spawn(Command::new("/usr/bin/make")))?;
         let output = spawn.wait_with_output().unwrap();
         self.log(&output)?;
         Ok(output)

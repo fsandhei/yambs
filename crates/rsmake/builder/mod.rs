@@ -1,4 +1,3 @@
-use std::process::Output;
 use std::rc::Rc;
 
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
@@ -6,7 +5,6 @@ use crate::cli::command_line::CommandLine;
 use crate::dependency::{Dependency, DependencyNode, DependencyRegistry};
 use crate::errors::BuilderError;
 use crate::generator::GeneratorExecutor;
-use colored::Colorize;
 
 mod filter;
 mod make;
@@ -72,6 +70,10 @@ impl<'a> Builder<'a> {
         self.verbose = value;
     }
 
+    pub fn make(&self) -> &Make {
+        &self.make
+    }
+
     pub fn create_log_file(&mut self) -> Result<(), BuilderError> {
         if let Some(top_dependency) = &self.top_dependency {
             if top_dependency.borrow().is_makefile_made() {
@@ -110,99 +112,11 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn build_project(&mut self) -> Result<(), BuilderError> {
-        self.create_log_file()?;
-        if let Some(top_dependency) = &self.top_dependency {
-            let output = self.build_dependency(
-                &top_dependency,
-                &self.top_build_directory.as_path(),
-                self.verbose,
-            );
-            let build_status_message: String;
-            if output.is_ok() && output.unwrap().status.success() {
-                build_status_message = format!("rsmake: {}", "Build SUCCESS".green());
-            } else {
-                build_status_message = format!("rsmake: {}", "Build FAILED".red());
-            }
-            println!("{}", build_status_message);
-            self.make.log_text(build_status_message)?;
-            let log_path = self.top_build_directory.as_path().join("rsmake_log.txt");
-            println!("rsmake: Build log available at {:?}", log_path);
-        }
-        Ok(())
+    pub fn number_of_dependencies(&self) -> usize {
+        self.dep_registry.number_of_dependencies()
     }
 
-    pub fn build_dependency(
-        &self,
-        dependency: &DependencyNode,
-        build_path: &std::path::Path,
-        verbosity: bool,
-    ) -> Result<Output, BuilderError> {
-        let build_directory = self.resolve_build_directory(build_path);
-
-        for required_dependency in dependency.borrow().requires().borrow().iter() {
-            let build_path_dep = &build_directory
-                .join("libs")
-                .join(required_dependency.borrow().get_project_name());
-
-            if required_dependency.borrow().is_build_completed() {
-                let top_build_directory_resolved =
-                    self.resolve_build_directory(&self.top_build_directory.as_path());
-                let directory_to_link = top_build_directory_resolved
-                    .join("libs")
-                    .join(required_dependency.borrow().get_project_name());
-
-                if !build_path_dep.is_dir() {
-                    crate::utility::create_symlink(directory_to_link, build_path_dep)?;
-                }
-
-                // Se eventuelt etter annen løsning.
-                continue;
-            }
-
-            required_dependency.borrow_mut().building();
-            let dep_output =
-                self.build_dependency(&required_dependency, &build_path_dep, verbosity)?;
-            if !dep_output.status.success() {
-                return Ok(dep_output);
-            }
-            required_dependency.borrow_mut().build_complete();
-        }
-
-        dependency.borrow_mut().building();
-
-        self.change_directory(build_directory, verbosity);
-        println!("{}", Builder::construct_build_message(dependency));
-
-        let output = self.make.spawn()?;
-        dependency.borrow_mut().build_complete();
-
-        Ok(output)
-    }
-
-    fn construct_build_message(dependency: &DependencyNode) -> String {
-        let dep_type = if dependency.borrow().is_executable() {
-            "executable"
-        } else {
-            "library"
-        };
-        let dep_type_name = dependency.borrow().get_pretty_name();
-
-        let green_building = format!("{}", "Building".green());
-        let target = format!("{} {:?}", dep_type, dep_type_name);
-        format!("{} {}", green_building, target)
-    }
-
-    pub fn change_directory(&self, directory: std::path::PathBuf, verbose: bool) {
-        let message = format!("Entering directory {:?}\n", directory);
-        if verbose {
-            print!("{}", message);
-        }
-        self.make.log_text(message).unwrap();
-        std::env::set_current_dir(directory).unwrap()
-    }
-
-    fn resolve_build_directory(&self, path: &std::path::Path) -> std::path::PathBuf {
+    pub fn resolve_build_directory(&self, path: &std::path::Path) -> std::path::PathBuf {
         if self.debug {
             return path.join("debug");
         } else {

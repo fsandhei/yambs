@@ -395,24 +395,24 @@ fn resolve_build_directory_release() {
     assert_eq!(builder.resolve_build_directory(&path), expected);
 }
 
-#[test]
-fn construct_build_message_executable() -> std::io::Result<()> {
-    let mut generator = GeneratorMock::new();
-    let mut builder = Builder::new(&mut generator);
-    let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
+// #[test]
+// fn construct_build_message_executable() -> std::io::Result<()> {
+//     let mut generator = GeneratorMock::new();
+//     let mut builder = Builder::new(&mut generator);
+//     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
 
-    write!(
-        file,
-        "MMK_EXECUTABLE:
-                x"
-    )?;
-    assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
-    let green_text = "Building".green();
-    let expected_message = format!("{} executable \"x\"", green_text);
-    let borrowed_dependency = builder.top_dependency.unwrap();
-    assert_eq!(
-        Builder::construct_build_message(&borrowed_dependency),
-        expected_message
-    );
-    Ok(())
-}
+//     write!(
+//         file,
+//         "MMK_EXECUTABLE:
+//                 x"
+//     )?;
+//     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+//     let green_text = "Building".green();
+//     let expected_message = format!("{} executable \"x\"", green_text);
+//     let borrowed_dependency = builder.top_dependency.unwrap();
+//     assert_eq!(
+//         Builder::construct_build_message(&borrowed_dependency),
+//         expected_message
+//     );
+//     Ok(())
+// }

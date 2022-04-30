@@ -54,8 +54,8 @@ fn evaluate_compiler(
         let test_dir = command_line.build_directory.as_path().join("sample");
         output.status("Evaluating compiler by doing a sample build...");
         compiler.evaluate(&test_dir)?;
-        output.status("Evaluating compiler by doing a sample build... done");
         compiler.cache(cache)?;
+        output.status("Evaluating compiler by doing a sample build... done");
     }
     Ok(())
 }
@@ -90,7 +90,7 @@ fn create_dottie_graph(builder: &Builder, output: &Output) -> Result<(), MyMakeE
     let mut dottie_buffer = String::new();
     if let Some(dependency) = builder.top_dependency() {
         if external::dottie(dependency, false, &mut dottie_buffer).is_ok() {
-            output.status("rsmake: Created dottie file dependency.gv");
+            output.status("Created dottie file dependency.gv");
         }
     }
     Ok(())

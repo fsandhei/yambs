@@ -4,16 +4,18 @@
  * src_dir: src/source - dir: Trengs denne?
  * os : operativsystem.
 */
-use regex::Regex;
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::Path;
 use std::string::String;
 
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+
 use crate::utility;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct Constant {
     keyword: String,
 }
@@ -33,7 +35,7 @@ impl std::fmt::Display for Constant {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Constants {
     list: HashMap<Constant, String>,
 }

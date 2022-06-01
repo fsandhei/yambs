@@ -3,6 +3,7 @@ RsMake:
    * Look into using a log framework to help with this? spdlog?
       * log crate (https://docs.rs/log/latest/log/)
    * RsMake is currently dynamically linking stdlibc++ to executables and libraries. Should this be statically instead?
+   * Use anyhow?
 
 Utility:
    * Remove create_file?

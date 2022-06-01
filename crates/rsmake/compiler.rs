@@ -141,6 +141,7 @@ impl Cacher for Compiler {
             .cache(&self, CACHE_FILE_NAME)
             .map_err(CompilerError::FailedToCache)
     }
+
     fn is_changed(&self, cache: &Cache) -> bool {
         cache.detect_change(self, CACHE_FILE_NAME)
     }

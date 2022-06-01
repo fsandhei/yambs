@@ -2,13 +2,12 @@
 // TODO: Use serde maybe?
 
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::cli::build_configurations::BuildDirectory;
 use crate::errors::CacheError;
 use crate::utility;
 
-#[derive(Deserialize, Serialize)]
 pub struct Cache {
     pub cache_directory: std::path::PathBuf,
 }

@@ -4,7 +4,6 @@
 //TODO: Burde ha muligheten til å kunne bruke path som bruker relativ-path-direktiver (../)
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::vec::Vec;
 
 use regex::Regex;
@@ -16,8 +15,9 @@ use crate::errors::{FsError, MyMakeError, ParseError};
 use crate::utility;
 pub use keyword::Keyword;
 pub use mmk_constants::{Constant, Constants};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Mmk {
     data: HashMap<String, Vec<Keyword>>,
     constants: Constants,
@@ -25,9 +25,8 @@ pub struct Mmk {
 }
 
 impl Mmk {
-    pub fn new(path: &Path) -> Mmk {
+    pub fn new(path: &std::path::Path) -> Mmk {
         let source_path = path.to_path_buf();
-        // utility::get_source_directory_from_path(utility::get_project_top_directory(path));
 
         Mmk {
             data: HashMap::new(),
@@ -81,8 +80,9 @@ impl Mmk {
                 } else {
                     formatted_string.push_str("-I");
                 }
-                let dep_path =
-                    utility::get_include_directory_from_path(&PathBuf::from(keyword.argument()))?;
+                let dep_path = utility::get_include_directory_from_path(
+                    &std::path::PathBuf::from(keyword.argument()),
+                )?;
                 formatted_string.push_str(dep_path.to_str().unwrap());
                 formatted_string.push_str(" ");
             }
@@ -197,8 +197,8 @@ impl Mmk {
         }
     }
 
-    pub fn source_file_path(&self, source: &String) -> Option<PathBuf> {
-        let mut source_path = PathBuf::from(source);
+    pub fn source_file_path(&self, source: &String) -> Option<std::path::PathBuf> {
+        let mut source_path = std::path::PathBuf::from(source);
         if source_path.pop() {
             return Some(source_path);
         }
@@ -206,8 +206,8 @@ impl Mmk {
     }
 }
 
-pub fn validate_file_path(file_path_as_str: &str) -> Result<PathBuf, FsError> {
-    let file_path = PathBuf::from(file_path_as_str)
+pub fn validate_file_path(file_path_as_str: &str) -> Result<std::path::PathBuf, FsError> {
+    let file_path = std::path::PathBuf::from(file_path_as_str)
         .canonicalize()
         .map_err(FsError::Canonicalize)?;
 
@@ -217,7 +217,7 @@ pub fn validate_file_path(file_path_as_str: &str) -> Result<PathBuf, FsError> {
     Ok(file_path)
 }
 
-pub fn validate_file_name(path: &PathBuf) -> Result<(), ParseError> {
+pub fn validate_file_name(path: &std::path::Path) -> Result<(), ParseError> {
     let file_name = path.file_name().unwrap().to_str().unwrap();
     match file_name {
         "lib.mmk" | "run.mmk" => (),

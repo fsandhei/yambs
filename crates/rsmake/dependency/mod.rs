@@ -1,4 +1,3 @@
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{cell::RefCell, path};
 
@@ -18,16 +17,14 @@ pub use dependency_state::DependencyState;
 pub struct Dependency {
     path: std::path::PathBuf,
     mmk_data: mmk_parser::Mmk,
-    requires: RefCell<Vec<DependencyNode>>,
+    requires: Vec<DependencyNode>,
     library_name: String,
     state: DependencyState,
 }
 
-pub type DependencyNode = Rc<RefCell<Dependency>>;
-
 impl Dependency {
     pub fn from(path: &std::path::Path) -> Dependency {
-        let source_path: PathBuf;
+        let source_path: std::path::PathBuf;
         if path.ends_with("run.mmk") || path.ends_with("lib.mmk") {
             source_path = path.to_owned();
         } else {
@@ -37,13 +34,13 @@ impl Dependency {
         Dependency {
             path: std::path::PathBuf::from(source_path),
             mmk_data: mmk_parser::Mmk::new(&path),
-            requires: RefCell::new(Vec::new()),
+            requires: Vec::new(),
             library_name: String::new(),
             state: DependencyState::new(),
         }
     }
 
-    fn change_state(&mut self, to_state: DependencyState) {
+    pub fn change_state(&mut self, to_state: DependencyState) {
         self.state = to_state;
     }
 
@@ -51,28 +48,36 @@ impl Dependency {
         path: &std::path::Path,
         dep_registry: &mut DependencyRegistry,
     ) -> Result<DependencyNode, DependencyError> {
-        let dependency = Rc::new(RefCell::new(Dependency::from(path)));
-        dep_registry.add_dependency(Rc::clone(&dependency));
-        dependency
-            .borrow_mut()
+        let dependency_node = DependencyNode::new(Dependency::from(path));
+        dep_registry.add_dependency(dependency_node.clone());
+        dependency_node
+            .dependency_mut()
+            .ref_dep
             .change_state(DependencyState::InProcess);
-        dependency.borrow_mut().read_and_add_mmk_data()?;
-        dependency.borrow_mut().add_library_name();
+        dependency_node
+            .dependency_mut()
+            .ref_dep
+            .read_and_add_mmk_data()?;
+        dependency_node.dependency_mut().ref_dep.add_library_name();
 
-        let dep_vec = dependency.borrow().detect_dependency(dep_registry)?;
+        let dep_vec = dependency_node
+            .dependency()
+            .ref_dep
+            .detect_dependency(dep_registry)?;
 
         for dep in dep_vec {
-            dependency.borrow_mut().add_dependency(dep);
+            dependency_node.dependency_mut().ref_dep.add_dependency(dep);
         }
 
-        dependency
-            .borrow_mut()
+        dependency_node
+            .dependency_mut()
+            .ref_dep
             .change_state(DependencyState::Registered);
-        Ok(dependency)
+        Ok(dependency_node)
     }
 
-    pub fn add_dependency(self: &mut Self, dependency: DependencyNode) {
-        self.requires.borrow_mut().push(dependency);
+    pub fn add_dependency(&mut self, dependency: DependencyNode) {
+        self.requires.push(dependency);
     }
 
     pub fn is_makefile_made(&self) -> bool {
@@ -95,10 +100,6 @@ impl Dependency {
         self.mmk_data().has_executables()
     }
 
-    pub fn makefile_made(self: &mut Self) {
-        self.change_state(DependencyState::MakefileMade);
-    }
-
     pub fn building(&mut self) {
         self.change_state(DependencyState::Building);
     }
@@ -116,7 +117,7 @@ impl Dependency {
         }
     }
 
-    pub fn get_parent_directory(&self) -> &Path {
+    pub fn get_parent_directory(&self) -> &std::path::Path {
         self.path.parent().unwrap()
     }
 
@@ -183,7 +184,7 @@ impl Dependency {
         }
     }
 
-    pub fn requires(&self) -> &RefCell<Vec<DependencyNode>> {
+    pub fn requires(&self) -> &Vec<DependencyNode> {
         &self.requires
     }
 
@@ -195,13 +196,11 @@ impl Dependency {
         &self,
         dependency: &DependencyNode,
     ) -> Result<(), DependencyError> {
-        if dependency.borrow().is_in_process() {
-            if dependency.borrow().is_in_process() {
-                return Err(DependencyError::Circulation(
-                    dependency.borrow().path().into(),
-                    self.path.to_path_buf(),
-                ));
-            }
+        if dependency.dependency().ref_dep.is_in_process() {
+            return Err(DependencyError::Circulation(
+                dependency.dependency().ref_dep.path().into(),
+                self.path.to_path_buf(),
+            ));
         }
         Ok(())
     }
@@ -234,6 +233,41 @@ impl Dependency {
         }
         Ok(dep_vec)
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct DependencyNode(Rc<RefCell<Dependency>>);
+
+impl DependencyNode {
+    fn new(dependency: Dependency) -> Self {
+        Self {
+            0: Rc::new(RefCell::new(dependency)),
+        }
+    }
+
+    pub fn dependency(&self) -> RefDependencyWrapper<'_> {
+        RefDependencyWrapper {
+            ref_dep: self.0.borrow(),
+        }
+    }
+
+    pub fn dependency_mut(&self) -> MutRefDependencyWrapper<'_> {
+        MutRefDependencyWrapper {
+            ref_dep: self.0.borrow_mut(),
+        }
+    }
+
+    pub fn try_borrow(&self) -> Result<std::cell::Ref<'_, Dependency>, std::cell::BorrowError> {
+        self.0.try_borrow()
+    }
+}
+
+pub struct RefDependencyWrapper<'a> {
+    pub ref_dep: std::cell::Ref<'a, Dependency>,
+}
+
+pub struct MutRefDependencyWrapper<'a> {
+    pub ref_dep: std::cell::RefMut<'a, Dependency>,
 }
 
 #[cfg(test)]

@@ -1,8 +1,6 @@
-use std::cell::RefCell;
 use std::path::PathBuf;
-use std::rc::Rc;
 
-use crate::dependency::{Dependency, DependencyNode};
+use crate::dependency::DependencyNode;
 
 // LEGG TIL TESTER
 
@@ -22,16 +20,16 @@ impl DependencyRegistry {
         self.registry.len()
     }
 
-    pub fn add_dependency(&mut self, dependency: Rc<RefCell<Dependency>>) {
+    pub fn add_dependency(&mut self, dependency: DependencyNode) {
         self.registry.push(dependency);
     }
 
-    pub fn dependency_from_path(&self, path: &PathBuf) -> Option<Rc<RefCell<Dependency>>> {
+    pub fn dependency_from_path(&self, path: &PathBuf) -> Option<DependencyNode> {
         for dependency in &self.registry {
             let borrowed_dep = dependency.try_borrow();
             if borrowed_dep.is_ok() {
                 if borrowed_dep.unwrap().path == *path {
-                    return Some(Rc::clone(&dependency));
+                    return Some(dependency.clone());
                 }
             } else {
                 return None;

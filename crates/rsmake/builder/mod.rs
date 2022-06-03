@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::cli::command_line::CommandLine;
 use crate::dependency::{Dependency, DependencyNode, DependencyRegistry};
@@ -76,7 +74,7 @@ impl<'a> Builder<'a> {
 
     pub fn create_log_file(&mut self) -> Result<(), BuilderError> {
         if let Some(top_dependency) = &self.top_dependency {
-            if top_dependency.borrow().is_makefile_made() {
+            if top_dependency.dependency().ref_dep.is_makefile_made() {
                 let log_file_name = self.top_build_directory.as_path().join("rsmake_log.txt");
                 self.make.add_logger(&log_file_name)?;
             }
@@ -90,7 +88,7 @@ impl<'a> Builder<'a> {
     ) -> Result<(), BuilderError> {
         let top_dependency =
             Dependency::create_dependency_from_path(&top_path, &mut self.dep_registry)?;
-        self.top_dependency = Some(Rc::clone(&top_dependency));
+        self.top_dependency = Some(top_dependency.clone());
         Ok(())
     }
 

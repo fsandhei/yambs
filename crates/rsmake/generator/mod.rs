@@ -1,14 +1,13 @@
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use std::rc::Rc;
 
 mod generator;
 mod include_file_generator;
 
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::compiler::Compiler;
-use crate::dependency::{DependencyAccessor, DependencyNode};
+use crate::dependency::{DependencyAccessor, DependencyNode, DependencyState};
 use crate::errors::{DependencyError, FsError, GeneratorError};
 use crate::utility;
 pub use generator::{Generator, GeneratorExecutor, RuntimeSettings, Sanitizer, UtilityGenerator};
@@ -107,7 +106,7 @@ impl MakefileGenerator {
     ) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
 
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency()?;
 
         if mmk_data.data().contains_key("MMK_SOURCES") {
             let mut object = String::new();
@@ -129,8 +128,14 @@ impl MakefileGenerator {
                 formatted_string.push_str(&object);
                 formatted_string.push_str(": \\\n");
                 formatted_string.push_str("\t");
-                formatted_string
-                    .push_str(borrowed_dependency.get_parent_directory().to_str().unwrap());
+                formatted_string.push_str(
+                    borrowed_dependency
+                        .dependency()
+                        .ref_dep
+                        .get_parent_directory()
+                        .to_str()
+                        .unwrap(),
+                );
                 formatted_string.push_str("/");
                 formatted_string.push_str(source_name);
                 formatted_string.push_str("\n");
@@ -144,8 +149,8 @@ impl MakefileGenerator {
 
     fn print_header_includes(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
-        let borrowed_dependency = self.get_dependency()?.borrow();
-        let mmk_data = borrowed_dependency.mmk_data();
+        let borrowed_dependency = self.get_dependency()?.dependency();
+        let mmk_data = borrowed_dependency.ref_dep.mmk_data();
         let mut include_file = String::new();
         if mmk_data.data().contains_key("MMK_SOURCES") {
             for source in &mmk_data.data()["MMK_SOURCES"] {
@@ -169,12 +174,12 @@ impl MakefileGenerator {
 
     fn print_required_dependencies_libraries(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
-        for dependency in self.get_dependency()?.borrow().requires().borrow().iter() {
-            if dependency.borrow().library_name() != "" {
-                let required_dep = dependency.borrow();
+        for dependency in self.get_dependency()?.dependency().ref_dep.requires() {
+            if dependency.dependency().ref_dep.library_name() != "" {
+                let required_dep = dependency;
                 let mut output_directory = self
                     .get_required_project_lib_dir()
-                    .join(required_dep.get_project_name());
+                    .join(required_dep.dependency().ref_dep.get_project_name());
                 if self.is_debug_build() {
                     output_directory = output_directory.join("debug");
                 } else {
@@ -184,7 +189,7 @@ impl MakefileGenerator {
                 utility::print_full_path(
                     &mut formatted_string,
                     output_directory.to_str().unwrap(),
-                    &required_dep.library_file_name(),
+                    &required_dep.dependency().ref_dep.library_file_name(),
                     false,
                 );
             }
@@ -203,7 +208,11 @@ impl MakefileGenerator {
         utility::print_full_path(
             &mut formatted_string,
             self.output_directory.to_str().unwrap(),
-            &self.get_dependency()?.borrow().library_file_name(),
+            &self
+                .get_dependency()?
+                .dependency()
+                .ref_dep
+                .library_file_name(),
             true,
         );
 
@@ -213,14 +222,17 @@ impl MakefileGenerator {
     fn print_prerequisites(self: &Self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
         let mut object = String::new();
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency()?;
         if borrowed_dependency
+            .dependency()
+            .ref_dep
             .mmk_data()
             .data()
             .contains_key("MMK_SOURCES")
         {
             formatted_string.push_str("\\\n");
-            for source in &borrowed_dependency.mmk_data().data()["MMK_SOURCES"] {
+            for source in &borrowed_dependency.dependency().ref_dep.mmk_data().data()["MMK_SOURCES"]
+            {
                 let source_name = source.argument();
                 if source_name.ends_with(".cpp") {
                     object = source_name.replace(".cpp", ".o");
@@ -244,17 +256,30 @@ impl MakefileGenerator {
     }
 
     fn print_dependencies(&self) -> Result<String, GeneratorError> {
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency()?;
         let mut formatted_string = self.print_include_dependency_top()?;
         formatted_string.push_str(
             &borrowed_dependency
+                .dependency()
+                .ref_dep
                 .mmk_data()
                 .get_include_directories()
                 .unwrap(),
         );
-        if borrowed_dependency.mmk_data().has_system_include() {
+        if borrowed_dependency
+            .dependency()
+            .ref_dep
+            .mmk_data()
+            .has_system_include()
+        {
             formatted_string.push_str(" ");
-            formatted_string.push_str(&borrowed_dependency.mmk_data().to_string("MMK_SYS_INCLUDE"));
+            formatted_string.push_str(
+                &borrowed_dependency
+                    .dependency()
+                    .ref_dep
+                    .mmk_data()
+                    .to_string("MMK_SYS_INCLUDE"),
+            );
         }
 
         Ok(formatted_string)
@@ -263,7 +288,7 @@ impl MakefileGenerator {
     fn print_include_dependency_top(&self) -> Result<String, GeneratorError> {
         let include_line = format!(
             "-I{} ",
-            utility::get_project_top_directory(self.get_dependency()?.borrow().path())
+            utility::get_project_top_directory(&self.get_dependency()?.dependency().ref_dep.path())
                 .to_str()
                 .unwrap()
         );
@@ -328,8 +353,11 @@ impl GeneratorExecutor for MakefileGenerator {
             self.state = GeneratorState::IncludeGenerated;
         }
 
-        if !&dependency.borrow().is_makefile_made() {
-            dependency.borrow_mut().makefile_made();
+        if !&dependency.dependency().ref_dep.is_makefile_made() {
+            dependency
+                .dependency_mut()
+                .ref_dep
+                .change_state(DependencyState::MakefileMade);
             self.generate_makefile()?;
         }
 
@@ -339,17 +367,20 @@ impl GeneratorExecutor for MakefileGenerator {
             utility::create_dir(&dependency_output_library_head)?;
         }
 
-        for required_dependency in dependency.borrow().requires().borrow().iter() {
-            if !required_dependency.borrow().is_makefile_made() {
-                required_dependency.borrow_mut().makefile_made();
+        for required_dependency in dependency.dependency().ref_dep.requires() {
+            if !required_dependency.dependency().ref_dep.is_makefile_made() {
+                required_dependency
+                    .dependency_mut()
+                    .ref_dep
+                    .change_state(DependencyState::MakefileMade);
                 let mut build_directory = dependency_output_library_head
-                    .join(required_dependency.borrow().get_project_name());
+                    .join(required_dependency.dependency().ref_dep.get_project_name());
                 if self.is_debug_build() {
                     build_directory.push("debug");
                 } else {
                     build_directory.push("release");
                 }
-                self.replace_generator(&Rc::clone(required_dependency), build_directory);
+                self.replace_generator(&required_dependency.clone(), build_directory);
                 self.generate_makefile()?;
             }
             self.generate_makefiles(&required_dependency)?;
@@ -363,7 +394,13 @@ impl Generator for MakefileGenerator {
         self.create_makefile();
         self.generate_header()?;
         self.generate_appending_flags()?;
-        if self.get_dependency()?.borrow().mmk_data().has_executables() {
+        if self
+            .get_dependency()?
+            .dependency()
+            .ref_dep
+            .mmk_data()
+            .has_executables()
+        {
             self.generate_rule_executable()?;
         } else {
             self.generate_rule_package()?;
@@ -386,7 +423,7 @@ impl Generator for MakefileGenerator {
             prerequisites = self.print_prerequisites()?,
             package = self.print_library_name()?,
             sources_to_objects =
-                self.make_object_rule(&self.get_dependency()?.borrow().mmk_data())?,
+                self.make_object_rule(&self.get_dependency()?.dependency().ref_dep.mmk_data())?,
             include_headers = self.print_header_includes()?
         );
 
@@ -413,13 +450,14 @@ impl Generator for MakefileGenerator {
         ",
             executable = self
                 .get_dependency()?
-                .borrow()
+                .dependency()
+                .ref_dep
                 .mmk_data()
                 .to_string("MMK_EXECUTABLE"),
             prerequisites = self.print_prerequisites()?,
             dependencies = self.print_dependencies()?,
             sources_to_objects =
-                self.make_object_rule(&self.get_dependency()?.borrow().mmk_data())?,
+                self.make_object_rule(&self.get_dependency()?.dependency().ref_dep.mmk_data())?,
             include_headers = self.print_header_includes()?
         );
 
@@ -433,8 +471,10 @@ impl Generator for MakefileGenerator {
 
     fn generate_appending_flags(&mut self) -> Result<(), GeneratorError> {
         let mut data = String::new();
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency()?;
         if borrowed_dependency
+            .dependency()
+            .ref_dep
             .mmk_data()
             .data()
             .contains_key("MMK_CXXFLAGS_APPEND")
@@ -443,6 +483,8 @@ impl Generator for MakefileGenerator {
                 &format!(
                     "CXXFLAGS += {cxxflags}\n",
                     cxxflags = borrowed_dependency
+                        .dependency()
+                        .ref_dep
                         .mmk_data()
                         .to_string("MMK_CXXFLAGS_APPEND")
                 )
@@ -451,6 +493,8 @@ impl Generator for MakefileGenerator {
         }
 
         if borrowed_dependency
+            .dependency()
+            .ref_dep
             .mmk_data()
             .data()
             .contains_key("MMK_CPPFLAGS_APPEND")
@@ -459,6 +503,8 @@ impl Generator for MakefileGenerator {
                 &format!(
                     "CPPFLAGS += {cppflags}\n",
                     cppflags = borrowed_dependency
+                        .dependency()
+                        .ref_dep
                         .mmk_data()
                         .to_string("MMK_CPPFLAGS_APPEND")
                 )

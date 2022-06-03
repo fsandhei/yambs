@@ -140,17 +140,21 @@ pub fn build_dependency(
 ) -> Result<std::process::Output, MyMakeError> {
     let build_directory = builder.resolve_build_directory(build_path);
 
-    for required_dependency in dependency.borrow().requires().borrow().iter() {
+    for required_dependency in dependency.dependency().ref_dep.requires() {
         let build_path_dep = &build_directory
             .join("libs")
-            .join(required_dependency.borrow().get_project_name());
+            .join(required_dependency.dependency().ref_dep.get_project_name());
 
-        if required_dependency.borrow().is_build_completed() {
+        if required_dependency
+            .dependency()
+            .ref_dep
+            .is_build_completed()
+        {
             let top_build_directory_resolved =
                 builder.resolve_build_directory(&command_line.build_directory.as_path());
             let directory_to_link = top_build_directory_resolved
                 .join("libs")
-                .join(required_dependency.borrow().get_project_name());
+                .join(required_dependency.dependency().ref_dep.get_project_name());
 
             if !build_path_dep.is_dir() {
                 utility::create_symlink(directory_to_link, build_path_dep)?;
@@ -160,7 +164,7 @@ pub fn build_dependency(
             continue;
         }
 
-        required_dependency.borrow_mut().building();
+        required_dependency.dependency_mut().ref_dep.building();
         let dep_output = build_dependency(
             &builder,
             &required_dependency,
@@ -171,10 +175,13 @@ pub fn build_dependency(
         if !dep_output.status.success() {
             return Ok(dep_output);
         }
-        required_dependency.borrow_mut().build_complete();
+        required_dependency
+            .dependency_mut()
+            .ref_dep
+            .build_complete();
     }
 
-    dependency.borrow_mut().building();
+    dependency.dependency_mut().ref_dep.building();
 
     let change_directory_message = format!("Entering directory {}\n", build_directory.display());
     if command_line.verbose {
@@ -185,18 +192,18 @@ pub fn build_dependency(
     output.status(&format!("{}", construct_build_message(dependency)));
 
     let output = builder.make().spawn()?;
-    dependency.borrow_mut().build_complete();
+    dependency.dependency_mut().ref_dep.build_complete();
 
     Ok(output)
 }
 
 fn construct_build_message(dependency: &DependencyNode) -> String {
-    let dep_type = if dependency.borrow().is_executable() {
+    let dep_type = if dependency.dependency().ref_dep.is_executable() {
         "executable"
     } else {
         "library"
     };
-    let dep_type_name = dependency.borrow().get_pretty_name();
+    let dep_type_name = dependency.dependency().ref_dep.get_pretty_name();
 
     let green_building = format!("{}", "Building".green());
     let target = format!("{} {:?}", dep_type, dep_type_name);

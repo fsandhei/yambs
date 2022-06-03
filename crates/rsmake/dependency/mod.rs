@@ -239,7 +239,7 @@ impl Dependency {
 pub struct DependencyNode(Rc<RefCell<Dependency>>);
 
 impl DependencyNode {
-    fn new(dependency: Dependency) -> Self {
+    pub fn new(dependency: Dependency) -> Self {
         Self {
             0: Rc::new(RefCell::new(dependency)),
         }

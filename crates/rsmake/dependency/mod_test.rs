@@ -1,7 +1,6 @@
 use super::*;
 use mmk_parser::{Keyword, Mmk};
 use pretty_assertions::assert_eq;
-use std::cell::RefCell;
 use std::fs::File;
 use std::io::Write;
 use tempdir::TempDir;
@@ -65,12 +64,12 @@ fn fixture_simple_dependency() -> DependencyNode {
 #[test]
 fn test_get_pretty_name_executable() {
     let dependency = fixture_simple_dependency();
-    dependency
-        .borrow_mut()
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep
         .mmk_data_mut()
         .data_mut()
         .insert("MMK_EXECUTABLE".to_string(), vec![Keyword::from("x")]);
-    let actual = dependency.borrow().get_pretty_name();
+    let actual = ref_dep.get_pretty_name();
     let expected = "x";
     assert_eq!(expected, actual);
 }
@@ -78,12 +77,13 @@ fn test_get_pretty_name_executable() {
 #[test]
 fn test_get_pretty_name_library_label() {
     let dependency = fixture_simple_dependency();
-    dependency.borrow_mut().mmk_data_mut().data_mut().insert(
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep.mmk_data_mut().data_mut().insert(
         "MMK_LIBRARY_LABEL".to_string(),
         vec![Keyword::from("MYLIB")],
     );
-    dependency.borrow_mut().add_library_name();
-    let actual = dependency.borrow().get_pretty_name();
+    ref_dep.add_library_name();
+    let actual = ref_dep.get_pretty_name();
     let expected = "MYLIB";
     assert_eq!(expected, actual);
 }
@@ -91,73 +91,65 @@ fn test_get_pretty_name_library_label() {
 #[test]
 fn test_is_in_process_true() {
     let dependency = fixture_simple_dependency();
-    dependency
-        .borrow_mut()
-        .change_state(DependencyState::InProcess);
-    assert!(dependency.borrow().is_in_process());
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep.change_state(DependencyState::InProcess);
+    assert!(ref_dep.is_in_process());
 }
 
 #[test]
 fn test_is_in_process_false() {
     let dependency = fixture_simple_dependency();
-    dependency
-        .borrow_mut()
-        .change_state(DependencyState::Registered);
-    assert!(!dependency.borrow().is_in_process());
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep.change_state(DependencyState::Registered);
+    assert!(!ref_dep.is_in_process());
 }
 
 #[test]
 fn test_is_makefile_made_true() {
     let dependency = fixture_simple_dependency();
-    dependency
-        .borrow_mut()
-        .change_state(DependencyState::MakefileMade);
-    assert!(dependency.borrow().is_makefile_made());
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep.change_state(DependencyState::MakefileMade);
+    assert!(ref_dep.is_makefile_made());
 }
 
 #[test]
 fn test_is_makefile_made_false() {
     let dependency = fixture_simple_dependency();
-    dependency
-        .borrow_mut()
-        .change_state(DependencyState::NotInProcess);
-    assert!(!dependency.borrow().is_makefile_made());
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep.change_state(DependencyState::NotInProcess);
+    assert!(!ref_dep.is_makefile_made());
 }
 
 #[test]
 fn test_is_building_true() {
     let dependency = fixture_simple_dependency();
-    dependency
-        .borrow_mut()
-        .change_state(DependencyState::Building);
-    assert!(dependency.borrow().is_building());
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep.change_state(DependencyState::Building);
+    assert!(ref_dep.is_building());
 }
 
 #[test]
 fn test_is_building_false() {
     let dependency = fixture_simple_dependency();
-    dependency
-        .borrow_mut()
-        .change_state(DependencyState::BuildComplete);
-    assert!(!dependency.borrow().is_building());
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep.change_state(DependencyState::BuildComplete);
+    assert!(!ref_dep.is_building());
 }
 
 #[test]
 fn test_is_build_completed_true() {
     let dependency = fixture_simple_dependency();
-    dependency
-        .borrow_mut()
-        .change_state(DependencyState::BuildComplete);
-    assert!(dependency.borrow().is_build_completed());
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep.change_state(DependencyState::BuildComplete);
+    assert!(ref_dep.is_build_completed());
 }
 
 #[test]
 fn test_is_build_completed_false() {
     let dependency = fixture_simple_dependency();
-    dependency
-        .borrow_mut()
-        .change_state(DependencyState::NotInProcess);
-    assert!(!dependency.borrow().is_build_completed());
+    let mut ref_dep = dependency.dependency_mut().ref_dep;
+    ref_dep.change_state(DependencyState::NotInProcess);
+    assert!(!ref_dep.is_build_completed());
 }
 
 #[test]
@@ -172,10 +164,11 @@ fn read_mmk_files_one_file() -> std::io::Result<()> {
     let mut dep_registry = DependencyRegistry::new();
     let top_dependency =
         Dependency::create_dependency_from_path(&lib_file_path, &mut dep_registry).unwrap();
+    let ref_dep = top_dependency.dependency().ref_dep;
     expected
         .data_mut()
         .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
-    assert_eq!(top_dependency.borrow().mmk_data(), &expected);
+    assert_eq!(ref_dep.mmk_data(), &expected);
     Ok(())
 }
 
@@ -219,19 +212,19 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
     let expected_lib_name_dep = expected_library_name(&dir_dep.path());
     assert_eq!(
         top_dependency,
-        Rc::new(RefCell::new(Dependency {
+        DependencyNode::new(Dependency {
             path: test_file_path,
             mmk_data: expected_1,
-            requires: RefCell::new(vec![Rc::new(RefCell::new(Dependency {
+            requires: vec![DependencyNode::new(Dependency {
                 path: test_file_dep_path,
                 mmk_data: expected_2,
-                requires: RefCell::new(Vec::new()),
+                requires: Vec::new(),
                 library_name: expected_lib_name_dep,
                 state: DependencyState::Registered,
-            }))]),
+            })],
             library_name: expected_lib_name,
             state: DependencyState::Registered,
-        }))
+        })
     );
     Ok(())
 }
@@ -330,28 +323,28 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
 
     assert_eq!(
         top_dependency,
-        Rc::new(RefCell::new(Dependency {
+        DependencyNode::new(Dependency {
             path: test_file_path,
             mmk_data: expected_1,
-            requires: RefCell::new(vec![
-                Rc::new(RefCell::new(Dependency {
+            requires: vec![
+                DependencyNode::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
-                    requires: RefCell::new(Vec::new()),
+                    requires: Vec::new(),
                     library_name: expected_lib_name_dep,
                     state: DependencyState::Registered,
-                })),
-                Rc::new(RefCell::new(Dependency {
+                }),
+                DependencyNode::new(Dependency {
                     path: test_file_second_dep_path,
                     mmk_data: expected_3,
-                    requires: RefCell::new(Vec::new()),
+                    requires: Vec::new(),
                     library_name: expected_lib_name_second_dep,
                     state: DependencyState::Registered,
-                }))
-            ]),
+                })
+            ],
             library_name: expected_lib_name,
             state: DependencyState::Registered,
-        }))
+        })
     );
     Ok(())
 }
@@ -419,25 +412,25 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
 
     assert_eq!(
         top_dependency,
-        Rc::new(RefCell::new(Dependency {
+        DependencyNode::new(Dependency {
             path: test_file_path,
             mmk_data: expected_1,
-            requires: RefCell::new(vec![Rc::new(RefCell::new(Dependency {
+            requires: vec![DependencyNode::new(Dependency {
                 path: test_file_dep_path,
                 mmk_data: expected_2,
-                requires: RefCell::new(vec![Rc::new(RefCell::new(Dependency {
+                requires: vec![DependencyNode::new(Dependency {
                     path: test_file_second_dep_path,
                     mmk_data: expected_3,
-                    requires: RefCell::new(vec![]),
+                    requires: vec![],
                     library_name: expected_lib_name_second_dep,
                     state: DependencyState::Registered,
-                }))]),
+                })],
                 library_name: expected_lib_name_dep,
                 state: DependencyState::Registered,
-            }))]),
+            })],
             library_name: expected_lib_name,
             state: DependencyState::Registered,
-        }))
+        })
     );
     Ok(())
 }
@@ -574,34 +567,34 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
 
     assert_eq!(
         top_dependency,
-        Rc::new(RefCell::new(Dependency {
+        DependencyNode::new(Dependency {
             path: test_file_path,
             mmk_data: expected_1,
-            requires: RefCell::new(vec![
-                Rc::new(RefCell::new(Dependency {
+            requires: vec![
+                DependencyNode::new(Dependency {
                     path: test_file_third_dep_path,
                     mmk_data: expected_4,
-                    requires: RefCell::new(vec![]),
+                    requires: vec![],
                     library_name: expected_lib_name_third_dep,
                     state: DependencyState::Registered,
-                })),
-                Rc::new(RefCell::new(Dependency {
+                }),
+                DependencyNode::new(Dependency {
                     path: test_file_dep_path,
                     mmk_data: expected_2,
-                    requires: RefCell::new(vec![Rc::new(RefCell::new(Dependency {
+                    requires: vec![DependencyNode::new(Dependency {
                         path: test_file_second_dep_path,
                         mmk_data: expected_3,
-                        requires: RefCell::new(vec![]),
+                        requires: vec![],
                         library_name: expected_lib_name_second_dep,
                         state: DependencyState::Registered,
-                    }))]),
+                    })],
                     library_name: expected_lib_name_dep,
                     state: DependencyState::Registered,
-                }))
-            ]),
+                })
+            ],
             library_name: expected_lib_name,
             state: DependencyState::Registered,
-        }))
+        })
     );
     Ok(())
 }

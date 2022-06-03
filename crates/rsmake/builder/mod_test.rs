@@ -125,7 +125,12 @@ fn read_mmk_files_one_file() -> std::io::Result<()> {
         .data_mut()
         .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
     assert_eq!(
-        builder.top_dependency.unwrap().borrow().mmk_data(),
+        builder
+            .top_dependency
+            .unwrap()
+            .dependency()
+            .ref_dep
+            .mmk_data(),
         &expected
     );
     Ok(())

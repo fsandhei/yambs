@@ -1,6 +1,12 @@
 use std::path::PathBuf;
 use thiserror;
 
+#[derive(thiserror::Error, Debug)]
+pub enum AssociatedFileError {
+    #[error("Could not specify file type")]
+    CouldNotSpecifyFileType,
+}
+
 // TODO: Need to rethink MyMakeError and nomenclature of Compile, Configuration and Build time.
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
@@ -89,6 +95,8 @@ pub enum DependencyError {
     Circulation(PathBuf, PathBuf),
     #[error("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!")]
     NotSet,
+    #[error("Error occured classifying associated file")]
+    AssociatedFile(#[source] AssociatedFileError),
 }
 
 #[non_exhaustive]

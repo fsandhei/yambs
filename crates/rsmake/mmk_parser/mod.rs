@@ -111,12 +111,6 @@ impl Mmk {
         }
     }
 
-    // pub fn sources_to_objects(self: &Self) -> String {
-    //     let sources = &self.to_string("MMK_SOURCES");
-    //     let objects = sources.replace(".cpp", ".o");
-    //     objects
-    // }
-
     fn parse_mmk_expression(
         &mut self,
         mmk_keyword: &str,
@@ -197,7 +191,7 @@ impl Mmk {
         }
     }
 
-    pub fn source_file_path(&self, source: &String) -> Option<std::path::PathBuf> {
+    pub fn source_file_path(&self, source: &str) -> Option<std::path::PathBuf> {
         let mut source_path = std::path::PathBuf::from(source);
         if source_path.pop() {
             return Some(source_path);

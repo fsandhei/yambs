@@ -5,10 +5,12 @@ use crate::errors::DependencyError;
 use crate::mmk_parser;
 use crate::utility;
 
+mod associated_files;
 mod dependency_accessor;
 mod dependency_registry;
 mod dependency_state;
 
+pub use associated_files::{AssociatedFiles, SourceFile};
 pub use dependency_accessor::DependencyAccessor;
 pub use dependency_registry::DependencyRegistry;
 pub use dependency_state::DependencyState;
@@ -20,6 +22,7 @@ pub struct Dependency {
     requires: Vec<DependencyNode>,
     library_name: String,
     state: DependencyState,
+    associated_files: AssociatedFiles,
 }
 
 impl Dependency {
@@ -37,6 +40,7 @@ impl Dependency {
             requires: Vec::new(),
             library_name: String::new(),
             state: DependencyState::new(),
+            associated_files: AssociatedFiles::new(),
         }
     }
 
@@ -59,6 +63,10 @@ impl Dependency {
             .ref_dep
             .read_and_add_mmk_data()?;
         dependency_node.dependency_mut().ref_dep.add_library_name();
+        dependency_node
+            .dependency_mut()
+            .ref_dep
+            .populate_associated_files()?;
 
         let dep_vec = dependency_node
             .dependency()
@@ -98,14 +106,6 @@ impl Dependency {
 
     pub fn is_executable(&self) -> bool {
         self.mmk_data().has_executables()
-    }
-
-    pub fn building(&mut self) {
-        self.change_state(DependencyState::Building);
-    }
-
-    pub fn build_complete(&mut self) {
-        self.change_state(DependencyState::BuildComplete);
     }
 
     pub fn get_project_name(&self) -> &std::path::Path {
@@ -159,7 +159,6 @@ impl Dependency {
         &self.mmk_data
     }
 
-    #[allow(unused)]
     pub fn mmk_data_mut(&mut self) -> &mut mmk_parser::Mmk {
         &mut self.mmk_data
     }
@@ -232,6 +231,32 @@ impl Dependency {
             }
         }
         Ok(dep_vec)
+    }
+
+    fn populate_associated_files(&mut self) -> Result<(), DependencyError> {
+        if self.mmk_data.data().contains_key("MMK_SOURCES") {
+            self.populate_associated_files_by_keyword("MMK_SOURCES")?;
+        }
+        if self.mmk_data.data().contains_key("MMK_HEADERS") {
+            self.populate_associated_files_by_keyword("MMK_HEADERS")?;
+        }
+        Ok(())
+    }
+
+    fn populate_associated_files_by_keyword(
+        &mut self,
+        mmk_keyword: &str,
+    ) -> Result<(), DependencyError> {
+        for keyword in &self.mmk_data.data()[mmk_keyword] {
+            if keyword.argument() == "" {
+                break;
+            }
+            let root = self.path.parent().unwrap();
+            let source_file = root.join(keyword.argument());
+            self.associated_files
+                .push(SourceFile::new(&source_file).map_err(DependencyError::AssociatedFile)?);
+        }
+        Ok(())
     }
 }
 

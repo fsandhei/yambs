@@ -5,7 +5,7 @@ use rsmake::builder::*;
 use rsmake::cache::{Cache, Cacher};
 use rsmake::cli::command_line::CommandLine;
 use rsmake::compiler;
-use rsmake::dependency::DependencyNode;
+use rsmake::dependency::{DependencyNode, DependencyState};
 use rsmake::errors::MyMakeError;
 use rsmake::external;
 use rsmake::generator::MakefileGenerator;
@@ -164,7 +164,10 @@ pub fn build_dependency(
             continue;
         }
 
-        required_dependency.dependency_mut().ref_dep.building();
+        required_dependency
+            .dependency_mut()
+            .ref_dep
+            .change_state(DependencyState::Building);
         let dep_output = build_dependency(
             &builder,
             &required_dependency,
@@ -178,10 +181,13 @@ pub fn build_dependency(
         required_dependency
             .dependency_mut()
             .ref_dep
-            .build_complete();
+            .change_state(DependencyState::BuildComplete);
     }
 
-    dependency.dependency_mut().ref_dep.building();
+    dependency
+        .dependency_mut()
+        .ref_dep
+        .change_state(DependencyState::Building);
 
     let change_directory_message = format!("Entering directory {}\n", build_directory.display());
     if command_line.verbose {
@@ -192,7 +198,10 @@ pub fn build_dependency(
     output.status(&format!("{}", construct_build_message(dependency)));
 
     let output = builder.make().spawn()?;
-    dependency.dependency_mut().ref_dep.build_complete();
+    dependency
+        .dependency_mut()
+        .ref_dep
+        .change_state(DependencyState::BuildComplete);
 
     Ok(output)
 }

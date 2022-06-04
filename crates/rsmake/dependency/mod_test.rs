@@ -14,6 +14,15 @@ fn expected_library_name(path: &std::path::Path) -> String {
     library_name
 }
 
+fn expected_associated_files(root_path: &std::path::Path) -> AssociatedFiles {
+    let mut associated_files = AssociatedFiles::new();
+    associated_files.push(SourceFile::new(&root_path.join("some_file.cpp")).unwrap());
+    associated_files.push(SourceFile::new(&root_path.join("some_other_file.cpp")).unwrap());
+    associated_files.push(SourceFile::new(&root_path.join("some_file.h")).unwrap());
+    associated_files.push(SourceFile::new(&root_path.join("some_other_file.h")).unwrap());
+    associated_files
+}
+
 fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
     let dir: TempDir = TempDir::new(&dir_name).unwrap();
     let source_dir = dir.path().join("source");
@@ -221,9 +230,11 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
                 requires: Vec::new(),
                 library_name: expected_lib_name_dep,
                 state: DependencyState::Registered,
+                associated_files: expected_associated_files(&dir_dep.path().join("source"))
             })],
             library_name: expected_lib_name,
             state: DependencyState::Registered,
+            associated_files: expected_associated_files(&dir.path().join("source"))
         })
     );
     Ok(())
@@ -333,6 +344,7 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
                     requires: Vec::new(),
                     library_name: expected_lib_name_dep,
                     state: DependencyState::Registered,
+                    associated_files: expected_associated_files(&dir_dep.path().join("source"))
                 }),
                 DependencyNode::new(Dependency {
                     path: test_file_second_dep_path,
@@ -340,10 +352,14 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
                     requires: Vec::new(),
                     library_name: expected_lib_name_second_dep,
                     state: DependencyState::Registered,
+                    associated_files: expected_associated_files(
+                        &second_dir_dep.path().join("source")
+                    )
                 })
             ],
             library_name: expected_lib_name,
             state: DependencyState::Registered,
+            associated_files: expected_associated_files(&dir.path().join("source"))
         })
     );
     Ok(())
@@ -424,12 +440,17 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
                     requires: vec![],
                     library_name: expected_lib_name_second_dep,
                     state: DependencyState::Registered,
+                    associated_files: expected_associated_files(
+                        &second_dir_dep.path().join("source")
+                    )
                 })],
                 library_name: expected_lib_name_dep,
                 state: DependencyState::Registered,
+                associated_files: expected_associated_files(&dir_dep.path().join("source"))
             })],
             library_name: expected_lib_name,
             state: DependencyState::Registered,
+            associated_files: expected_associated_files(&dir.path().join("source"))
         })
     );
     Ok(())
@@ -577,6 +598,9 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
                     requires: vec![],
                     library_name: expected_lib_name_third_dep,
                     state: DependencyState::Registered,
+                    associated_files: expected_associated_files(
+                        &third_dir_dep.path().join("source")
+                    )
                 }),
                 DependencyNode::new(Dependency {
                     path: test_file_dep_path,
@@ -587,13 +611,18 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
                         requires: vec![],
                         library_name: expected_lib_name_second_dep,
                         state: DependencyState::Registered,
+                        associated_files: expected_associated_files(
+                            &second_dir_dep.path().join("source")
+                        )
                     })],
                     library_name: expected_lib_name_dep,
                     state: DependencyState::Registered,
+                    associated_files: expected_associated_files(&dir_dep.path().join("source"))
                 })
             ],
             library_name: expected_lib_name,
             state: DependencyState::Registered,
+            associated_files: expected_associated_files(&dir.path().join("source"))
         })
     );
     Ok(())

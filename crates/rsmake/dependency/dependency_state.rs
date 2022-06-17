@@ -6,7 +6,7 @@ pub enum DependencyState {
     Registered,
     MakefileMade,
     Building,
-    BuildComplete
+    BuildComplete,
 }
 
 impl DependencyState {

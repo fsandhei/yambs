@@ -3,6 +3,8 @@ use crate::cli::command_line::CommandLine;
 use crate::dependency::{Dependency, DependencyNode, DependencyRegistry};
 use crate::errors::BuilderError;
 use crate::generator::GeneratorExecutor;
+use crate::mmk_parser;
+use crate::utility;
 
 mod filter;
 mod make;
@@ -86,8 +88,13 @@ impl<'a> Builder<'a> {
         self: &mut Self,
         top_path: &std::path::Path,
     ) -> Result<(), BuilderError> {
-        let top_dependency =
-            Dependency::create_dependency_from_path(&top_path, &mut self.dep_registry)?;
+        let file_content = utility::read_file(&top_path)?;
+        let mut mmk_data = mmk_parser::Mmk::new(&top_path);
+        mmk_data
+            .parse(&file_content)
+            .map_err(BuilderError::FailedToParse)?;
+
+        let top_dependency = Dependency::from_path(&top_path, &mut self.dep_registry, &mmk_data)?;
         self.top_dependency = Some(top_dependency.clone());
         Ok(())
     }

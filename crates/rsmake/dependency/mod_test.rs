@@ -67,7 +67,7 @@ fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
 fn fixture_simple_dependency() -> DependencyNode {
     let (_dir, lib_file_path, _file, _expected) = make_mmk_file("example");
     let mut dep_registry = DependencyRegistry::new();
-    Dependency::create_dependency_from_path(&lib_file_path, &mut dep_registry).unwrap()
+    Dependency::from_path(&lib_file_path, &mut dep_registry).unwrap()
 }
 
 #[test]
@@ -171,8 +171,7 @@ fn read_mmk_files_one_file() -> std::io::Result<()> {
                 x"
     )?;
     let mut dep_registry = DependencyRegistry::new();
-    let top_dependency =
-        Dependency::create_dependency_from_path(&lib_file_path, &mut dep_registry).unwrap();
+    let top_dependency = Dependency::from_path(&lib_file_path, &mut dep_registry).unwrap();
     let ref_dep = top_dependency.dependency().ref_dep;
     expected
         .data_mut()
@@ -204,8 +203,7 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
     )?;
 
     let mut dep_registry = DependencyRegistry::new();
-    let top_dependency =
-        Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry).unwrap();
+    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry).unwrap();
 
     expected_1.data_mut().insert(
         String::from("MMK_REQUIRE"),
@@ -308,8 +306,7 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
     )?;
 
     let mut dep_registry = DependencyRegistry::new();
-    let top_dependency =
-        Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry).unwrap();
+    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry).unwrap();
 
     expected_1.data_mut().insert(
         String::from("MMK_REQUIRE"),
@@ -398,8 +395,7 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
     )?;
 
     let mut dep_registry = DependencyRegistry::new();
-    let top_dependency =
-        Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry).unwrap();
+    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry).unwrap();
 
     expected_1.data_mut().insert(
         String::from("MMK_REQUIRE"),
@@ -502,7 +498,7 @@ fn read_mmk_files_three_files_one_common_dependency() -> std::io::Result<()> {
     )?;
 
     let mut dep_registry = DependencyRegistry::new();
-    let result = Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry);
+    let result = Dependency::from_path(&test_file_path, &mut dep_registry);
 
     assert!(result.is_ok());
     Ok(())
@@ -556,8 +552,7 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
     )?;
 
     let mut dep_registry = DependencyRegistry::new();
-    let top_dependency =
-        Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry).unwrap();
+    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry).unwrap();
 
     expected_1.data_mut().insert(
         String::from("MMK_REQUIRE"),
@@ -667,8 +662,7 @@ fn read_mmk_files_two_files_circulation() -> Result<(), crate::errors::Dependenc
     .unwrap();
 
     let mut dep_registry = DependencyRegistry::new();
-    let top_dependency =
-        Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry);
+    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry);
 
     assert!(top_dependency.is_err());
     Ok(())
@@ -729,8 +723,7 @@ fn read_mmk_files_four_files_one_dependency_serial_and_one_circular_serial() -> 
     )?;
 
     let mut dep_registry = DependencyRegistry::new();
-    let top_dependency =
-        Dependency::create_dependency_from_path(&test_file_path, &mut dep_registry);
+    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry);
     assert!(top_dependency.is_err());
     Ok(())
 }

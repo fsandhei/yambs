@@ -52,6 +52,18 @@ impl Mmk {
         self.data.contains_key("MMK_REQUIRE")
     }
 
+    pub fn get_args(&self, key: &str) -> Option<&Vec<Keyword>> {
+        if self.valid_keyword(key).ok().is_none() {
+            return None;
+        } else {
+            if self.data.contains_key(key) {
+                Some(&self.data[key])
+            } else {
+                None
+            }
+        }
+    }
+
     pub fn to_string(self: &Self, key: &str) -> String {
         let mut formatted_string = String::new();
         if self.data.contains_key(key) {

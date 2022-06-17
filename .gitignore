@@ -1,6 +1,9 @@
 # General ignores
 target
 
+# Emacs
+*~undo-tree~
+
 # .dot file generate
 *.gv
 

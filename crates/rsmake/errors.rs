@@ -49,6 +49,8 @@ pub enum BuilderError {
     Dependency(#[from] DependencyError),
     #[error(transparent)]
     Generator(#[from] GeneratorError),
+    #[error("Failed to parse MMK file")]
+    FailedToParse(#[source] ParseError),
     #[error("{0}: called in an unexpected way.")]
     UnexpectedCall(String),
     #[error(transparent)]
@@ -91,6 +93,8 @@ pub enum DependencyError {
     Fs(#[from] FsError),
     #[error(transparent)]
     Parse(#[from] ParseError),
+    #[error("Failed to create cache of dependencies")]
+    FailedToCache(#[source] CacheError),
     #[error("Dependency circulation! {0:?} depends on {1:?}, which depends on itself")]
     Circulation(PathBuf, PathBuf),
     #[error("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!")]

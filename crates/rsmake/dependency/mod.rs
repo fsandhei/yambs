@@ -9,20 +9,37 @@ mod associated_files;
 mod dependency_accessor;
 mod dependency_registry;
 mod dependency_state;
+mod include_directories;
 
 pub use associated_files::{AssociatedFiles, SourceFile};
 pub use dependency_accessor::DependencyAccessor;
 pub use dependency_registry::DependencyRegistry;
 pub use dependency_state::DependencyState;
+use include_directories::IncludeDirectories;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum DependencyType {
+    Executable(String),
+    Library(String),
+    None,
+}
+
+// Dependency class should not have a Mmk object in it.
+// It should only need the path to it.
+// From there on, we can fetch all the metadata from that file.
+// Instead of using the mmk as an object, we should use other objects to determine
+// if Dependency is an executable or library, files, etc.
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dependency {
     path: std::path::PathBuf,
-    mmk_data: mmk_parser::Mmk,
     requires: Vec<DependencyNode>,
     library_name: String,
     state: DependencyState,
     associated_files: AssociatedFiles,
+    dependency_type: DependencyType,
+    include_directories: Option<IncludeDirectories>,
+    additional_flags: std::collections::HashMap<String, Vec<mmk_parser::Keyword>>,
 }
 
 impl Dependency {
@@ -36,21 +53,20 @@ impl Dependency {
 
         Dependency {
             path: std::path::PathBuf::from(source_path),
-            mmk_data: mmk_parser::Mmk::new(&path),
             requires: Vec::new(),
             library_name: String::new(),
             state: DependencyState::new(),
             associated_files: AssociatedFiles::new(),
+            dependency_type: DependencyType::None,
+            include_directories: None,
+            additional_flags: std::collections::HashMap::new(),
         }
     }
 
-    pub fn change_state(&mut self, to_state: DependencyState) {
-        self.state = to_state;
-    }
-
-    pub fn create_dependency_from_path(
+    pub fn from_path(
         path: &std::path::Path,
         dep_registry: &mut DependencyRegistry,
+        mmk_data: &mmk_parser::Mmk,
     ) -> Result<DependencyNode, DependencyError> {
         let dependency_node = DependencyNode::new(Dependency::from(path));
         dep_registry.add_dependency(dependency_node.clone());
@@ -61,17 +77,24 @@ impl Dependency {
         dependency_node
             .dependency_mut()
             .ref_dep
-            .read_and_add_mmk_data()?;
-        dependency_node.dependency_mut().ref_dep.add_library_name();
+            .determine_dependency_type(&mmk_data)?;
         dependency_node
             .dependency_mut()
             .ref_dep
-            .populate_associated_files()?;
+            .populate_associated_files(&mmk_data)?;
+
+        dependency_node.dependency_mut().ref_dep.include_directories =
+            IncludeDirectories::from_mmk(&mmk_data);
+
+        dependency_node
+            .dependency_mut()
+            .ref_dep
+            .append_additional_flags(&mmk_data);
 
         let dep_vec = dependency_node
             .dependency()
             .ref_dep
-            .detect_dependency(dep_registry)?;
+            .detect_dependency(dep_registry, &mmk_data)?;
 
         for dep in dep_vec {
             dependency_node.dependency_mut().ref_dep.add_dependency(dep);
@@ -82,6 +105,33 @@ impl Dependency {
             .ref_dep
             .change_state(DependencyState::Registered);
         Ok(dependency_node)
+    }
+
+    fn append_additional_flags(&mut self, mmk: &mmk_parser::Mmk) {
+        if let Some(cxxflags) = mmk.get_args("MMK_CXXFLAGS_APPEND") {
+            self.additional_flags
+                .insert("cxxflags".to_string(), cxxflags.to_owned());
+        }
+        if let Some(cppflags) = mmk.get_args("MMK_CPPFLAGS_APPEND") {
+            self.additional_flags
+                .insert("cppflags".to_string(), cppflags.to_owned());
+        }
+    }
+
+    pub fn additional_keyword(&self, key: &str) -> Option<&Vec<mmk_parser::Keyword>> {
+        self.additional_flags.get(key)
+    }
+
+    pub fn change_state(&mut self, to_state: DependencyState) {
+        self.state = to_state;
+    }
+
+    pub fn associated_files(&self) -> &AssociatedFiles {
+        &self.associated_files
+    }
+
+    pub fn include_directories(&self) -> Option<&IncludeDirectories> {
+        self.include_directories.as_ref()
     }
 
     pub fn add_dependency(&mut self, dependency: DependencyNode) {
@@ -105,7 +155,10 @@ impl Dependency {
     }
 
     pub fn is_executable(&self) -> bool {
-        self.mmk_data().has_executables()
+        match self.dependency_type {
+            DependencyType::Executable(_) => true,
+            DependencyType::Library(_) | _ => false,
+        }
     }
 
     pub fn get_project_name(&self) -> &std::path::Path {
@@ -121,65 +174,55 @@ impl Dependency {
         self.path.parent().unwrap()
     }
 
-    pub fn read_and_add_mmk_data(self: &mut Self) -> Result<mmk_parser::Mmk, DependencyError> {
-        let file_content = utility::read_file(&self.path)?;
-        let mut mmk_data = mmk_parser::Mmk::new(&self.path);
-        mmk_data.parse(&file_content)?;
-        self.mmk_data = mmk_data.clone();
-        Ok(mmk_data)
+    fn determine_dependency_type(
+        &mut self,
+        mmk_data: &mmk_parser::Mmk,
+    ) -> Result<(), DependencyError> {
+        // let file_content = utility::read_file(&self.path)?;
+        // let mut mmk_data = mmk_parser::Mmk::new(&self.path);
+        // mmk_data.parse(&file_content)?;
+        if mmk_data.has_executables() {
+            self.dependency_type = DependencyType::Executable(mmk_data.to_string("MMK_EXECUTABLE"));
+        } else {
+            self.dependency_type = DependencyType::Library(self.add_library_name(&mmk_data));
+        }
+        Ok(())
     }
 
     pub fn library_file_name(&self) -> String {
-        if self.mmk_data.has_library_label() {
-            return format!("lib{}.a", self.library_name());
-        } else {
-            return self.library_name();
+        match &self.dependency_type {
+            DependencyType::Library(library_name) => library_name.to_owned(),
+            _ => panic!("Dependency is not a library"),
         }
     }
 
-    pub fn add_library_name(self: &mut Self) {
-        let library_name: String;
+    fn add_library_name(&self, mmk_data: &mmk_parser::Mmk) -> String {
+        let mut library_name = String::new();
 
-        if self.mmk_data.has_library_label() {
-            library_name = self.mmk_data.to_string("MMK_LIBRARY_LABEL");
-            self.library_name = library_name;
-            return;
+        if mmk_data.has_library_label() {
+            library_name = mmk_data.to_string("MMK_LIBRARY_LABEL");
+            return library_name;
         }
         let root_path = self.path.parent().unwrap().parent().unwrap();
-        library_name = utility::get_head_directory(root_path)
-            .to_str()
-            .unwrap()
-            .to_string();
-        self.library_name.push_str("lib");
-        self.library_name.push_str(&library_name);
-        self.library_name.push_str(".a");
-    }
-
-    pub fn mmk_data(&self) -> &mmk_parser::Mmk {
-        &self.mmk_data
-    }
-
-    pub fn mmk_data_mut(&mut self) -> &mut mmk_parser::Mmk {
-        &mut self.mmk_data
+        let dep_library_name = utility::get_head_directory(root_path).display().to_string();
+        library_name.push_str("lib");
+        library_name.push_str(&dep_library_name);
+        library_name.push_str(".a");
+        library_name
     }
 
     pub fn library_name(&self) -> String {
         self.library_name.clone()
     }
 
-    fn print_library_name(&self) -> String {
-        if self.mmk_data().has_library_label() {
-            return self.mmk_data().to_string("MMK_LIBRARY_LABEL");
-        } else {
-            return self.library_name();
-        }
-    }
-
-    pub fn get_pretty_name(&self) -> String {
-        if self.is_executable() {
-            return self.mmk_data().to_string("MMK_EXECUTABLE");
-        } else {
-            return self.print_library_name();
+    pub fn get_pretty_name(&self) -> Option<String> {
+        match self.dependency_type {
+            DependencyType::Executable(ref executable) => Some(executable.to_owned()),
+            DependencyType::Library(ref library) => library
+                .strip_prefix("lib")
+                .and_then(|lib| lib.strip_suffix(".a"))
+                .and_then(|lib| Some(lib.to_string())),
+            DependencyType::None => None,
         }
     }
 
@@ -207,10 +250,11 @@ impl Dependency {
     fn detect_dependency(
         &self,
         dep_registry: &mut DependencyRegistry,
+        mmk_data: &mmk_parser::Mmk,
     ) -> Result<Vec<DependencyNode>, DependencyError> {
         let mut dep_vec: Vec<DependencyNode> = Vec::new();
-        if self.mmk_data().has_dependencies() {
-            for keyword in self.mmk_data().data()["MMK_REQUIRE"].clone() {
+        if mmk_data.has_dependencies() {
+            for keyword in mmk_data.data()["MMK_REQUIRE"].clone() {
                 if keyword.argument() == "" {
                     break;
                 }
@@ -224,8 +268,7 @@ impl Dependency {
                     self.detect_cycle_from_dependency(&dependency)?;
                     dep_vec.push(dependency);
                 } else {
-                    let dependency =
-                        Dependency::create_dependency_from_path(&mmk_path, dep_registry)?;
+                    let dependency = Dependency::from_path(&mmk_path, dep_registry, &mmk_data)?;
                     dep_vec.push(dependency);
                 }
             }
@@ -233,21 +276,25 @@ impl Dependency {
         Ok(dep_vec)
     }
 
-    fn populate_associated_files(&mut self) -> Result<(), DependencyError> {
-        if self.mmk_data.data().contains_key("MMK_SOURCES") {
-            self.populate_associated_files_by_keyword("MMK_SOURCES")?;
+    fn populate_associated_files(
+        &mut self,
+        mmk_data: &mmk_parser::Mmk,
+    ) -> Result<(), DependencyError> {
+        if mmk_data.data().contains_key("MMK_SOURCES") {
+            self.populate_associated_files_by_keyword(&mmk_data, "MMK_SOURCES")?;
         }
-        if self.mmk_data.data().contains_key("MMK_HEADERS") {
-            self.populate_associated_files_by_keyword("MMK_HEADERS")?;
+        if mmk_data.data().contains_key("MMK_HEADERS") {
+            self.populate_associated_files_by_keyword(&mmk_data, "MMK_HEADERS")?;
         }
         Ok(())
     }
 
     fn populate_associated_files_by_keyword(
         &mut self,
+        mmk_data: &mmk_parser::Mmk,
         mmk_keyword: &str,
     ) -> Result<(), DependencyError> {
-        for keyword in &self.mmk_data.data()[mmk_keyword] {
+        for keyword in &mmk_data.data()[mmk_keyword] {
             if keyword.argument() == "" {
                 break;
             }

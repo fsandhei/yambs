@@ -215,6 +215,6 @@ fn construct_build_message(dependency: &DependencyNode) -> String {
     let dep_type_name = dependency.dependency().ref_dep.get_pretty_name();
 
     let green_building = format!("{}", "Building".green());
-    let target = format!("{} {:?}", dep_type, dep_type_name);
+    let target = format!("{} {}", dep_type, dep_type_name.unwrap());
     format!("{} {}", green_building, target)
 }

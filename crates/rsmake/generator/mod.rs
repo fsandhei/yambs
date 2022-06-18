@@ -7,7 +7,7 @@ mod include_file_generator;
 
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::compiler::Compiler;
-use crate::dependency::{DependencyAccessor, DependencyNode, DependencyState};
+use crate::dependency::{DependencyAccessor, DependencyNode, DependencyState, IncludeType};
 use crate::errors::{DependencyError, FsError, GeneratorError};
 use crate::utility;
 pub use generator::{Generator, GeneratorExecutor, RuntimeSettings, Sanitizer, UtilityGenerator};
@@ -109,27 +109,31 @@ impl MakefileGenerator {
             .associated_files()
             .iter()
             .filter(|file| file.is_source());
+        let dependency_root_path = borrowed_dependency.ref_dep.get_parent_directory();
 
         for source in sources {
             let source_file = source.file();
-            if let Some(source_path) = source_file.parent() {
-                self.create_subdir(&source_path).unwrap();
-            }
-            let object = source_file.with_extension("o");
+            let source_dir = source_file
+                .parent()
+                .and_then(|p| p.strip_prefix(dependency_root_path).ok());
 
-            formatted_string.push_str(&self.output_directory.display().to_string());
-            formatted_string.push_str("/");
+            if let Some(dir) = source_dir {
+                self.create_subdir(&dir).unwrap();
+            }
+            let object = {
+                if let Some(dir) = source_dir {
+                    self.output_directory
+                        .join(dir)
+                        .join(source_file.file_name().unwrap())
+                } else {
+                    self.output_directory.join(source_file.file_name().unwrap())
+                }
+            }
+            .with_extension("o");
+
             formatted_string.push_str(&object.display().to_string());
             formatted_string.push_str(": \\\n");
             formatted_string.push_str("\t");
-            formatted_string.push_str(
-                borrowed_dependency
-                    .ref_dep
-                    .get_parent_directory()
-                    .to_str()
-                    .unwrap(),
-            );
-            formatted_string.push_str("/");
             formatted_string.push_str(&source_file.display().to_string());
             formatted_string.push_str("\n");
             formatted_string.push_str(&format!("\t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) \
@@ -217,17 +221,21 @@ impl MakefileGenerator {
             .associated_files()
             .iter()
             .filter(|file| file.is_source());
+        let dependency_root_path = borrowed_dependency.ref_dep.get_parent_directory();
 
         for source in sources {
             let source_file = source.file();
-            let object = source_file.with_extension("o");
+            let source_dir = source_file
+                .parent()
+                .and_then(|p| p.strip_prefix(dependency_root_path).ok())
+                .unwrap();
+            let object = self
+                .output_directory
+                .join(source_dir)
+                .join(source_file.file_name().unwrap())
+                .with_extension("o");
             formatted_string.push_str("\t");
-            utility::print_full_path(
-                &mut formatted_string,
-                self.output_directory.to_str().unwrap(),
-                &object.display().to_string(),
-                false,
-            );
+            formatted_string.push_str(&format!("{} \\\n", object.display().to_string()));
         }
         formatted_string.push_str(&self.print_required_dependencies_libraries()?);
         formatted_string.push_str("\t");
@@ -238,14 +246,21 @@ impl MakefileGenerator {
     fn print_dependencies(&self) -> Result<String, GeneratorError> {
         let borrowed_dependency = self.get_dependency()?;
         let mut formatted_string = self.print_include_dependency_top()?;
-        formatted_string.push_str(
-            &borrowed_dependency
-                .dependency()
-                .ref_dep
-                .include_directories()
-                .unwrap()
-                .to_gnu_make_include(),
-        );
+        if let Some(include_directories) = borrowed_dependency
+            .dependency()
+            .ref_dep
+            .include_directories()
+        {
+            for include in include_directories {
+                if include.include_type == IncludeType::System {
+                    formatted_string
+                        .push_str(&format!("-isystem {}", include.path.display().to_string()))
+                } else {
+                    formatted_string.push_str(&format!("-I{}", include.path.display().to_string()))
+                }
+                formatted_string.push_str(" ");
+            }
+        }
 
         Ok(formatted_string)
     }
@@ -254,8 +269,8 @@ impl MakefileGenerator {
         let include_line = format!(
             "-I{} ",
             utility::get_project_top_directory(&self.get_dependency()?.dependency().ref_dep.path())
-                .to_str()
-                .unwrap()
+                .display()
+                .to_string()
         );
         Ok(include_line)
     }

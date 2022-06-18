@@ -15,7 +15,7 @@ pub use associated_files::{AssociatedFiles, SourceFile};
 pub use dependency_accessor::DependencyAccessor;
 pub use dependency_registry::DependencyRegistry;
 pub use dependency_state::DependencyState;
-use include_directories::IncludeDirectories;
+pub use include_directories::{IncludeDirectories, IncludeType};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum DependencyType {

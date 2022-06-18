@@ -4,18 +4,9 @@ use crate::mmk_parser;
 pub struct IncludeDirectories(Vec<IncludeDirectory>);
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-struct IncludeDirectory {
-    include_type: IncludeType,
-    path: std::path::PathBuf,
-}
-
-impl IncludeDirectory {
-    fn to_gnu_make_include(&self) -> String {
-        match self.include_type {
-            IncludeType::Include => format!("-I{}", self.path.display()),
-            IncludeType::System => format!("-isystem {}", self.path.display()),
-        }
-    }
+pub struct IncludeDirectory {
+    pub include_type: IncludeType,
+    pub path: std::path::PathBuf,
 }
 
 impl IncludeDirectories {
@@ -42,19 +33,31 @@ impl IncludeDirectories {
         Some(Self(include_directories))
     }
 
-    pub fn to_gnu_make_include(&self) -> String {
-        let mut gnu_make_include_str = String::new();
-        for include_directory in &self.0 {
-            let include_dir_str = include_directory.to_gnu_make_include();
-            gnu_make_include_str.push_str(&include_dir_str);
-        }
+    pub fn iter(&self) -> std::slice::Iter<'_, IncludeDirectory> {
+        self.0.iter()
+    }
+}
 
-        gnu_make_include_str
+impl std::iter::IntoIterator for IncludeDirectories {
+    type Item = IncludeDirectory;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> std::iter::IntoIterator for &'a IncludeDirectories {
+    type Item = &'a IncludeDirectory;
+    type IntoIter = std::slice::Iter<'a, IncludeDirectory>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-enum IncludeType {
+pub enum IncludeType {
     Include,
     System,
 }

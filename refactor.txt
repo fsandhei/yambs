@@ -5,6 +5,10 @@ RsMake:
    * RsMake is currently dynamically linking stdlibc++ to executables and libraries. Should this be statically instead?
    * Use anyhow?
 
+Dependency:
+   * Does not make sense that `add_library_name` makes the name prepended with "lib" and suffixed with ".a".
+   * Need to check this up with mmk_parser; it is not consistent there either.
+
 Utility:
    * Remove create_file?
 

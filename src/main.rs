@@ -1,17 +1,17 @@
 use colored::Colorize;
 use structopt::StructOpt;
 
-use rsmake::builder::*;
-use rsmake::cache::{Cache, Cacher};
-use rsmake::cli::command_line::CommandLine;
-use rsmake::compiler;
-use rsmake::dependency::{DependencyNode, DependencyState};
-use rsmake::errors::MyMakeError;
-use rsmake::external;
-use rsmake::generator::MakefileGenerator;
-use rsmake::output::Output;
-use rsmake::unwrap_or_terminate::MyMakeUnwrap;
-use rsmake::utility;
+use yambs::builder::*;
+use yambs::cache::{Cache, Cacher};
+use yambs::cli::command_line::CommandLine;
+use yambs::compiler;
+use yambs::dependency::{DependencyNode, DependencyState};
+use yambs::errors::MyMakeError;
+use yambs::external;
+use yambs::generator::MakefileGenerator;
+use yambs::output::Output;
+use yambs::unwrap_or_terminate::MyMakeUnwrap;
+use yambs::utility;
 
 fn try_main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();
@@ -81,7 +81,7 @@ fn read_mmk_files_from_path(
     builder.read_mmk_files_from_path(&top_path)?;
     if builder.top_dependency().is_some() {
         let number_of_mmk_files = builder.number_of_dependencies();
-        output.status(&format!("Read {} RsMake files", number_of_mmk_files));
+        output.status(&format!("Read {} Yambs files", number_of_mmk_files));
     }
     Ok(())
 }
@@ -118,10 +118,7 @@ fn build_project(
         }
         output.status(&format!("{}", build_status_message));
         builder.make().log_text(build_status_message)?;
-        let log_path = command_line
-            .build_directory
-            .as_path()
-            .join("rsmake_log.txt");
+        let log_path = command_line.build_directory.as_path().join("yambs_log.txt");
         output.status(&format!("Build log available at {:?}", log_path));
     }
     Ok(())

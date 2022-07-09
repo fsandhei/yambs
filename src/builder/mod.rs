@@ -77,7 +77,7 @@ impl<'a> Builder<'a> {
     pub fn create_log_file(&mut self) -> Result<(), BuilderError> {
         if let Some(top_dependency) = &self.top_dependency {
             if top_dependency.dependency().ref_dep.is_makefile_made() {
-                let log_file_name = self.top_build_directory.as_path().join("rsmake_log.txt");
+                let log_file_name = self.top_build_directory.as_path().join("yambs_log.txt");
                 self.make.add_logger(&log_file_name)?;
             }
         }

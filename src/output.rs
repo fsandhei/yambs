@@ -10,7 +10,7 @@ use colored::Colorize;
 //
 // Skal output - rammeverket ha forhold til logging?
 
-const RSMAKE_PREFIX: &str = "rsmake";
+const YAMBS_PREFIX: &str = "yambs";
 
 pub struct Output {
     inner: InnerOutput,
@@ -46,7 +46,7 @@ struct InnerOutput {
 impl InnerOutput {
     pub fn new() -> Self {
         Self {
-            prefix: RSMAKE_PREFIX.to_string(),
+            prefix: YAMBS_PREFIX.to_string(),
         }
     }
 

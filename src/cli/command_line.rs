@@ -18,13 +18,13 @@ use crate::errors::CommandLineError;
 #[structopt(
     author = "Fredrik Sandhei <fredrik.sandhei@gmail.com>",
     version = "0.1.0",
-    name = "RsMake",
+    name = "Yambs",
     about = "\
-             GNU Make build system overlay for C++ projects. RsMake generates makefiles and builds the project with the \n\
-             specifications written in the respective RsMake files."
+             GNU Make build system overlay for C++ projects. Yambs generates makefiles and builds the project with the \n\
+             specifications written in the respective Yambs files."
 )]
 pub struct CommandLine {
-    /// Input file for RsMake.
+    /// Input file for Yambs.
     #[structopt(short = "g", parse(try_from_str = validate_file_path))]
     pub input_file: PathBuf,
     /// Toggles verbose output.
@@ -36,12 +36,12 @@ pub struct CommandLine {
         default_value,
         parse(try_from_str = BuildConfigurations::from_str),
     )]
-    /// "Set runtime configurations (build configurations, C++ standard, sanitizers, etc)"
+    /// Set runtime configurations (build configurations, C++ standard, sanitizers, etc)
     pub configuration: BuildConfigurations,
     #[structopt(short = "j", long = "jobs", default_value = "10")]
-    ///"Set parallelization of builds for Make."
+    /// Set parallelization of builds for Make.
     pub jobs: u8,
-    /// Set build directory. Generated output by RsMake will be put here. Defaults to current working directory.
+    /// Set build directory. Generated output by Yambs will be put here. Defaults to current working directory.
     #[structopt(
         long,
         short = "b",

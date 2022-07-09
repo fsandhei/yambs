@@ -1,9 +1,9 @@
 [package]
-name = "rsmake"
+name = "yambs"
 version = "0.1.0"
 authors = ["Fredrik Sandhei <fredrik.sandhei@gmail.com>"]
 edition = "2018"
-description = "RsMake is a command-line based build system for C++."
+description = "Yambs (yet another meta build system) is a command-line based build system for C++."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

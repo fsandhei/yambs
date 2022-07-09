@@ -7,15 +7,6 @@ description = "RsMake is a command-line based build system for C++."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name = "rsmake"
-bench = false
-path  = "crates/rsmake/main.rs"
-
-[lib]
-name = "rsmake"
-path = "crates/rsmake/lib.rs"
-
 [[test]]
 name = "integration_tests"
 path = "tests/integration_test.rs"
@@ -32,6 +23,6 @@ semver = "1.0"
 textwrap = "0.14.2"
 
 
-#[dev-dependencies]
+[dev-dependencies]
 pretty_assertions = "0.6.1"
 tempdir = "0.3.7"

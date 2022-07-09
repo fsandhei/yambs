@@ -10,7 +10,7 @@ use utility;
 fn test_mmk_file_reader() {
     let current_dir = std::env::current_dir()
         .expect("Could not retrieve current directory for mmk_parser::test_mmk_file_reader");
-    let path = current_dir.join("crates/rsmake/mmk_parser/test.mmk");
+    let path = current_dir.join("src/mmk_parser/test.mmk");
     let content = utility::read_file(&path);
     assert_eq!(
         content.unwrap(),
@@ -33,7 +33,7 @@ MMK_EXECUTABLE:
 fn test_remove_comments() {
     let current_dir = std::env::current_dir()
         .expect("Could not retrieve current directory for mmk_parser::test_mmk_file_reader");
-    let path = current_dir.join("crates/rsmake/mmk_parser/test.mmk");
+    let path = current_dir.join("src/mmk_parser/test.mmk");
 
     let content = utility::read_file(&path).unwrap();
     assert_eq!(

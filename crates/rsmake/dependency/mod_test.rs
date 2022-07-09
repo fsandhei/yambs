@@ -6,13 +6,7 @@ use std::io::Write;
 use tempdir::TempDir;
 use utility;
 
-#[allow(dead_code)]
-fn expected_library_name(path: &std::path::Path) -> String {
-    let mut library_name = String::from("lib");
-    library_name.push_str(utility::get_head_directory(path).to_str().unwrap());
-    library_name.push_str(".a");
-    library_name
-}
+use crate::dependency::include_directories::IncludeDirectories;
 
 fn expected_associated_files(root_path: &std::path::Path) -> AssociatedFiles {
     let mut associated_files = AssociatedFiles::new();
@@ -65,34 +59,35 @@ fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
 }
 
 fn fixture_simple_dependency() -> DependencyNode {
-    let (_dir, lib_file_path, _file, _expected) = make_mmk_file("example");
+    let (_dir, lib_file_path, _file, mmk_file) = make_mmk_file("example");
     let mut dep_registry = DependencyRegistry::new();
-    Dependency::from_path(&lib_file_path, &mut dep_registry).unwrap()
+    Dependency::from_path(&lib_file_path, &mut dep_registry, &mmk_file).unwrap()
 }
 
 #[test]
-fn test_get_pretty_name_executable() {
-    let dependency = fixture_simple_dependency();
-    let mut ref_dep = dependency.dependency_mut().ref_dep;
-    ref_dep
-        .mmk_data_mut()
+fn test_get_name_executable() {
+    let (_dir, lib_file_path, _file, mut mmk_file) = make_mmk_file("example");
+    mmk_file
         .data_mut()
         .insert("MMK_EXECUTABLE".to_string(), vec![Keyword::from("x")]);
-    let actual = ref_dep.get_pretty_name();
+    let mut dep_registry = DependencyRegistry::new();
+    let dependency = Dependency::from_path(&lib_file_path, &mut dep_registry, &mmk_file).unwrap();
+    let actual = dependency.dependency().ref_dep.get_name().unwrap();
     let expected = "x";
     assert_eq!(expected, actual);
 }
 
 #[test]
-fn test_get_pretty_name_library_label() {
-    let dependency = fixture_simple_dependency();
-    let mut ref_dep = dependency.dependency_mut().ref_dep;
-    ref_dep.mmk_data_mut().data_mut().insert(
+fn test_get_name_library_label() {
+    let (_dir, lib_file_path, _file, mut mmk_file) = make_mmk_file("example");
+    let mut dep_registry = DependencyRegistry::new();
+    mmk_file.data_mut().insert(
         "MMK_LIBRARY_LABEL".to_string(),
         vec![Keyword::from("MYLIB")],
     );
-    ref_dep.add_library_name();
-    let actual = ref_dep.get_pretty_name();
+    let dependency = Dependency::from_path(&lib_file_path, &mut dep_registry, &mmk_file).unwrap();
+    dependency.dependency().ref_dep.add_library_name(&mmk_file);
+    let actual = dependency.dependency().ref_dep.get_name().unwrap();
     let expected = "MYLIB";
     assert_eq!(expected, actual);
 }
@@ -163,27 +158,30 @@ fn test_is_build_completed_false() {
 
 #[test]
 fn read_mmk_files_one_file() -> std::io::Result<()> {
-    let (_dir, lib_file_path, mut file, mut expected) = make_mmk_file("example");
+    let (_dir, lib_file_path, mut file, mut mmk_file) = make_mmk_file("example");
 
     write!(
         file,
         "MMK_EXECUTABLE:
                 x"
     )?;
-    let mut dep_registry = DependencyRegistry::new();
-    let top_dependency = Dependency::from_path(&lib_file_path, &mut dep_registry).unwrap();
-    let ref_dep = top_dependency.dependency().ref_dep;
-    expected
+
+    mmk_file
         .data_mut()
         .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
-    assert_eq!(ref_dep.mmk_data(), &expected);
+    let mut dep_registry = DependencyRegistry::new();
+    let top_dependency =
+        Dependency::from_path(&lib_file_path, &mut dep_registry, &mmk_file).unwrap();
+    let ref_dep = top_dependency.dependency().ref_dep;
+    assert!(ref_dep.is_executable());
+    assert!(ref_dep.requires().is_empty());
     Ok(())
 }
 
 #[test]
 fn read_mmk_files_two_files() -> std::io::Result<()> {
-    let (dir, test_file_path, mut file, mut expected_1) = make_mmk_file("example");
-    let (dir_dep, test_file_dep_path, _file_dep, expected_2) = make_mmk_file("example_dep");
+    let (dir, test_file_path, mut file, mut mmk_file_1) = make_mmk_file("example");
+    let (dir_dep, test_file_dep_path, _file_dep, _) = make_mmk_file("example_dep");
 
     write!(
         file,
@@ -194,97 +192,54 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
         
         MMK_EXECUTABLE:
             x",
-        &test_file_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
+        &test_file_dep_path.parent().unwrap().display()
     )?;
 
-    let mut dep_registry = DependencyRegistry::new();
-    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry).unwrap();
-
-    expected_1.data_mut().insert(
+    mmk_file_1.data_mut().insert(
         String::from("MMK_REQUIRE"),
         vec![Keyword::from(
-            test_file_dep_path.parent().unwrap().to_str().unwrap(),
+            &test_file_dep_path.parent().unwrap().display().to_string(),
         )],
     );
-    expected_1
+    mmk_file_1
         .data_mut()
         .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
 
-    let expected_lib_name = expected_library_name(&dir.path());
-    let expected_lib_name_dep = expected_library_name(&dir_dep.path());
+    let mut dep_registry = DependencyRegistry::new();
+    let top_dependency =
+        Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1).unwrap();
+
+    let expected_lib_name_dep = utility::get_head_directory(&dir_dep.path())
+        .display()
+        .to_string();
     assert_eq!(
         top_dependency,
         DependencyNode::new(Dependency {
             path: test_file_path,
-            mmk_data: expected_1,
             requires: vec![DependencyNode::new(Dependency {
                 path: test_file_dep_path,
-                mmk_data: expected_2,
                 requires: Vec::new(),
-                library_name: expected_lib_name_dep,
                 state: DependencyState::Registered,
-                associated_files: expected_associated_files(&dir_dep.path().join("source"))
+                associated_files: expected_associated_files(&dir_dep.path().join("source")),
+                dependency_type: DependencyType::Library(expected_lib_name_dep),
+                include_directories: None,
+                additional_flags: std::collections::HashMap::new(),
             })],
-            library_name: expected_lib_name,
             state: DependencyState::Registered,
-            associated_files: expected_associated_files(&dir.path().join("source"))
+            associated_files: expected_associated_files(&dir.path().join("source")),
+            dependency_type: DependencyType::Executable(String::from("x")),
+            include_directories: IncludeDirectories::from_mmk(&mmk_file_1),
+            additional_flags: std::collections::HashMap::new(),
         })
     );
     Ok(())
 }
 
 #[test]
-fn add_library_name_test() {
-    let mut dependency = Dependency::from(&std::path::PathBuf::from("/some/directory/src/lib.mmk"));
-    dependency.add_library_name();
-    assert_eq!(dependency.library_name(), String::from("libdirectory.a"));
-}
-
-#[test]
-fn add_library_name_from_label_test() {
-    let mut dependency = Dependency::from(&std::path::PathBuf::from("/some/directory/src/lib.mmk"));
-    dependency.mmk_data_mut().data_mut().insert(
-        String::from("MMK_LIBRARY_LABEL"),
-        vec![Keyword::from("mylibrary")],
-    );
-    dependency.add_library_name();
-    assert_eq!(dependency.library_name(), String::from("mylibrary"));
-}
-
-#[test]
-fn library_file_name_test() {
-    let mut dependency = Dependency::from(&std::path::PathBuf::from("/some/directory/src/lib.mmk"));
-    dependency.add_library_name();
-    assert_eq!(
-        dependency.library_file_name(),
-        String::from("libdirectory.a")
-    );
-}
-
-#[test]
-fn library_file_name_from_label_test() {
-    let mut dependency = Dependency::from(&std::path::PathBuf::from("/some/directory/src/lib.mmk"));
-    dependency.mmk_data_mut().data_mut().insert(
-        String::from("MMK_LIBRARY_LABEL"),
-        vec![Keyword::from("mylibrary")],
-    );
-    dependency.add_library_name();
-    assert_eq!(
-        dependency.library_file_name(),
-        String::from("libmylibrary.a")
-    );
-}
-
-#[test]
 fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
-    let (dir, test_file_path, mut file, mut expected_1) = make_mmk_file("example");
-    let (dir_dep, test_file_dep_path, _file_dep, expected_2) = make_mmk_file("example_dep");
-    let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, expected_3) =
+    let (dir, test_file_path, mut file, mut mmk_file_1) = make_mmk_file("example");
+    let (dir_dep, test_file_dep_path, _file_dep, _) = make_mmk_file("example_dep");
+    let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
         make_mmk_file("example_dep");
 
     write!(
@@ -297,18 +252,11 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
         \n
         MMK_EXECUTABLE:
             x",
-        test_file_dep_path.parent().unwrap().to_str().unwrap(),
-        test_file_second_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
+        test_file_dep_path.parent().unwrap().display(),
+        test_file_second_dep_path.parent().unwrap().display()
     )?;
 
-    let mut dep_registry = DependencyRegistry::new();
-    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry).unwrap();
-
-    expected_1.data_mut().insert(
+    mmk_file_1.data_mut().insert(
         String::from("MMK_REQUIRE"),
         vec![
             Keyword::from(test_file_dep_path.parent().unwrap().to_str().unwrap()),
@@ -321,42 +269,52 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
             ),
         ],
     );
-    expected_1
+    mmk_file_1
         .data_mut()
         .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
 
-    let expected_lib_name = expected_library_name(&dir.path());
-    let expected_lib_name_dep = expected_library_name(&dir_dep.path());
-    let expected_lib_name_second_dep = expected_library_name(&second_dir_dep.path());
+    let mut dep_registry = DependencyRegistry::new();
+    let top_dependency =
+        Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1).unwrap();
+
+    let expected_lib_name_dep = utility::get_head_directory(&dir_dep.path())
+        .display()
+        .to_string();
+    let expected_lib_name_second_dep = utility::get_head_directory(&second_dir_dep.path())
+        .display()
+        .to_string();
 
     assert_eq!(
         top_dependency,
         DependencyNode::new(Dependency {
             path: test_file_path,
-            mmk_data: expected_1,
             requires: vec![
                 DependencyNode::new(Dependency {
                     path: test_file_dep_path,
-                    mmk_data: expected_2,
                     requires: Vec::new(),
-                    library_name: expected_lib_name_dep,
                     state: DependencyState::Registered,
-                    associated_files: expected_associated_files(&dir_dep.path().join("source"))
+                    associated_files: expected_associated_files(&dir_dep.path().join("source")),
+                    dependency_type: DependencyType::Library(expected_lib_name_dep),
+                    include_directories: None,
+                    additional_flags: std::collections::HashMap::new(),
                 }),
                 DependencyNode::new(Dependency {
                     path: test_file_second_dep_path,
-                    mmk_data: expected_3,
                     requires: Vec::new(),
-                    library_name: expected_lib_name_second_dep,
                     state: DependencyState::Registered,
                     associated_files: expected_associated_files(
                         &second_dir_dep.path().join("source")
-                    )
+                    ),
+                    dependency_type: DependencyType::Library(expected_lib_name_second_dep),
+                    include_directories: None,
+                    additional_flags: std::collections::HashMap::new(),
                 })
             ],
-            library_name: expected_lib_name,
             state: DependencyState::Registered,
-            associated_files: expected_associated_files(&dir.path().join("source"))
+            associated_files: expected_associated_files(&dir.path().join("source")),
+            include_directories: IncludeDirectories::from_mmk(&mmk_file_1),
+            dependency_type: DependencyType::Executable("x".to_string()),
+            additional_flags: std::collections::HashMap::new(),
         })
     );
     Ok(())
@@ -364,9 +322,9 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
 
 #[test]
 fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
-    let (dir, test_file_path, mut file, mut expected_1) = make_mmk_file("example");
-    let (dir_dep, test_file_dep_path, mut file_dep, mut expected_2) = make_mmk_file("example_dep");
-    let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, expected_3) =
+    let (dir, test_file_path, mut file, mut mmk_file_1) = make_mmk_file("example");
+    let (dir_dep, test_file_dep_path, mut file_dep, mut mmk_file_2) = make_mmk_file("example_dep");
+    let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
         make_mmk_file("example_dep_second");
 
     write!(
@@ -394,20 +352,17 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
             .unwrap()
     )?;
 
-    let mut dep_registry = DependencyRegistry::new();
-    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry).unwrap();
-
-    expected_1.data_mut().insert(
+    mmk_file_1.data_mut().insert(
         String::from("MMK_REQUIRE"),
         vec![Keyword::from(
             test_file_dep_path.parent().unwrap().to_str().unwrap(),
         )],
     );
-    expected_1
+    mmk_file_1
         .data_mut()
         .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
 
-    expected_2.data_mut().insert(
+    mmk_file_2.data_mut().insert(
         String::from("MMK_REQUIRE"),
         vec![Keyword::from(
             test_file_second_dep_path
@@ -418,35 +373,45 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
         )],
     );
 
-    let expected_lib_name = expected_library_name(&dir.path());
-    let expected_lib_name_dep = expected_library_name(&dir_dep.path());
-    let expected_lib_name_second_dep = expected_library_name(&second_dir_dep.path());
+    let mut dep_registry = DependencyRegistry::new();
+    let top_dependency =
+        Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1).unwrap();
+
+    let expected_lib_name_dep = utility::get_head_directory(&dir_dep.path())
+        .display()
+        .to_string();
+    let expected_lib_name_second_dep = utility::get_head_directory(&second_dir_dep.path())
+        .display()
+        .to_string();
 
     assert_eq!(
         top_dependency,
         DependencyNode::new(Dependency {
             path: test_file_path,
-            mmk_data: expected_1,
             requires: vec![DependencyNode::new(Dependency {
                 path: test_file_dep_path,
-                mmk_data: expected_2,
                 requires: vec![DependencyNode::new(Dependency {
                     path: test_file_second_dep_path,
-                    mmk_data: expected_3,
                     requires: vec![],
-                    library_name: expected_lib_name_second_dep,
                     state: DependencyState::Registered,
                     associated_files: expected_associated_files(
                         &second_dir_dep.path().join("source")
-                    )
+                    ),
+                    dependency_type: DependencyType::Library(expected_lib_name_second_dep),
+                    include_directories: None,
+                    additional_flags: std::collections::HashMap::new(),
                 })],
-                library_name: expected_lib_name_dep,
                 state: DependencyState::Registered,
-                associated_files: expected_associated_files(&dir_dep.path().join("source"))
+                associated_files: expected_associated_files(&dir_dep.path().join("source")),
+                dependency_type: DependencyType::Library(expected_lib_name_dep),
+                include_directories: IncludeDirectories::from_mmk(&mmk_file_2),
+                additional_flags: std::collections::HashMap::new(),
             })],
-            library_name: expected_lib_name,
             state: DependencyState::Registered,
-            associated_files: expected_associated_files(&dir.path().join("source"))
+            associated_files: expected_associated_files(&dir.path().join("source")),
+            dependency_type: DependencyType::Executable("x".to_string()),
+            include_directories: IncludeDirectories::from_mmk(&mmk_file_1),
+            additional_flags: std::collections::HashMap::new(),
         })
     );
     Ok(())
@@ -454,87 +419,54 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
 
 #[test]
 fn read_mmk_files_three_files_one_common_dependency() -> std::io::Result<()> {
-    let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
-    let (_dir_dep, test_file_dep_path, mut file_dep, _) = make_mmk_file("example_dep");
+    let (_dir, test_file_path, _, mut mmk_file_1) = make_mmk_file("example");
+    let (_dir_dep, test_file_dep_path, _, _) = make_mmk_file("example_dep");
     let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
         make_mmk_file("example_dep_second");
 
-    write!(
-        file,
-        "\
-        MMK_REQUIRE:
-            {}
-            {}
-        \n
-        MMK_EXECUTABLE:
-            x",
-        &test_file_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string(),
-        &test_file_second_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
-    )?;
-
-    write!(
-        file_dep,
-        "\
-        MMK_REQUIRE:
-            {}
-        \n
-        ",
-        test_file_second_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
-    )?;
+    mmk_file_1.data_mut().insert(
+        "MMK_REQUIRE".to_string(),
+        vec![
+            Keyword::from(&test_file_dep_path.parent().unwrap().display().to_string()),
+            Keyword::from(
+                &test_file_second_dep_path
+                    .parent()
+                    .unwrap()
+                    .display()
+                    .to_string(),
+            ),
+        ],
+    );
+    mmk_file_1
+        .data_mut()
+        .insert("MMK_EXECUTABLE".to_string(), vec![Keyword::from("x")]);
 
     let mut dep_registry = DependencyRegistry::new();
-    let result = Dependency::from_path(&test_file_path, &mut dep_registry);
+    let result = Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1);
 
     assert!(result.is_ok());
     Ok(())
 }
 
 #[test]
-fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std::io::Result<()> {
-    let (dir, test_file_path, mut file, mut expected_1) = make_mmk_file("example");
-    let (dir_dep, test_file_dep_path, mut file_dep, mut expected_2) = make_mmk_file("example_dep");
-    let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, expected_3) =
+fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() {
+    let (dir, test_file_path, _, mut mmk_file_1) = make_mmk_file("example");
+    let (dir_dep, test_file_dep_path, mut file_dep, mut mmk_file_2) = make_mmk_file("example_dep");
+    let (second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
         make_mmk_file("example_dep_second");
-    let (third_dir_dep, test_file_third_dep_path, _file_third_file_dep, expected_4) =
+    let (third_dir_dep, test_file_third_dep_path, _file_third_file_dep, _) =
         make_mmk_file("example_dep_third");
 
-    write!(
-        file,
-        "\
-        MMK_REQUIRE:
-            {}
-            {}
-        \n
-        MMK_EXECUTABLE:
-            x",
-        &test_file_third_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string(),
-        &test_file_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
-    )?;
+    mmk_file_1.data_mut().insert(
+        String::from("MMK_REQUIRE"),
+        vec![
+            Keyword::from(test_file_third_dep_path.parent().unwrap().to_str().unwrap()),
+            Keyword::from(test_file_dep_path.parent().unwrap().to_str().unwrap()),
+        ],
+    );
+    mmk_file_1
+        .data_mut()
+        .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
 
     write!(
         file_dep,
@@ -543,108 +475,94 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
             {}
         \n
         ",
-        &test_file_second_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
-    )?;
+        test_file_second_dep_path.parent().unwrap().display()
+    )
+    .unwrap();
 
-    let mut dep_registry = DependencyRegistry::new();
-    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry).unwrap();
-
-    expected_1.data_mut().insert(
-        String::from("MMK_REQUIRE"),
-        vec![
-            Keyword::from(test_file_third_dep_path.parent().unwrap().to_str().unwrap()),
-            Keyword::from(test_file_dep_path.parent().unwrap().to_str().unwrap()),
-        ],
-    );
-    expected_1
-        .data_mut()
-        .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
-
-    expected_2.data_mut().insert(
+    mmk_file_2.data_mut().insert(
         String::from("MMK_REQUIRE"),
         vec![Keyword::from(
-            test_file_second_dep_path
+            &test_file_second_dep_path
                 .parent()
                 .unwrap()
-                .to_str()
-                .unwrap(),
+                .display()
+                .to_string(),
         )],
     );
 
-    let expected_lib_name = expected_library_name(&dir.path());
-    let expected_lib_name_dep = expected_library_name(&dir_dep.path());
-    let expected_lib_name_second_dep = expected_library_name(&second_dir_dep.path());
-    let expected_lib_name_third_dep = expected_library_name(&third_dir_dep.path());
+    let mut dep_registry = DependencyRegistry::new();
+    let top_dependency =
+        Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1).unwrap();
+
+    let expected_lib_name_dep = utility::get_head_directory(&dir_dep.path())
+        .display()
+        .to_string();
+    let expected_lib_name_second_dep = utility::get_head_directory(&second_dir_dep.path())
+        .display()
+        .to_string();
+    let expected_lib_name_third_dep = utility::get_head_directory(&third_dir_dep.path())
+        .display()
+        .to_string();
 
     assert_eq!(
         top_dependency,
         DependencyNode::new(Dependency {
             path: test_file_path,
-            mmk_data: expected_1,
             requires: vec![
                 DependencyNode::new(Dependency {
                     path: test_file_third_dep_path,
-                    mmk_data: expected_4,
                     requires: vec![],
-                    library_name: expected_lib_name_third_dep,
                     state: DependencyState::Registered,
                     associated_files: expected_associated_files(
                         &third_dir_dep.path().join("source")
-                    )
+                    ),
+                    dependency_type: DependencyType::Library(expected_lib_name_third_dep),
+                    include_directories: None,
+                    additional_flags: std::collections::HashMap::new(),
                 }),
                 DependencyNode::new(Dependency {
                     path: test_file_dep_path,
-                    mmk_data: expected_2,
                     requires: vec![DependencyNode::new(Dependency {
                         path: test_file_second_dep_path,
-                        mmk_data: expected_3,
                         requires: vec![],
-                        library_name: expected_lib_name_second_dep,
                         state: DependencyState::Registered,
                         associated_files: expected_associated_files(
                             &second_dir_dep.path().join("source")
-                        )
+                        ),
+                        dependency_type: DependencyType::Library(expected_lib_name_second_dep),
+                        include_directories: None,
+                        additional_flags: std::collections::HashMap::new(),
                     })],
-                    library_name: expected_lib_name_dep,
                     state: DependencyState::Registered,
-                    associated_files: expected_associated_files(&dir_dep.path().join("source"))
+                    associated_files: expected_associated_files(&dir_dep.path().join("source")),
+                    dependency_type: DependencyType::Library(expected_lib_name_dep),
+                    include_directories: IncludeDirectories::from_mmk(&mmk_file_2),
+                    additional_flags: std::collections::HashMap::new(),
                 })
             ],
-            library_name: expected_lib_name,
             state: DependencyState::Registered,
-            associated_files: expected_associated_files(&dir.path().join("source"))
+            associated_files: expected_associated_files(&dir.path().join("source")),
+            dependency_type: DependencyType::Executable("x".to_string()),
+            include_directories: IncludeDirectories::from_mmk(&mmk_file_1),
+            additional_flags: std::collections::HashMap::new(),
         })
     );
-    Ok(())
 }
 
 #[test]
 fn read_mmk_files_two_files_circulation() -> Result<(), crate::errors::DependencyError> {
-    let (_dir, test_file_path, mut file, _expected_1) = make_mmk_file("example");
-    let (_dir_dep, test_file_dep_path, mut file_dep, _expected_2) = make_mmk_file("example_dep");
+    let (_dir, test_file_path, _, mut mmk_file_1) = make_mmk_file("example");
+    let (_dir_dep, test_file_dep_path, mut file_dep, _mmk_file_2) = make_mmk_file("example_dep");
 
-    write!(
-        file,
-        "\
-            MMK_REQUIRE:
-                {}
-        \n
-        
-        MMK_EXECUTABLE:
-            x",
-        &test_file_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
-    )
-    .unwrap();
+    mmk_file_1.data_mut().insert(
+        "MMK_REQUIRE".to_string(),
+        vec![Keyword::from(
+            &test_file_dep_path.parent().unwrap().display().to_string(),
+        )],
+    );
+    mmk_file_1
+        .data_mut()
+        .insert("MMK_EXECUTABLE".to_string(), vec![Keyword::from("x")]);
 
     write!(
         file_dep,
@@ -662,7 +580,7 @@ fn read_mmk_files_two_files_circulation() -> Result<(), crate::errors::Dependenc
     .unwrap();
 
     let mut dep_registry = DependencyRegistry::new();
-    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry);
+    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1);
 
     assert!(top_dependency.is_err());
     Ok(())
@@ -671,26 +589,20 @@ fn read_mmk_files_two_files_circulation() -> Result<(), crate::errors::Dependenc
 #[test]
 fn read_mmk_files_four_files_one_dependency_serial_and_one_circular_serial() -> std::io::Result<()>
 {
-    let (_dir, test_file_path, mut file, _expected_1) = make_mmk_file("example");
-    let (_dir_dep, test_file_dep_path, mut file_dep, _expected_2) = make_mmk_file("example_dep");
-    let (_second_dir_dep, test_file_second_dep_path, mut file_second_file_dep, _expected_3) =
+    let (_dir, test_file_path, _, mut mmk_file_1) = make_mmk_file("example");
+    let (_dir_dep, test_file_dep_path, mut file_dep, _mmk_file_2) = make_mmk_file("example_dep");
+    let (_second_dir_dep, test_file_second_dep_path, mut file_second_file_dep, _mmk_file_3) =
         make_mmk_file("example_dep_second");
 
-    write!(
-        file,
-        "\
-        MMK_REQUIRE:
-            {}
-        \n
-        MMK_EXECUTABLE:
-            x",
-        &test_file_dep_path
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
-    )?;
+    mmk_file_1.data_mut().insert(
+        "MMK_REQUIRE".to_string(),
+        vec![Keyword::from(
+            &test_file_dep_path.parent().unwrap().display().to_string(),
+        )],
+    );
+    mmk_file_1
+        .data_mut()
+        .insert("MMK_EXECUTABLE".to_string(), vec![Keyword::from("x")]);
 
     write!(
         file_dep,
@@ -723,7 +635,7 @@ fn read_mmk_files_four_files_one_dependency_serial_and_one_circular_serial() -> 
     )?;
 
     let mut dep_registry = DependencyRegistry::new();
-    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry);
+    let top_dependency = Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1);
     assert!(top_dependency.is_err());
     Ok(())
 }
@@ -740,12 +652,12 @@ fn get_project_name_test() {
 
 #[test]
 fn is_executable_test() {
-    let project_path = std::path::PathBuf::from("/some/path/name/for/MyProject/test/run.mmk");
-    let mut dependency = Dependency::from(&project_path);
-    dependency
-        .mmk_data_mut()
+    let (_dir, test_file_path, _, mut mmk_file_1) = make_mmk_file("example");
+    let mut dependency = Dependency::from(&test_file_path);
+    mmk_file_1
         .data_mut()
         .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
+    dependency.determine_dependency_type(&mmk_file_1).unwrap();
     assert!(dependency.is_executable());
 }
 

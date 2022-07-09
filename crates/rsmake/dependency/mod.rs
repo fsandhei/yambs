@@ -34,7 +34,6 @@ enum DependencyType {
 pub struct Dependency {
     path: std::path::PathBuf,
     requires: Vec<DependencyNode>,
-    library_name: String,
     state: DependencyState,
     associated_files: AssociatedFiles,
     dependency_type: DependencyType,
@@ -54,7 +53,6 @@ impl Dependency {
         Dependency {
             path: std::path::PathBuf::from(source_path),
             requires: Vec::new(),
-            library_name: String::new(),
             state: DependencyState::new(),
             associated_files: AssociatedFiles::new(),
             dependency_type: DependencyType::None,
@@ -178,9 +176,6 @@ impl Dependency {
         &mut self,
         mmk_data: &mmk_parser::Mmk,
     ) -> Result<(), DependencyError> {
-        // let file_content = utility::read_file(&self.path)?;
-        // let mut mmk_data = mmk_parser::Mmk::new(&self.path);
-        // mmk_data.parse(&file_content)?;
         if mmk_data.has_executables() {
             self.dependency_type = DependencyType::Executable(mmk_data.to_string("MMK_EXECUTABLE"));
         } else {
@@ -197,31 +192,23 @@ impl Dependency {
     }
 
     fn add_library_name(&self, mmk_data: &mmk_parser::Mmk) -> String {
-        let mut library_name = String::new();
-
         if mmk_data.has_library_label() {
-            library_name = mmk_data.to_string("MMK_LIBRARY_LABEL");
-            return library_name;
+            return mmk_data
+                .get_args("MMK_LIBRARY_LABEL")
+                .unwrap()
+                .first()
+                .unwrap()
+                .argument()
+                .to_string();
         }
         let root_path = self.path.parent().unwrap().parent().unwrap();
-        let dep_library_name = utility::get_head_directory(root_path).display().to_string();
-        library_name.push_str("lib");
-        library_name.push_str(&dep_library_name);
-        library_name.push_str(".a");
-        library_name
+        utility::get_head_directory(root_path).display().to_string()
     }
 
-    pub fn library_name(&self) -> String {
-        self.library_name.clone()
-    }
-
-    pub fn get_pretty_name(&self) -> Option<String> {
+    pub fn get_name(&self) -> Option<String> {
         match self.dependency_type {
             DependencyType::Executable(ref executable) => Some(executable.to_owned()),
-            DependencyType::Library(ref library) => library
-                .strip_prefix("lib")
-                .and_then(|lib| lib.strip_suffix(".a"))
-                .and_then(|lib| Some(lib.to_string())),
+            DependencyType::Library(ref library) => Some(library.to_owned()),
             DependencyType::None => None,
         }
     }
@@ -268,7 +255,10 @@ impl Dependency {
                     self.detect_cycle_from_dependency(&dependency)?;
                     dep_vec.push(dependency);
                 } else {
-                    let dependency = Dependency::from_path(&mmk_path, dep_registry, &mmk_data)?;
+                    let file_content = utility::read_file(&dep_path)?;
+                    let mut dep_mmk_data = mmk_parser::Mmk::new(&dep_path);
+                    dep_mmk_data.parse(&file_content)?;
+                    let dependency = Dependency::from_path(&mmk_path, dep_registry, &dep_mmk_data)?;
                     dep_vec.push(dependency);
                 }
             }

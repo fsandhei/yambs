@@ -155,11 +155,12 @@ impl MakefileGenerator {
 
         for source in sources {
             let source_name = source.file();
-            let include_file = source_name.with_extension("d");
+            let include_file = self
+                .output_directory
+                .join(source_name.file_name().unwrap())
+                .with_extension("d");
 
             formatted_string.push_str("sinclude ");
-            formatted_string.push_str(&self.output_directory.display().to_string());
-            formatted_string.push_str("/");
             formatted_string.push_str(&include_file.display().to_string());
             formatted_string.push_str("\n");
         }
@@ -169,7 +170,7 @@ impl MakefileGenerator {
     fn print_required_dependencies_libraries(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
         for dependency in self.get_dependency()?.dependency().ref_dep.requires() {
-            if dependency.dependency().ref_dep.library_name() != "" {
+            if dependency.dependency().ref_dep.get_name().is_some() {
                 let required_dep = dependency;
                 let mut output_directory = self
                     .get_required_project_lib_dir()
@@ -179,13 +180,15 @@ impl MakefileGenerator {
                 } else {
                     output_directory = output_directory.join("release");
                 }
-                formatted_string.push_str("\t");
-                utility::print_full_path(
-                    &mut formatted_string,
-                    output_directory.to_str().unwrap(),
-                    &required_dep.dependency().ref_dep.library_file_name(),
-                    false,
+                let library_name = format!(
+                    "lib{}.a",
+                    &required_dep.dependency().ref_dep.library_file_name()
                 );
+                formatted_string.push_str("\t");
+                formatted_string.push_str(&format!(
+                    "{} \\\n",
+                    output_directory.join(library_name).display()
+                ));
             }
         }
         Ok(formatted_string)
@@ -197,16 +200,20 @@ impl MakefileGenerator {
         formatted_string
     }
 
-    fn print_library_name(&self) -> Result<String, GeneratorError> {
+    fn library_path(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
-        utility::print_full_path(
-            &mut formatted_string,
-            self.output_directory.to_str().unwrap(),
+        let library_name = format!(
+            "lib{}.a",
             &self
                 .get_dependency()?
                 .dependency()
                 .ref_dep
-                .library_file_name(),
+                .library_file_name()
+        );
+        utility::print_full_path(
+            &mut formatted_string,
+            self.output_directory.to_str().unwrap(),
+            &library_name,
             true,
         );
 
@@ -234,9 +241,10 @@ impl MakefileGenerator {
                 .join(source_dir)
                 .join(source_file.file_name().unwrap())
                 .with_extension("o");
-            formatted_string.push_str("\t");
-            formatted_string.push_str(&format!("{} \\\n", object.display().to_string()));
+            formatted_string.push_str("\\\n\t");
+            formatted_string.push_str(&format!("{} ", object.display().to_string()));
         }
+        formatted_string.push_str("\\\n");
         formatted_string.push_str(&self.print_required_dependencies_libraries()?);
         formatted_string.push_str("\t");
         formatted_string.push_str(&self.print_mandatory_libraries());
@@ -261,16 +269,16 @@ impl MakefileGenerator {
                 formatted_string.push_str(" ");
             }
         }
-
-        Ok(formatted_string)
+        Ok(formatted_string.trim_end().to_string())
     }
 
     fn print_include_dependency_top(&self) -> Result<String, GeneratorError> {
+        let dep = self.get_dependency()?.dependency();
+        let project_base = utility::get_project_top_directory(&dep.ref_dep.path());
         let include_line = format!(
-            "-I{} ",
-            utility::get_project_top_directory(&self.get_dependency()?.dependency().ref_dep.path())
-                .display()
-                .to_string()
+            "-I{} -I{} ",
+            project_base.display(),
+            project_base.join("include").display().to_string()
         );
         Ok(include_line)
     }
@@ -395,7 +403,7 @@ impl Generator for MakefileGenerator {
         {include_headers}\n\
         ",
             prerequisites = self.print_prerequisites()?,
-            package = self.print_library_name()?,
+            package = self.library_path()?,
             sources_to_objects = self.make_object_rule()?,
             include_headers = self.print_header_includes()?
         );
@@ -425,7 +433,7 @@ impl Generator for MakefileGenerator {
                 .get_dependency()?
                 .dependency()
                 .ref_dep
-                .get_pretty_name()
+                .get_name()
                 .unwrap(),
             prerequisites = self.print_prerequisites()?,
             dependencies = self.print_dependencies()?,
@@ -453,7 +461,7 @@ impl Generator for MakefileGenerator {
                 "CXXFLAGS += {cxxflags_str}",
                 cxxflags_str = cxxflags
                     .iter()
-                    .map(|cxxflag| cxxflag.argument().to_string())
+                    .map(|cxxflag| format!("{}\n", cxxflag.argument().to_string()))
                     .collect::<String>()
             ));
         }
@@ -467,7 +475,7 @@ impl Generator for MakefileGenerator {
                 "CPPFLAGS += {cppflags_str}",
                 cppflags_str = cppflags
                     .iter()
-                    .map(|cppflag| cppflag.argument().to_string())
+                    .map(|cppflag| format!("{}\n", cppflag.argument().to_string()))
                     .collect::<String>()
             ));
         }

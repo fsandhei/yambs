@@ -108,51 +108,22 @@ fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
 
     (dir, test_file_path, file, mmk_data)
 }
+
 #[test]
-fn read_mmk_files_one_file() -> std::io::Result<()> {
+fn read_mmk_files_one_file() {
     let mut generator = GeneratorMock::new();
     let mut builder = Builder::new(&mut generator);
-    let (_dir, test_file_path, mut file, mut expected) = make_mmk_file("example");
+    let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
 
     write!(
         file,
         "MMK_EXECUTABLE:
                 x
             "
-    )?;
+    )
+    .unwrap();
     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
-    expected
-        .data_mut()
-        .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
-    assert_eq!(
-        builder
-            .top_dependency
-            .unwrap()
-            .dependency()
-            .ref_dep
-            .mmk_data(),
-        &expected
-    );
-    Ok(())
 }
-
-// #[test]
-// fn read_mmk_files_one_file_generate_makefile() -> std::io::Result<()> {
-//     let mut builder = Builder::new();
-//     let (dir, test_file_path, mut file, _) = make_mmk_file("example");
-
-//     write!(
-//         file,
-//         "MMK_EXECUTABLE:
-//             x
-//         ")?;
-
-//     assert!(builder.read_mmk_files_~/Documents/Tests/AStarPathFinderfrom_path(&test_file_path).is_ok());
-//     builder.add_generator();
-
-//     assert!(builder.generate_makefiles().is_ok());
-//     Ok(())
-// }
 
 #[test]
 fn read_mmk_files_two_files() -> std::io::Result<()> {

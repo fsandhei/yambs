@@ -212,9 +212,9 @@ fn construct_build_message(dependency: &DependencyNode) -> String {
     } else {
         "library"
     };
-    let dep_type_name = dependency.dependency().ref_dep.get_pretty_name();
+    let dep_type_name = dependency.dependency().ref_dep.get_name().unwrap();
 
     let green_building = format!("{}", "Building".green());
-    let target = format!("{} {}", dep_type, dep_type_name.unwrap());
+    let target = format!("{} {}", dep_type, dep_type_name);
     format!("{} {}", green_building, target)
 }

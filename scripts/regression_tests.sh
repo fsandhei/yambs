@@ -212,16 +212,6 @@ execute_command()
    fi
 }
 
-
-cargo_test()
-{
-   path=$1
-   cd $path
-   echo "cargo test -q -p $path"
-   execute_command "$CARGO test -q"
-   cd $ROOT_DIR
-}
-
 run_rsmake_test()
 {
    echo "$1"
@@ -244,7 +234,7 @@ done
 
 if [[ "$ACCEPTANCE_TESTS_ONLY" == "false" ]]; then
    [ $CWD != $ROOT_DIR ] && cd $ROOT_DIR
-   cargo_test "${ROOT_DIR}/crates/rsmake"
+   cargo -q test
 fi
    
 cd $ROOT_DIR && build_mymake

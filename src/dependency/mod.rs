@@ -10,19 +10,11 @@ mod dependency_accessor;
 mod dependency_registry;
 mod dependency_state;
 mod include_directories;
-
 pub use associated_files::{AssociatedFiles, SourceFile};
 pub use dependency_accessor::DependencyAccessor;
 pub use dependency_registry::DependencyRegistry;
 pub use dependency_state::DependencyState;
 pub use include_directories::{IncludeDirectories, IncludeType};
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-enum DependencyType {
-    Executable(String),
-    Library(String),
-    None,
-}
 
 // Dependency class should not have a Mmk object in it.
 // It should only need the path to it.
@@ -30,9 +22,10 @@ enum DependencyType {
 // Instead of using the mmk as an object, we should use other objects to determine
 // if Dependency is an executable or library, files, etc.
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Dependency {
     path: std::path::PathBuf,
+    #[serde(skip)]
     requires: Vec<DependencyNode>,
     state: DependencyState,
     associated_files: AssociatedFiles,
@@ -297,7 +290,14 @@ impl Dependency {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
+enum DependencyType {
+    Executable(String),
+    Library(String),
+    None,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DependencyNode(Rc<RefCell<Dependency>>);
 
 impl DependencyNode {

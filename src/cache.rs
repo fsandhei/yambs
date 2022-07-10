@@ -25,7 +25,7 @@ impl Cache {
     {
         let cache_file = self.cache_directory.join(filename);
         let file_handler = std::fs::File::create(cache_file).map_err(CacheError::FailedToCache)?;
-        serde_json::to_writer(file_handler, object).map_err(CacheError::FailedToWrite)
+        serde_json::to_writer_pretty(file_handler, object).map_err(CacheError::FailedToWrite)
     }
 
     pub fn detect_change<T>(&self, cached: &T, filename: &str) -> bool

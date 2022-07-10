@@ -1,6 +1,7 @@
 use crate::errors::AssociatedFileError;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
 pub struct AssociatedFiles(std::vec::Vec<SourceFile>);
 
 impl AssociatedFiles {
@@ -34,7 +35,7 @@ impl<'a> std::iter::IntoIterator for &'a AssociatedFiles {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SourceFile {
     file_type: FileType,
     file: std::path::PathBuf,
@@ -66,7 +67,7 @@ impl SourceFile {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub enum FileType {
     Source,
     Header,
@@ -96,5 +97,15 @@ mod tests {
         };
         let actual = SourceFile::new(&std::path::PathBuf::from(file)).unwrap();
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn fails_to_recognize_file_type() {
+        let file = "file.py";
+        let actual = SourceFile::new(&std::path::PathBuf::from(file));
+        assert!(matches!(
+            actual.unwrap_err(),
+            AssociatedFileError::CouldNotSpecifyFileType
+        ));
     }
 }

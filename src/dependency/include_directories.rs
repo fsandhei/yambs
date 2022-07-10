@@ -1,9 +1,10 @@
 use crate::mmk_parser;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
 pub struct IncludeDirectories(Vec<IncludeDirectory>);
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IncludeDirectory {
     pub include_type: IncludeType,
     pub path: std::path::PathBuf,
@@ -81,7 +82,7 @@ impl<'a> std::iter::IntoIterator for &'a IncludeDirectories {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub enum IncludeType {
     Include,
     System,

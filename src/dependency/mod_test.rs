@@ -212,12 +212,16 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
     let expected_lib_name_dep = utility::get_head_directory(&dir_dep.path())
         .display()
         .to_string();
+    let metadata = std::fs::metadata(&test_file_path).unwrap();
+    let metadata_dep = std::fs::metadata(&test_file_dep_path).unwrap();
     assert_eq!(
         top_dependency,
         DependencyNode::new(Dependency {
             path: test_file_path,
+            modification_time: metadata.modified().unwrap(),
             requires: vec![DependencyNode::new(Dependency {
                 path: test_file_dep_path,
+                modification_time: metadata_dep.modified().unwrap(),
                 requires: Vec::new(),
                 state: DependencyState::Registered,
                 associated_files: expected_associated_files(&dir_dep.path().join("source")),
@@ -273,6 +277,10 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
         .data_mut()
         .insert(String::from("MMK_EXECUTABLE"), vec![Keyword::from("x")]);
 
+    let metadata = std::fs::metadata(&test_file_path).unwrap();
+    let metadata_dep = std::fs::metadata(&test_file_dep_path).unwrap();
+    let metadata_sec_dep = std::fs::metadata(&test_file_second_dep_path).unwrap();
+
     let mut dep_registry = DependencyRegistry::new();
     let top_dependency =
         Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1).unwrap();
@@ -288,9 +296,11 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
         top_dependency,
         DependencyNode::new(Dependency {
             path: test_file_path,
+            modification_time: metadata.modified().unwrap(),
             requires: vec![
                 DependencyNode::new(Dependency {
                     path: test_file_dep_path,
+                    modification_time: metadata_dep.modified().unwrap(),
                     requires: Vec::new(),
                     state: DependencyState::Registered,
                     associated_files: expected_associated_files(&dir_dep.path().join("source")),
@@ -300,6 +310,7 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
                 }),
                 DependencyNode::new(Dependency {
                     path: test_file_second_dep_path,
+                    modification_time: metadata_sec_dep.modified().unwrap(),
                     requires: Vec::new(),
                     state: DependencyState::Registered,
                     associated_files: expected_associated_files(
@@ -384,14 +395,21 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
         .display()
         .to_string();
 
+    let metadata = std::fs::metadata(&test_file_path).unwrap();
+    let metadata_dep = std::fs::metadata(&test_file_dep_path).unwrap();
+    let metadata_sec_dep = std::fs::metadata(&test_file_second_dep_path).unwrap();
+
     assert_eq!(
         top_dependency,
         DependencyNode::new(Dependency {
             path: test_file_path,
+            modification_time: metadata.modified().unwrap(),
             requires: vec![DependencyNode::new(Dependency {
                 path: test_file_dep_path,
+                modification_time: metadata_dep.modified().unwrap(),
                 requires: vec![DependencyNode::new(Dependency {
                     path: test_file_second_dep_path,
+                    modification_time: metadata_sec_dep.modified().unwrap(),
                     requires: vec![],
                     state: DependencyState::Registered,
                     associated_files: expected_associated_files(
@@ -504,13 +522,20 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() {
         .display()
         .to_string();
 
+    let metadata = std::fs::metadata(&test_file_path).unwrap();
+    let metadata_dep = std::fs::metadata(&test_file_dep_path).unwrap();
+    let metadata_sec_dep = std::fs::metadata(&test_file_second_dep_path).unwrap();
+    let metadata_third_dep = std::fs::metadata(&test_file_third_dep_path).unwrap();
+
     assert_eq!(
         top_dependency,
         DependencyNode::new(Dependency {
             path: test_file_path,
+            modification_time: metadata.modified().unwrap(),
             requires: vec![
                 DependencyNode::new(Dependency {
                     path: test_file_third_dep_path,
+                    modification_time: metadata_third_dep.modified().unwrap(),
                     requires: vec![],
                     state: DependencyState::Registered,
                     associated_files: expected_associated_files(
@@ -522,8 +547,10 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() {
                 }),
                 DependencyNode::new(Dependency {
                     path: test_file_dep_path,
+                    modification_time: metadata_dep.modified().unwrap(),
                     requires: vec![DependencyNode::new(Dependency {
                         path: test_file_second_dep_path,
+                        modification_time: metadata_sec_dep.modified().unwrap(),
                         requires: vec![],
                         state: DependencyState::Registered,
                         associated_files: expected_associated_files(
@@ -642,10 +669,14 @@ fn read_mmk_files_four_files_one_dependency_serial_and_one_circular_serial() -> 
 
 #[test]
 fn get_project_name_test() {
-    let project_path = std::path::PathBuf::from("/some/path/name/for/MyProject/test/run.mmk");
-    let dependency = Dependency::from(&project_path);
+    let (_dir, test_file_path, _, _) = make_mmk_file("example");
+    let dependency = Dependency::from(&test_file_path);
     assert_eq!(
-        std::path::PathBuf::from("MyProject"),
+        test_file_path
+            .parent()
+            .and_then(|p| p.parent())
+            .and_then(|p| p.file_name())
+            .unwrap(),
         dependency.get_project_name()
     );
 }
@@ -663,7 +694,29 @@ fn is_executable_test() {
 
 #[test]
 fn is_executable_false_test() {
-    let project_path = std::path::PathBuf::from("/some/path/name/for/MyProject/test/run.mmk");
-    let dependency = Dependency::from(&project_path);
+    let (_dir, test_file_path, _, _) = make_mmk_file("example");
+    let dependency = Dependency::from(&test_file_path);
     assert!(!dependency.is_executable());
+}
+
+#[test]
+fn is_library_test() {
+    let (_dir, test_file_path, _, mut mmk_file_1) = make_mmk_file("example");
+    let mut dependency = Dependency::from(&test_file_path);
+    mmk_file_1.data_mut().insert(
+        String::from("MMK_LIBRARY_LABEL"),
+        vec![Keyword::from("MyLibrary")],
+    );
+    dependency.determine_dependency_type(&mmk_file_1).unwrap();
+    assert_eq!(
+        dependency.dependency_type,
+        DependencyType::Library(String::from("MyLibrary"))
+    );
+}
+
+#[test]
+fn is_none_test() {
+    let (_dir, test_file_path, _, _) = make_mmk_file("example");
+    let dependency = Dependency::from(&test_file_path);
+    assert_eq!(dependency.dependency_type, DependencyType::None);
 }

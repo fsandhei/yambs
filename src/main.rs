@@ -84,6 +84,7 @@ fn read_mmk_files_from_path(
         if builder.top_dependency().is_some() {
             let number_of_mmk_files = builder.number_of_dependencies();
             output.status(&format!("Read {} Yambs files", number_of_mmk_files));
+            builder.cache(cache)?;
         }
     }
     Ok(())

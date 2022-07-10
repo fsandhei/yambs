@@ -25,6 +25,7 @@ pub use include_directories::{IncludeDirectories, IncludeType};
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Dependency {
     path: std::path::PathBuf,
+    modification_time: std::time::SystemTime,
     #[serde(skip)]
     requires: Vec<DependencyNode>,
     state: DependencyState,
@@ -42,9 +43,14 @@ impl Dependency {
         } else {
             source_path = utility::get_mmk_library_file_from_path(path).unwrap();
         }
+        let metadata =
+            std::fs::metadata(&source_path).expect("Could not fetch metadata from mmk file.");
 
         Dependency {
-            path: std::path::PathBuf::from(source_path),
+            path: source_path,
+            modification_time: metadata
+                .modified()
+                .expect("Could not fetch last modified time."),
             requires: Vec::new(),
             state: DependencyState::new(),
             associated_files: AssociatedFiles::new(),

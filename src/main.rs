@@ -1,7 +1,7 @@
 use colored::Colorize;
 use structopt::StructOpt;
 
-use yambs::builder::*;
+use yambs::build_state_machine::*;
 use yambs::cache::{Cache, Cacher};
 use yambs::cli::command_line::CommandLine;
 use yambs::compiler;
@@ -22,7 +22,7 @@ fn try_main() -> Result<(), MyMakeError> {
     evaluate_compiler(&compiler, &command_line, &cache, &output)?;
 
     let mut generator = MakefileGenerator::new(&command_line.build_directory, compiler);
-    let mut builder = Builder::new(&mut generator);
+    let mut builder = BuildStateMachine::new(&mut generator);
 
     builder
         .configure(&command_line)
@@ -61,7 +61,7 @@ fn evaluate_compiler(
 }
 
 fn generate_makefiles(
-    builder: &mut Builder,
+    builder: &mut BuildStateMachine,
     output: &Output,
     command_line: &CommandLine,
 ) -> Result<(), MyMakeError> {
@@ -74,7 +74,7 @@ fn generate_makefiles(
 }
 
 fn read_mmk_files_from_path(
-    builder: &mut Builder,
+    builder: &mut BuildStateMachine,
     top_path: &std::path::Path,
     output: &Output,
 ) -> Result<(), MyMakeError> {
@@ -86,7 +86,7 @@ fn read_mmk_files_from_path(
     Ok(())
 }
 
-fn create_dottie_graph(builder: &Builder, output: &Output) -> Result<(), MyMakeError> {
+fn create_dottie_graph(builder: &BuildStateMachine, output: &Output) -> Result<(), MyMakeError> {
     let mut dottie_buffer = String::new();
     if let Some(dependency) = builder.top_dependency() {
         if external::dottie(dependency, false, &mut dottie_buffer).is_ok() {
@@ -97,7 +97,7 @@ fn create_dottie_graph(builder: &Builder, output: &Output) -> Result<(), MyMakeE
 }
 
 fn build_project(
-    builder: &mut Builder,
+    builder: &mut BuildStateMachine,
     output: &Output,
     command_line: &CommandLine,
 ) -> Result<(), MyMakeError> {
@@ -130,7 +130,7 @@ fn change_directory(directory: std::path::PathBuf) {
 }
 
 pub fn build_dependency(
-    builder: &Builder,
+    builder: &BuildStateMachine,
     dependency: &DependencyNode,
     build_path: &std::path::Path,
     output: &Output,

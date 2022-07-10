@@ -1,7 +1,7 @@
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::cli::command_line::CommandLine;
 use crate::dependency::{Dependency, DependencyNode, DependencyRegistry};
-use crate::errors::BuilderError;
+use crate::errors::BuildStateMachineError;
 use crate::generator::GeneratorExecutor;
 use crate::mmk_parser;
 use crate::utility;
@@ -10,7 +10,7 @@ mod filter;
 mod make;
 use make::Make;
 
-pub struct Builder<'a> {
+pub struct BuildStateMachine<'a> {
     top_dependency: Option<DependencyNode>,
     dep_registry: DependencyRegistry,
     generator: Box<&'a mut dyn GeneratorExecutor>,
@@ -20,9 +20,9 @@ pub struct Builder<'a> {
     top_build_directory: BuildDirectory,
 }
 
-impl<'a> Builder<'a> {
-    pub fn new(generator: &mut dyn GeneratorExecutor) -> Builder {
-        Builder {
+impl<'a> BuildStateMachine<'a> {
+    pub fn new(generator: &mut dyn GeneratorExecutor) -> BuildStateMachine {
+        BuildStateMachine {
             top_dependency: None,
             dep_registry: DependencyRegistry::new(),
             generator: Box::new(generator),
@@ -37,7 +37,7 @@ impl<'a> Builder<'a> {
         self.top_dependency.as_ref()
     }
 
-    pub fn configure(&mut self, command_line: &CommandLine) -> Result<(), BuilderError> {
+    pub fn configure(&mut self, command_line: &CommandLine) -> Result<(), BuildStateMachineError> {
         if command_line.verbose {
             self.set_verbose(true);
         }
@@ -53,7 +53,7 @@ impl<'a> Builder<'a> {
         self.make.with_flag(flag, value);
     }
 
-    pub fn use_std(&mut self, version: &str) -> Result<(), BuilderError> {
+    pub fn use_std(&mut self, version: &str) -> Result<(), BuildStateMachineError> {
         Ok(self.generator.as_mut().use_std(version)?)
     }
 
@@ -74,7 +74,7 @@ impl<'a> Builder<'a> {
         &self.make
     }
 
-    pub fn create_log_file(&mut self) -> Result<(), BuilderError> {
+    pub fn create_log_file(&mut self) -> Result<(), BuildStateMachineError> {
         if let Some(top_dependency) = &self.top_dependency {
             if top_dependency.dependency().ref_dep.is_makefile_made() {
                 let log_file_name = self.top_build_directory.as_path().join("yambs_log.txt");
@@ -87,12 +87,12 @@ impl<'a> Builder<'a> {
     pub fn read_mmk_files_from_path(
         self: &mut Self,
         top_path: &std::path::Path,
-    ) -> Result<(), BuilderError> {
+    ) -> Result<(), BuildStateMachineError> {
         let file_content = utility::read_file(&top_path)?;
         let mut mmk_data = mmk_parser::Mmk::new(&top_path);
         mmk_data
             .parse(&file_content)
-            .map_err(BuilderError::FailedToParse)?;
+            .map_err(BuildStateMachineError::FailedToParse)?;
 
         let top_dependency = Dependency::from_path(&top_path, &mut self.dep_registry, &mmk_data)?;
         self.top_dependency = Some(top_dependency.clone());
@@ -103,7 +103,7 @@ impl<'a> Builder<'a> {
         self.generator.as_mut().set_dependency(dependency);
     }
 
-    pub fn generate_makefiles(&mut self) -> Result<(), BuilderError> {
+    pub fn generate_makefiles(&mut self) -> Result<(), BuildStateMachineError> {
         if let Some(top_dependency) = self.top_dependency.clone() {
             self.add_dependency_to_generator(&top_dependency);
             return Ok(self
@@ -111,7 +111,7 @@ impl<'a> Builder<'a> {
                 .as_mut()
                 .generate_makefiles(&top_dependency)?);
         } else {
-            return Err(BuilderError::UnexpectedCall(String::from(
+            return Err(BuildStateMachineError::UnexpectedCall(String::from(
                 "builder.generate_builder()",
             )));
         }
@@ -132,7 +132,7 @@ impl<'a> Builder<'a> {
     fn use_configuration(
         &mut self,
         configurations: &BuildConfigurations,
-    ) -> Result<(), BuilderError> {
+    ) -> Result<(), BuildStateMachineError> {
         for configuration in configurations {
             match configuration {
                 Configuration::Debug => Ok(self.debug()),

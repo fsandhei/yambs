@@ -9,7 +9,7 @@ use crate::errors::CommandLineError;
 // TODO: Need to add tests for C++ validation and sanitizer validation
 // TODO: Add default values that correctly correspond for 'configuration' when not all options are
 // specified.
-// TODO: Perhaps, BuilderConfigurations should be defaulted to have a predefined set of configurations
+// TODO: Perhaps, BuildStateMachineConfigurations should be defaulted to have a predefined set of configurations
 // TODO: and remove those which are replaced by command line opted input.
 // TODO: At a later stage, should jobs be added to build configurations or should it be abstracted
 // TODO: to its own struct?

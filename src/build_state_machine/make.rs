@@ -5,7 +5,7 @@ use std::process::Command;
 use std::process::Output;
 use std::vec::Vec;
 
-use crate::builder::filter;
+use crate::build_state_machine::filter;
 use crate::errors::FsError;
 
 #[allow(dead_code)]

@@ -1,4 +1,4 @@
-//TODO: Skriv om testene for Builder slik at det stemmer med funksjonalitet.
+//TODO: Skriv om testene for BuildStateMachine slik at det stemmer med funksjonalitet.
 use std::fs::File;
 use std::io::Write;
 use tempdir::TempDir;
@@ -112,7 +112,7 @@ fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
 #[test]
 fn read_mmk_files_one_file() {
     let mut generator = GeneratorMock::new();
-    let mut builder = Builder::new(&mut generator);
+    let mut builder = BuildStateMachine::new(&mut generator);
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
 
     write!(
@@ -128,7 +128,7 @@ fn read_mmk_files_one_file() {
 #[test]
 fn read_mmk_files_two_files() -> std::io::Result<()> {
     let mut generator = GeneratorMock::new();
-    let mut builder = Builder::new(&mut generator);
+    let mut builder = BuildStateMachine::new(&mut generator);
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, _file_dep, _) = make_mmk_file("example_dep");
 
@@ -157,7 +157,7 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
 #[test]
 fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
     let mut generator = GeneratorMock::new();
-    let mut builder = Builder::new(&mut generator);
+    let mut builder = BuildStateMachine::new(&mut generator);
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, _file_dep, _) = make_mmk_file("example_dep");
     let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
@@ -194,7 +194,7 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
 #[test]
 fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
     let mut generator = GeneratorMock::new();
-    let mut builder = Builder::new(&mut generator);
+    let mut builder = BuildStateMachine::new(&mut generator);
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, mut file_dep, _) = make_mmk_file("example_dep");
     let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
@@ -238,7 +238,7 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
 #[test]
 fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std::io::Result<()> {
     let mut generator = GeneratorMock::new();
-    let mut builder = Builder::new(&mut generator);
+    let mut builder = BuildStateMachine::new(&mut generator);
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, mut file_dep, _) = make_mmk_file("example_dep");
     let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
@@ -289,9 +289,9 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
 }
 
 #[test]
-fn read_mmk_files_two_files_circulation() -> Result<(), BuilderError> {
+fn read_mmk_files_two_files_circulation() -> Result<(), BuildStateMachineError> {
     let mut generator = GeneratorMock::new();
-    let mut builder = Builder::new(&mut generator);
+    let mut builder = BuildStateMachine::new(&mut generator);
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, mut file_dep, _) = make_mmk_file("example_dep");
 
@@ -337,7 +337,7 @@ fn read_mmk_files_two_files_circulation() -> Result<(), BuilderError> {
 // #[test]
 // fn add_generator() -> std::io::Result<()> {
 //     let mut generator = GeneratorMock::new();
-//     let mut builder = Builder::new(&mut generator);
+//     let mut builder = BuildStateMachine::new(&mut generator);
 //     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
 
 //     write!(
@@ -355,7 +355,7 @@ fn read_mmk_files_two_files_circulation() -> Result<(), BuilderError> {
 #[test]
 fn resolve_build_directory_debug() {
     let mut generator = GeneratorMock::new();
-    let mut builder = Builder::new(&mut generator);
+    let mut builder = BuildStateMachine::new(&mut generator);
     builder.debug();
     let path = std::path::PathBuf::from("some/path");
     let expected = path.join("debug");
@@ -365,7 +365,7 @@ fn resolve_build_directory_debug() {
 #[test]
 fn resolve_build_directory_release() {
     let mut generator = GeneratorMock::new();
-    let builder = Builder::new(&mut generator);
+    let builder = BuildStateMachine::new(&mut generator);
     let path = std::path::PathBuf::from("some/path");
     let expected = path.join("release");
     assert_eq!(builder.resolve_build_directory(&path), expected);
@@ -374,7 +374,7 @@ fn resolve_build_directory_release() {
 // #[test]
 // fn construct_build_message_executable() -> std::io::Result<()> {
 //     let mut generator = GeneratorMock::new();
-//     let mut builder = Builder::new(&mut generator);
+//     let mut builder = BuildStateMachine::new(&mut generator);
 //     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
 
 //     write!(
@@ -387,7 +387,7 @@ fn resolve_build_directory_release() {
 //     let expected_message = format!("{} executable \"x\"", green_text);
 //     let borrowed_dependency = builder.top_dependency.unwrap();
 //     assert_eq!(
-//         Builder::construct_build_message(&borrowed_dependency),
+//         BuildStateMachine::construct_build_message(&borrowed_dependency),
 //         expected_message
 //     );
 //     Ok(())

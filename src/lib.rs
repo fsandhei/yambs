@@ -1,4 +1,4 @@
-pub mod builder;
+pub mod build_state_machine;
 pub mod cache;
 pub mod cli;
 pub mod compiler;

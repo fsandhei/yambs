@@ -35,6 +35,10 @@ impl Mmk {
         }
     }
 
+    pub fn file(&self) -> std::path::PathBuf {
+        self.file.to_owned()
+    }
+
     pub fn data(&self) -> &HashMap<String, Vec<Keyword>> {
         &self.data
     }

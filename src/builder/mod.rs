@@ -1,8 +1,7 @@
-use crate::cache;
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::cli::command_line::CommandLine;
 use crate::dependency::{Dependency, DependencyNode, DependencyRegistry};
-use crate::errors::{BuilderError, CompilerError};
+use crate::errors::BuilderError;
 use crate::generator::GeneratorExecutor;
 use crate::mmk_parser;
 use crate::utility;
@@ -147,18 +146,6 @@ impl<'a> Builder<'a> {
 
     fn set_sanitizer(&mut self, sanitizers: &str) {
         self.generator.as_mut().set_sanitizer(sanitizers);
-    }
-}
-
-impl cache::Cacher for Builder<'_> {
-    type Err = CompilerError;
-
-    fn cache(&self, cache: &cache::Cache) -> Result<(), Self::Err> {
-        self.dep_registry.cache(cache)
-    }
-
-    fn is_changed(&self, cache: &cache::Cache) -> bool {
-        self.dep_registry.is_changed(cache)
     }
 }
 

@@ -6,8 +6,6 @@ use crate::errors::CompilerError;
 
 // LEGG TIL TESTER
 
-const CACHE_FILE_NAME: &str = "dependencies";
-
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
@@ -47,14 +45,15 @@ impl DependencyRegistry {
 
 impl cache::Cacher for DependencyRegistry {
     type Err = CompilerError;
+    const CACHE_FILE_NAME: &'static str = "dependencies";
 
     fn cache(&self, cache: &cache::Cache) -> Result<(), Self::Err> {
         cache
-            .cache(&self, CACHE_FILE_NAME)
+            .cache(&self, Self::CACHE_FILE_NAME)
             .map_err(CompilerError::FailedToCache)
     }
 
     fn is_changed(&self, cache: &cache::Cache) -> bool {
-        cache.detect_change(self, CACHE_FILE_NAME)
+        cache.detect_change(self, Self::CACHE_FILE_NAME)
     }
 }

@@ -8,8 +8,6 @@ use crate::cache::{Cache, Cacher};
 use crate::errors::CompilerError;
 use crate::utility;
 
-const CACHE_FILE_NAME: &str = "compiler";
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Compiler {
     compiler_exe: std::path::PathBuf,
@@ -135,15 +133,16 @@ pub enum Type {
 
 impl Cacher for Compiler {
     type Err = CompilerError;
+    const CACHE_FILE_NAME: &'static str = "compiler";
 
     fn cache(&self, cache: &Cache) -> Result<(), Self::Err> {
         cache
-            .cache(&self, CACHE_FILE_NAME)
+            .cache(&self, Self::CACHE_FILE_NAME)
             .map_err(CompilerError::FailedToCache)
     }
 
     fn is_changed(&self, cache: &Cache) -> bool {
-        cache.detect_change(self, CACHE_FILE_NAME)
+        cache.detect_change(self, Self::CACHE_FILE_NAME)
     }
 }
 

@@ -45,6 +45,8 @@ impl Cache {
 
 pub trait Cacher {
     type Err;
+    const CACHE_FILE_NAME: &'static str;
+
     fn cache(&self, cache: &Cache) -> Result<(), Self::Err>;
 
     fn is_changed(&self, cache: &Cache) -> bool;

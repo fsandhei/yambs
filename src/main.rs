@@ -28,7 +28,7 @@ fn try_main() -> Result<(), MyMakeError> {
         .configure(&command_line)
         .map_err(MyMakeError::ConfigurationTime)?;
 
-    read_mmk_files_from_path(&mut builder, &command_line.input_file, &output, &cache)?;
+    read_mmk_files_from_path(&mut builder, &command_line.input_file, &output)?;
 
     if command_line.create_dottie_graph {
         return create_dottie_graph(&builder, &output);
@@ -77,15 +77,11 @@ fn read_mmk_files_from_path(
     builder: &mut Builder,
     top_path: &std::path::Path,
     output: &Output,
-    cache: &Cache,
 ) -> Result<(), MyMakeError> {
-    if !builder.is_changed(cache) {
-        builder.read_mmk_files_from_path(&top_path)?;
-        if builder.top_dependency().is_some() {
-            let number_of_mmk_files = builder.number_of_dependencies();
-            output.status(&format!("Read {} Yambs files", number_of_mmk_files));
-            builder.cache(cache)?;
-        }
+    builder.read_mmk_files_from_path(&top_path)?;
+    if builder.top_dependency().is_some() {
+        let number_of_mmk_files = builder.number_of_dependencies();
+        output.status(&format!("Read {} Yambs files", number_of_mmk_files));
     }
     Ok(())
 }
@@ -114,12 +110,13 @@ fn build_project(
             &output,
             command_line,
         );
-        let build_status_message: String;
-        if process_output.is_ok() && process_output.unwrap().status.success() {
-            build_status_message = format!("{}", "Build SUCCESS".green());
-        } else {
-            build_status_message = format!("{}", "Build FAILED".red());
-        }
+        let build_status_message = {
+            if process_output.is_ok() && process_output.unwrap().status.success() {
+                format!("{}", "Build SUCCESS".green())
+            } else {
+                format!("{}", "Build FAILED".red())
+            }
+        };
         output.status(&format!("{}", build_status_message));
         builder.make().log_text(build_status_message)?;
         let log_path = command_line.build_directory.as_path().join("yambs_log.txt");

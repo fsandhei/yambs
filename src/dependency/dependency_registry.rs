@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::cache;
 use crate::dependency::DependencyNode;
 use crate::errors::CompilerError;
-
+use crate::utility;
 // LEGG TIL TESTER
 
 #[allow(dead_code)]
@@ -18,6 +18,17 @@ impl DependencyRegistry {
         DependencyRegistry {
             registry: Vec::new(),
         }
+    }
+
+    pub fn from_cache(cache: &cache::Cache) -> Option<Self> {
+        let cache_file = cache
+            .cache_directory
+            .join(<Self as cache::Cacher>::CACHE_FILE_NAME);
+        if cache_file.is_file() {
+            let cached_data = utility::read_file(&cache_file).expect("Failed to read from cache");
+            return serde_json::from_str(&cached_data).ok();
+        }
+        None
     }
 
     pub fn number_of_dependencies(&self) -> usize {

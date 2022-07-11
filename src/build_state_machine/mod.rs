@@ -84,7 +84,7 @@ impl<'a> BuildStateMachine<'a> {
         Ok(())
     }
 
-    pub fn read_mmk_files_from_path(
+    pub fn parse_and_register_dependencies(
         self: &mut Self,
         top_path: &std::path::Path,
     ) -> Result<(), BuildStateMachineError> {

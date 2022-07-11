@@ -122,7 +122,7 @@ fn read_mmk_files_one_file() {
             "
     )
     .unwrap();
-    assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+    assert!(builder.parse_and_register_dependencies(&test_file_path).is_ok());
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
             .to_string()
     )?;
 
-    assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+    assert!(builder.parse_and_register_dependencies(&test_file_path).is_ok());
     Ok(())
 }
 
@@ -187,7 +187,7 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
             .to_string()
     )?;
 
-    assert!((builder.read_mmk_files_from_path(&test_file_path)).is_ok());
+    assert!((builder.parse_and_register_dependencies(&test_file_path)).is_ok());
     Ok(())
 }
 
@@ -231,7 +231,7 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
             .to_string()
     )?;
 
-    assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+    assert!(builder.parse_and_register_dependencies(&test_file_path).is_ok());
     Ok(())
 }
 
@@ -284,7 +284,7 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
             .to_string()
     )?;
 
-    assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+    assert!(builder.parse_and_register_dependencies(&test_file_path).is_ok());
     Ok(())
 }
 
@@ -328,7 +328,7 @@ fn read_mmk_files_two_files_circulation() -> Result<(), BuildStateMachineError> 
     )
     .unwrap();
 
-    let result = builder.read_mmk_files_from_path(&test_file_path);
+    let result = builder.parse_and_register_dependencies(&test_file_path);
 
     assert!(result.is_err());
     Ok(())
@@ -345,7 +345,7 @@ fn read_mmk_files_two_files_circulation() -> Result<(), BuildStateMachineError> 
 //         "MMK_EXECUTABLE:
 //             x
 //         ")?;
-//     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+//     assert!(builder.parse_and_register_dependencies(&test_file_path).is_ok());
 
 //     builder.add_generator();
 //     assert!(builder.generator.is_some());
@@ -382,7 +382,7 @@ fn resolve_build_directory_release() {
 //         "MMK_EXECUTABLE:
 //                 x"
 //     )?;
-//     assert!(builder.read_mmk_files_from_path(&test_file_path).is_ok());
+//     assert!(builder.parse_and_register_dependencies(&test_file_path).is_ok());
 //     let green_text = "Building".green();
 //     let expected_message = format!("{} executable \"x\"", green_text);
 //     let borrowed_dependency = builder.top_dependency.unwrap();

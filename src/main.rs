@@ -28,7 +28,7 @@ fn try_main() -> Result<(), MyMakeError> {
         .configure(&command_line)
         .map_err(MyMakeError::ConfigurationTime)?;
 
-    read_mmk_files_from_path(&mut builder, &command_line.input_file, &output)?;
+    parse_and_register_dependencies(&mut builder, &command_line.input_file, &output)?;
 
     if command_line.create_dottie_graph {
         return create_dottie_graph(&builder, &output);
@@ -73,12 +73,12 @@ fn generate_makefiles(
     Ok(())
 }
 
-fn read_mmk_files_from_path(
+fn parse_and_register_dependencies(
     builder: &mut BuildStateMachine,
     top_path: &std::path::Path,
     output: &Output,
 ) -> Result<(), MyMakeError> {
-    builder.read_mmk_files_from_path(&top_path)?;
+    builder.parse_and_register_dependencies(&top_path)?;
     if builder.top_dependency().is_some() {
         let number_of_mmk_files = builder.number_of_dependencies();
         output.status(&format!("Read {} Yambs files", number_of_mmk_files));

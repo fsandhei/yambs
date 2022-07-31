@@ -16,7 +16,7 @@ pub enum MyMakeError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
-    ConfigurationTime(#[from] BuildStateMachineError),
+    ConfigurationTime(#[from] BuildManagerError),
     #[error(transparent)]
     CompilerError(#[from] CompilerError),
 }
@@ -44,7 +44,7 @@ pub enum CompilerError {
 
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
-pub enum BuildStateMachineError {
+pub enum BuildManagerError {
     #[error(transparent)]
     Dependency(#[from] DependencyError),
     #[error(transparent)]

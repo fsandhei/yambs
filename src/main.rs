@@ -22,7 +22,7 @@ fn try_main() -> Result<(), MyMakeError> {
     evaluate_compiler(&compiler, &command_line, &cache, &output)?;
 
     let mut generator = MakefileGenerator::new(&command_line.build_directory, compiler);
-    let mut builder = BuildStateMachine::new(&mut generator);
+    let mut builder = BuildManager::new(&mut generator);
 
     builder
         .configure(&command_line)
@@ -61,7 +61,7 @@ fn evaluate_compiler(
 }
 
 fn generate_makefiles(
-    builder: &mut BuildStateMachine,
+    builder: &mut BuildManager,
     output: &Output,
     command_line: &CommandLine,
 ) -> Result<(), MyMakeError> {
@@ -74,7 +74,7 @@ fn generate_makefiles(
 }
 
 fn parse_and_register_dependencies(
-    builder: &mut BuildStateMachine,
+    builder: &mut BuildManager,
     top_path: &std::path::Path,
     output: &Output,
 ) -> Result<(), MyMakeError> {
@@ -86,7 +86,7 @@ fn parse_and_register_dependencies(
     Ok(())
 }
 
-fn create_dottie_graph(builder: &BuildStateMachine, output: &Output) -> Result<(), MyMakeError> {
+fn create_dottie_graph(builder: &BuildManager, output: &Output) -> Result<(), MyMakeError> {
     let mut dottie_buffer = String::new();
     if let Some(dependency) = builder.top_dependency() {
         if external::dottie(dependency, false, &mut dottie_buffer).is_ok() {
@@ -97,7 +97,7 @@ fn create_dottie_graph(builder: &BuildStateMachine, output: &Output) -> Result<(
 }
 
 fn build_project(
-    builder: &mut BuildStateMachine,
+    builder: &mut BuildManager,
     output: &Output,
     command_line: &CommandLine,
 ) -> Result<(), MyMakeError> {
@@ -130,7 +130,7 @@ fn change_directory(directory: std::path::PathBuf) {
 }
 
 pub fn build_dependency(
-    builder: &BuildStateMachine,
+    builder: &BuildManager,
     dependency: &DependencyNode,
     build_path: &std::path::Path,
     output: &Output,

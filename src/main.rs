@@ -9,6 +9,7 @@ use yambs::dependency::{DependencyNode, DependencyState};
 use yambs::errors::MyMakeError;
 use yambs::external;
 use yambs::generator::MakefileGenerator;
+use yambs::logger;
 use yambs::output::Output;
 use yambs::unwrap_or_terminate::MyMakeUnwrap;
 use yambs::utility;
@@ -17,6 +18,14 @@ fn try_main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();
     let output = Output::new();
     let cache = Cache::new(&command_line.build_directory)?;
+
+    let _logger = logger::Logger::init(
+        command_line.build_directory.as_path(),
+        log::LevelFilter::Trace,
+    )
+    .unwrap();
+
+    log::info!("Hello, world!");
 
     let compiler = compiler::Compiler::new()?;
     evaluate_compiler(&compiler, &command_line, &cache, &output)?;
@@ -101,7 +110,6 @@ fn build_project(
     output: &Output,
     command_line: &CommandLine,
 ) -> Result<(), MyMakeError> {
-    builder.create_log_file()?;
     if let Some(top_dependency) = &builder.top_dependency() {
         let process_output = build_dependency(
             &builder,
@@ -118,7 +126,6 @@ fn build_project(
             }
         };
         output.status(&format!("{}", build_status_message));
-        builder.make().log_text(build_status_message)?;
         let log_path = command_line.build_directory.as_path().join("yambs_log.txt");
         output.status(&format!("Build log available at {:?}", log_path));
     }
@@ -191,7 +198,6 @@ pub fn build_dependency(
     if command_line.verbose {
         output.status(&change_directory_message);
     }
-    builder.make().log_text(change_directory_message).unwrap();
     change_directory(build_directory);
     output.status(&format!("{}", construct_build_message(dependency)));
 

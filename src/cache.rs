@@ -19,20 +19,20 @@ impl Cache {
         Ok(Self { cache_directory })
     }
 
-    pub fn cache<T>(&self, object: &T, filename: &str) -> Result<(), CacheError>
+    pub fn cache<T>(&self, object: &T) -> Result<(), CacheError>
     where
-        T: Serialize,
+        T: Serialize + Cacher,
     {
-        let cache_file = self.cache_directory.join(filename);
+        let cache_file = self.cache_directory.join(T::CACHE_FILE_NAME);
         let file_handler = std::fs::File::create(cache_file).map_err(CacheError::FailedToCache)?;
         serde_json::to_writer_pretty(file_handler, object).map_err(CacheError::FailedToWrite)
     }
 
-    pub fn detect_change<T>(&self, cached: &T, filename: &str) -> bool
+    pub fn detect_change<T>(&self, cached: &T) -> bool
     where
-        T: DeserializeOwned + PartialEq,
+        T: DeserializeOwned + PartialEq + Cacher,
     {
-        let cache_file = self.cache_directory.join(filename);
+        let cache_file = self.cache_directory.join(T::CACHE_FILE_NAME);
         if cache_file.is_file() {
             let cached_data = utility::read_file(&cache_file).expect("Failed to read from cache");
             let existing_cache: T =
@@ -44,10 +44,5 @@ impl Cache {
 }
 
 pub trait Cacher {
-    type Err;
     const CACHE_FILE_NAME: &'static str;
-
-    fn cache(&self, cache: &Cache) -> Result<(), Self::Err>;
-
-    fn is_changed(&self, cache: &Cache) -> bool;
 }

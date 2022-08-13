@@ -1,5 +1,4 @@
 use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Output;
@@ -47,35 +46,12 @@ impl Make {
             filter::println_colored(&stderr_filtered);
         }
 
-        self.log_file
-            .as_ref()
-            .unwrap()
-            .write(stdout.as_bytes())
-            .map_err(FsError::WriteToFile)?;
-        self.log_file
-            .as_ref()
-            .unwrap()
-            .write(b"\n\n")
-            .map_err(FsError::WriteToFile)?;
-        self.log_file
-            .as_ref()
-            .unwrap()
-            .write(stderr.as_bytes())
-            .map_err(FsError::WriteToFile)?;
-        self.log_file
-            .as_ref()
-            .unwrap()
-            .write(b"\n\n")
-            .map_err(FsError::WriteToFile)?;
-        Ok(())
-    }
-
-    pub fn log_text(&self, text: String) -> Result<(), FsError> {
-        self.log_file
-            .as_ref()
-            .unwrap()
-            .write(text.as_bytes())
-            .map_err(FsError::WriteToFile)?;
+        if !stdout.is_empty() {
+            log::debug!("{}", stdout);
+        }
+        if !stderr.is_empty() {
+            log::debug!("{}", stderr);
+        }
         Ok(())
     }
 

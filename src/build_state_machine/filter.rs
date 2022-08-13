@@ -2,10 +2,6 @@ use colored::Colorize;
 use regex::Regex;
 use std::string::String;
 
-/*
- * Lag filter som fjerner AR - tekst output fra stderr
- *
-*/
 #[allow(dead_code)]
 fn filter_string_regex(input: &String, pattern: Regex) -> String {
     pattern.replace(input, "").trim_start().to_string()

@@ -16,18 +16,15 @@ use yambs::utility;
 
 fn try_main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();
-    let output = Output::new();
-    let cache = Cache::new(&command_line.build_directory)?;
-
-    let _logger = logger::Logger::init(
+    let logger = logger::Logger::init(
         command_line.build_directory.as_path(),
         log::LevelFilter::Trace,
     )
-    .unwrap();
-
-    log::info!("Hello, world!");
-
+    .expect("Failed to initialize logger.");
+    let output = Output::new();
+    let cache = Cache::new(&command_line.build_directory)?;
     let compiler = compiler::Compiler::new()?;
+
     evaluate_compiler(&compiler, &command_line, &cache, &output)?;
 
     let mut generator = MakefileGenerator::new(&command_line.build_directory, compiler);
@@ -45,7 +42,7 @@ fn try_main() -> Result<(), MyMakeError> {
 
     generate_makefiles(&mut builder, &output, &command_line)?;
 
-    build_project(&mut builder, &output, &command_line)?;
+    build_project(&mut builder, &output, &command_line, &logger)?;
     Ok(())
 }
 
@@ -109,6 +106,7 @@ fn build_project(
     builder: &mut BuildManager,
     output: &Output,
     command_line: &CommandLine,
+    logger: &logger::Logger,
 ) -> Result<(), MyMakeError> {
     if let Some(top_dependency) = &builder.top_dependency() {
         let process_output = build_dependency(
@@ -126,8 +124,8 @@ fn build_project(
             }
         };
         output.status(&format!("{}", build_status_message));
-        let log_path = command_line.build_directory.as_path().join("yambs_log.txt");
-        output.status(&format!("Build log available at {:?}", log_path));
+        let log_path = logger.path();
+        output.status(&format!("Build log available at {:?}", log_path.display()));
     }
     Ok(())
 }

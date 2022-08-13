@@ -26,16 +26,19 @@ impl Output {
     #[allow(unused)]
     pub fn status(&self, output: &str) {
         self.inner.print(output, OutputType::Status);
+        log::info!("{}", output);
     }
 
     #[allow(unused)]
     pub fn warning(&self, output: &str) {
         self.inner.print(output, OutputType::Warning);
+        log::warn!("{}", output);
     }
 
     #[allow(unused)]
     pub fn error(&self, output: &str) {
         self.inner.print(output, OutputType::Error);
+        log::error!("{}", output);
     }
 }
 

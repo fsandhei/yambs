@@ -15,7 +15,6 @@ pub struct BuildManager<'a> {
     dep_registry: DependencyRegistry,
     generator: Box<&'a mut dyn GeneratorExecutor>,
     debug: bool,
-    verbose: bool,
     make: Make,
     top_build_directory: BuildDirectory,
 }
@@ -27,7 +26,6 @@ impl<'a> BuildManager<'a> {
             dep_registry: DependencyRegistry::new(),
             generator: Box::new(generator),
             debug: false,
-            verbose: false,
             make: Make::new(),
             top_build_directory: BuildDirectory::default(),
         }
@@ -38,9 +36,6 @@ impl<'a> BuildManager<'a> {
     }
 
     pub fn configure(&mut self, command_line: &CommandLine) -> Result<(), BuildManagerError> {
-        if command_line.verbose {
-            self.set_verbose(true);
-        }
         self.add_make("-j", &command_line.jobs.to_string());
         self.top_build_directory = command_line.build_directory.to_owned();
 
@@ -66,22 +61,8 @@ impl<'a> BuildManager<'a> {
         self.generator.as_mut().release();
     }
 
-    pub fn set_verbose(&mut self, value: bool) {
-        self.verbose = value;
-    }
-
     pub fn make(&self) -> &Make {
         &self.make
-    }
-
-    pub fn create_log_file(&mut self) -> Result<(), BuildManagerError> {
-        if let Some(top_dependency) = &self.top_dependency {
-            if top_dependency.dependency().ref_dep.is_makefile_made() {
-                let log_file_name = self.top_build_directory.as_path().join("yambs_log.txt");
-                self.make.add_logger(&log_file_name)?;
-            }
-        }
-        Ok(())
     }
 
     pub fn parse_and_register_dependencies(

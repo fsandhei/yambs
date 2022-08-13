@@ -8,9 +8,9 @@ trap "remove_build_and_test_files $?" INT
 ACCEPTANCE_TESTS_ONLY="false"
 BIN_DIR="/usr/bin/"
 CARGO="/home/fredrik/.cargo/bin/cargo"
-ROOT_DIR="/home/fredrik/dev/private/rsmake"
-RSMAKE="$ROOT_DIR/target/release/rsmake"
-RSMAKE_RELEASE="$ROOT_DIR/target/release/rsmake"
+ROOT_DIR="/home/fredrik/dev/private/yambs"
+YAMBS="$ROOT_DIR/target/release/yambs"
+YAMBS_RELEASE="$ROOT_DIR/target/release/yambs"
 CWD=`pwd`
    
 TEST_DIR="$ROOT_DIR/test_project"
@@ -18,7 +18,7 @@ TEST_DIR_DEP="$ROOT_DIR/test_dependency_project"
 
 usage() {
    echo "$(basename $0)"
-   echo "Regression test sript to run all tests for RsMake."
+   echo "Regression test sript to run all tests for Yambs."
    echo "Usage:"
    echo "   $(basename $0) [--acceptance-tests | -h | --help]"
    echo "Flags:"
@@ -41,7 +41,7 @@ remove_build_and_test_files() {
 
 build_mymake()
 {
-   echo "Building latest version of RsMake."
+   echo "Building latest version of Yambs."
    cd $ROOT_DIR
    $CARGO build --release
 }
@@ -109,7 +109,7 @@ EOF
       rm -rf "$ROOT_DIR/build"
    fi
    mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
-   "$RSMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
+   "$YAMBS" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"
@@ -140,7 +140,7 @@ EOF
       rm -rf "$ROOT_DIR/build"
    fi
    mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
-   "$RSMAKE" -g "$TEST_DIR/run.mmk" -c "c++17" && "$ROOT_DIR/build/release/x"
+   "$YAMBS" -g "$TEST_DIR/run.mmk" -c "c++17" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"
@@ -193,7 +193,7 @@ EOF
       rm -rf "$ROOT_DIR/build"
    fi
    mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
-   "$RSMAKE" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
+   "$YAMBS" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"
@@ -212,7 +212,7 @@ execute_command()
    fi
 }
 
-run_rsmake_test()
+run_yambs_test()
 {
    echo "$1"
    "$1" 1> /dev/null
@@ -242,16 +242,16 @@ gcc_exe=`which g++`
 set_CXX "$gcc_exe"
 echo "--------------------------- RUNNING ACCEPTANCE TESTS ---------------------------"
 echo "CXX = $gcc_exe"
-run_rsmake_test test_mymake_minimal_build
-run_rsmake_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release
-run_rsmake_test test_mymake_with_one_dependency_build
+run_yambs_test test_mymake_minimal_build
+run_yambs_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release
+run_yambs_test test_mymake_with_one_dependency_build
 
 clang_exe=`which clang++`
 set_CXX "$clang_exe"
 echo "CXX = $clang_exe"
-run_rsmake_test test_mymake_minimal_build
-run_rsmake_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release
-run_rsmake_test test_mymake_with_one_dependency_build
+run_yambs_test test_mymake_minimal_build
+run_yambs_test test_mymake_minimal_build_with_explicit_cpp_version_and_implicit_release
+run_yambs_test test_mymake_with_one_dependency_build
 echo "--------------------------- END OF ACCEPTANCE TESTS ---------------------------"
 
 if [ "$?" -eq 0 ]; then

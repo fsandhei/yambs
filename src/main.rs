@@ -199,7 +199,7 @@ pub fn build_dependency(
     change_directory(build_directory);
     output.status(&format!("{}", construct_build_message(dependency)));
 
-    let output = builder.make().spawn()?;
+    let output = builder.make().spawn(&output)?;
     dependency
         .dependency_mut()
         .ref_dep

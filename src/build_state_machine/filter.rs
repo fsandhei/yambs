@@ -1,6 +1,8 @@
-use colored::Colorize;
-use regex::Regex;
 use std::string::String;
+
+use regex::Regex;
+
+use crate::output;
 
 #[allow(dead_code)]
 fn filter_string_regex(input: &String, pattern: Regex) -> String {
@@ -8,13 +10,13 @@ fn filter_string_regex(input: &String, pattern: Regex) -> String {
 }
 
 pub fn filter_string(input: &String) -> String {
-    let pattern_ar = Regex::new(r"^ar.*\n+");
-    let pattern_ar_second = Regex::new(r"\nar:.*");
-    let pattern_ar_open = Regex::new(r".*ar:.*");
+    let pattern_ar = Regex::new(r"^ar.*\n+").unwrap();
+    let pattern_ar_second = Regex::new(r"\nar:.*").unwrap();
+    let pattern_ar_open = Regex::new(r".*ar:.*").unwrap();
 
-    filter_string_regex(input, pattern_ar.unwrap());
-    filter_string_regex(input, pattern_ar_second.unwrap());
-    filter_string_regex(input, pattern_ar_open.unwrap())
+    filter_string_regex(input, pattern_ar);
+    filter_string_regex(input, pattern_ar_second);
+    filter_string_regex(input, pattern_ar_open)
 }
 
 #[allow(dead_code)]
@@ -29,14 +31,14 @@ fn is_error_message(input: &str) -> bool {
     error_pattern_gcc.is_match(input)
 }
 
-pub fn println_colored(input: &String) {
+pub fn println_colored(input: &String, output: &output::Output) {
     input.lines().for_each(|line| {
         if is_warning_message(&line) {
-            println!("{}", format!("{}", line).yellow());
+            output.warning(&format!("{}", line));
         } else if is_error_message(&line) {
-            println!("{}", format!("{}", line).red())
+            output.error(&format!("{}", line))
         } else {
-            println!("{}", line);
+            output.status(line);
         }
     });
 }

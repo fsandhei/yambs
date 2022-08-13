@@ -1,23 +1,19 @@
-use std::fs::File;
-use std::path::PathBuf;
 use std::process::Command;
-use std::process::Output;
 use std::vec::Vec;
 
 use crate::build_state_machine::filter;
 use crate::errors::FsError;
+use crate::output;
 
 #[allow(dead_code)]
 pub struct Make {
     configs: Vec<String>,
-    log_file: Option<File>,
 }
 
 impl Make {
     pub fn new() -> Self {
         Self {
             configs: Vec::new(),
-            log_file: None,
         }
     }
 
@@ -27,23 +23,17 @@ impl Make {
         self
     }
 
-    pub fn add_logger(&mut self, log_file_name: &PathBuf) -> Result<(), FsError> {
-        let file = std::fs::File::create(&log_file_name);
-
-        self.log_file = match file {
-            Ok(file) => Some(file),
-            Err(err) => return Err(FsError::CreateFile(log_file_name.into(), err)),
-        };
-        Ok(())
-    }
-
-    fn log(&self, output: &Output) -> Result<(), FsError> {
-        let stderr = String::from_utf8(output.stderr.clone()).unwrap();
-        let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+    fn log(
+        &self,
+        process_output: &std::process::Output,
+        output: &output::Output,
+    ) -> Result<(), FsError> {
+        let stderr = String::from_utf8(process_output.stderr.clone()).unwrap();
+        let stdout = String::from_utf8(process_output.stdout.clone()).unwrap();
 
         let stderr_filtered = filter::filter_string(&stderr);
         if stderr_filtered != String::from("") {
-            filter::println_colored(&stderr_filtered);
+            filter::println_colored(&stderr_filtered, output);
         }
 
         if !stdout.is_empty() {
@@ -55,16 +45,16 @@ impl Make {
         Ok(())
     }
 
-    pub fn spawn(&self) -> Result<Output, FsError> {
+    pub fn spawn(&self, output: &output::Output) -> Result<std::process::Output, FsError> {
         let spawn = Command::new("/usr/bin/make")
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .args(&self.configs)
             .spawn()
             .map_err(|_| FsError::Spawn(Command::new("/usr/bin/make")))?;
-        let output = spawn.wait_with_output().unwrap();
-        self.log(&output)?;
-        Ok(output)
+        let process_output = spawn.wait_with_output().unwrap();
+        self.log(&process_output, output)?;
+        Ok(process_output)
     }
 }
 

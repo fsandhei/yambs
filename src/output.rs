@@ -54,21 +54,15 @@ impl InnerOutput {
     }
 
     fn print(&self, output: &str, output_type: OutputType) {
-        let prepared_output = self.prepare_output(output, &output_type);
+        let prepared_output = self.add_prefix(output);
+        let color = output_type.as_color();
 
         match output_type {
-            OutputType::Status | OutputType::Warning => println!("{}", prepared_output),
-            OutputType::Error => eprintln!("{}", prepared_output),
+            OutputType::Status | OutputType::Warning => {
+                println!("{}", prepared_output.color(color))
+            }
+            OutputType::Error => eprintln!("{}", prepared_output.color(color)),
         };
-    }
-
-    fn prepare_output(&self, output: &str, output_type: &OutputType) -> String {
-        let color = match output_type {
-            OutputType::Status => colored::Color::White,
-            OutputType::Warning => colored::Color::Yellow,
-            OutputType::Error => colored::Color::Red,
-        };
-        self.add_prefix(&output.color(color))
     }
 
     fn add_prefix(&self, output: &str) -> String {
@@ -82,12 +76,35 @@ enum OutputType {
     Error,
 }
 
-// enum Cli {
-//     Normal,
-//     Warning,
-//     Error,
-// }
+impl OutputType {
+    pub fn as_color(&self) -> colored::Color {
+        match self {
+            OutputType::Status => colored::Color::White,
+            OutputType::Warning => colored::Color::Yellow,
+            OutputType::Error => colored::Color::Red,
+        }
+    }
+}
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_output_type_is_white() {
+        assert_eq!(OutputType::Status.as_color(), colored::Color::White);
+    }
+
+    #[test]
+    fn warning_output_type_is_yellow() {
+        assert_eq!(OutputType::Warning.as_color(), colored::Color::Yellow);
+    }
+
+    #[test]
+    fn error_output_type_is_red() {
+        assert_eq!(OutputType::Error.as_color(), colored::Color::Red);
+    }
+}
 // enum Log {
 //     Trace,
 //     Debug,

@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use crate::cache;
 use crate::dependency::DependencyNode;
 use crate::errors::CompilerError;
@@ -39,11 +37,11 @@ impl DependencyRegistry {
         self.registry.push(dependency);
     }
 
-    pub fn dependency_from_path(&self, path: &PathBuf) -> Option<DependencyNode> {
+    pub fn dependency_from_path(&self, path: &std::path::Path) -> Option<DependencyNode> {
         for dependency in &self.registry {
             let borrowed_dep = dependency.try_borrow();
-            if borrowed_dep.is_ok() {
-                if borrowed_dep.unwrap().path == *path {
+            if let Ok(dep) = borrowed_dep {
+                if dep.path == *path {
                     return Some(dependency.clone());
                 }
             } else {

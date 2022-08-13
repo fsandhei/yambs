@@ -18,8 +18,7 @@ pub struct Compiler {
 impl Compiler {
     pub fn new() -> Result<Self, CompilerError> {
         let compiler_exe = std::env::var_os("CXX")
-            .map(std::path::PathBuf::from)
-            .ok_or_else(|| CompilerError::CXXEnvNotSet)?;
+            .map(std::path::PathBuf::from).ok_or(CompilerError::CXXEnvNotSet)?;
         let compiler_type = Compiler::evaluate_compiler_type(&compiler_exe)?;
         let compiler_version = parse_version(&compiler_exe)?;
         Ok(Self {
@@ -70,15 +69,14 @@ impl Compiler {
             return exe
                 .to_str()
                 .and_then(|exe_str| {
-                    if gcc_pattern.is_match(&exe_str) {
+                    if gcc_pattern.is_match(exe_str) {
                         Some(Type::Gcc)
-                    } else if clang_pattern.is_match(&exe_str) {
+                    } else if clang_pattern.is_match(exe_str) {
                         Some(Type::Clang)
                     } else {
                         None
                     }
-                })
-                .ok_or_else(|| CompilerError::InvalidCompiler);
+                }).ok_or(CompilerError::InvalidCompiler);
         }
         Err(CompilerError::CXXEnvNotSet)
     }
@@ -107,8 +105,7 @@ fn try_get_version(compiler_exe: &std::path::Path) -> Result<semver::Version, Co
     if version_regex.is_match(&raw_version) {
         return Ok(version_regex
             .captures(&raw_version)
-            .and_then(|captures| captures.get(0))
-            .and_then(|captured_version| Some(captured_version.as_str()))
+            .and_then(|captures| captures.get(0)).map(|captured_version| captured_version.as_str())
             .and_then(|version| semver::Version::parse(version).ok())
             .unwrap());
     }
@@ -116,7 +113,7 @@ fn try_get_version(compiler_exe: &std::path::Path) -> Result<semver::Version, Co
 }
 
 fn parse_version(compiler_exe: &std::path::Path) -> Result<String, CompilerError> {
-    try_get_version(compiler_exe).and_then(|version| Ok(version.to_string()))
+    try_get_version(compiler_exe).map(|version| version.to_string())
 }
 
 fn compiler_version_raw(compiler_exe: &std::path::Path) -> Result<String, CompilerError> {

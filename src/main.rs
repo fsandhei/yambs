@@ -83,7 +83,7 @@ fn parse_and_register_dependencies(
     top_path: &std::path::Path,
     output: &Output,
 ) -> Result<(), MyMakeError> {
-    builder.parse_and_register_dependencies(&top_path)?;
+    builder.parse_and_register_dependencies(top_path)?;
     if builder.top_dependency().is_some() {
         let number_of_mmk_files = builder.number_of_dependencies();
         output.status(&format!("Read {} Yambs files", number_of_mmk_files));
@@ -109,10 +109,10 @@ fn build_project(
 ) -> Result<(), MyMakeError> {
     if let Some(top_dependency) = &builder.top_dependency() {
         let process_output = build_dependency(
-            &builder,
-            &top_dependency,
-            &command_line.build_directory.as_path(),
-            &output,
+            builder,
+            top_dependency,
+            command_line.build_directory.as_path(),
+            output,
             command_line,
         );
         let build_status_message = {
@@ -122,7 +122,7 @@ fn build_project(
                 format!("{}", "Build FAILED".red())
             }
         };
-        output.status(&format!("{}", build_status_message));
+        output.status(&build_status_message);
         let log_path = logger.path();
         output.status(&format!("Build log available at {:?}", log_path.display()));
     }
@@ -153,7 +153,7 @@ pub fn build_dependency(
             .is_build_completed()
         {
             let top_build_directory_resolved =
-                builder.resolve_build_directory(&command_line.build_directory.as_path());
+                builder.resolve_build_directory(command_line.build_directory.as_path());
             let directory_to_link = top_build_directory_resolved
                 .join("libs")
                 .join(required_dependency.dependency().ref_dep.get_project_name());
@@ -171,11 +171,11 @@ pub fn build_dependency(
             .ref_dep
             .change_state(DependencyState::Building);
         let dep_output = build_dependency(
-            &builder,
-            &required_dependency,
-            &build_path_dep,
-            &output,
-            &command_line,
+            builder,
+            required_dependency,
+            build_path_dep,
+            output,
+            command_line,
         )?;
         if !dep_output.status.success() {
             return Ok(dep_output);
@@ -196,9 +196,9 @@ pub fn build_dependency(
         output.status(&change_directory_message);
     }
     change_directory(build_directory);
-    output.status(&format!("{}", construct_build_message(dependency)));
+    output.status(&construct_build_message(dependency));
 
-    let output = builder.make().spawn(&output)?;
+    let output = builder.make().spawn(output)?;
     dependency
         .dependency_mut()
         .ref_dep

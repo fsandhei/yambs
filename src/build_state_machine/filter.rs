@@ -5,11 +5,11 @@ use regex::Regex;
 use crate::output;
 
 #[allow(dead_code)]
-fn filter_string_regex(input: &String, pattern: Regex) -> String {
+fn filter_string_regex(input: &str, pattern: Regex) -> String {
     pattern.replace(input, "").trim_start().to_string()
 }
 
-pub fn filter_string(input: &String) -> String {
+pub fn filter_string(input: &str) -> String {
     let pattern_ar = Regex::new(r"^ar.*\n+").unwrap();
     let pattern_ar_second = Regex::new(r"\nar:.*").unwrap();
     let pattern_ar_open = Regex::new(r".*ar:.*").unwrap();
@@ -31,12 +31,12 @@ fn is_error_message(input: &str) -> bool {
     error_pattern_gcc.is_match(input)
 }
 
-pub fn println_colored(input: &String, output: &output::Output) {
+pub fn println_colored(input: &str, output: &output::Output) {
     input.lines().for_each(|line| {
-        if is_warning_message(&line) {
-            output.warning(&format!("{}", line));
-        } else if is_error_message(&line) {
-            output.error(&format!("{}", line))
+        if is_warning_message(line) {
+            output.warning(&line.to_string());
+        } else if is_error_message(line) {
+            output.error(&line.to_string())
         } else {
             output.status(line);
         }
@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn is_warning_message_false_test() {
         let input = "/sadfasdfsaf/fasdfdf sadfasf fsadf this is not a warning!";
-        assert!(is_warning_message(&input) == false);
+        assert!(!is_warning_message(input));
     }
 
     #[test]
@@ -87,13 +87,13 @@ mod tests {
         let input = "\
         /home/user/Documents/Tests/AStarPathFinder/PlanGenerator/test/PlanGeneratorTest.cpp:32:13: error: ‘dfasdf’
         was not declared in this scope";
-        assert!(is_error_message(&input) == true);
+        assert!(is_error_message(input));
     }
 
     #[test]
     fn is_error_message_false_test() {
         let input = "\
         This is not an error!";
-        assert!(is_error_message(&input) == false);
+        assert!(!is_error_message(input));
     }
 }

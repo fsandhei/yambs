@@ -74,24 +74,24 @@ impl Dependency {
         dependency_node
             .dependency_mut()
             .ref_dep
-            .determine_dependency_type(&mmk_data)?;
+            .determine_dependency_type(mmk_data)?;
         dependency_node
             .dependency_mut()
             .ref_dep
-            .populate_associated_files(&mmk_data)?;
+            .populate_associated_files(mmk_data)?;
 
         dependency_node.dependency_mut().ref_dep.include_directories =
-            IncludeDirectories::from_mmk(&mmk_data);
+            IncludeDirectories::from_mmk(mmk_data);
 
         dependency_node
             .dependency_mut()
             .ref_dep
-            .append_additional_flags(&mmk_data);
+            .append_additional_flags(mmk_data);
 
         let dep_vec = dependency_node
             .dependency()
             .ref_dep
-            .detect_dependency(dep_registry, &mmk_data)?;
+            .detect_dependency(dep_registry, mmk_data)?;
 
         for dep in dep_vec {
             dependency_node.dependency_mut().ref_dep.add_dependency(dep);
@@ -154,7 +154,7 @@ impl Dependency {
     pub fn is_executable(&self) -> bool {
         match self.dependency_type {
             DependencyType::Executable(_) => true,
-            DependencyType::Library(_) | _ => false,
+            DependencyType::Library(_) | DependencyType::None => false,
         }
     }
 
@@ -163,7 +163,7 @@ impl Dependency {
         if utility::is_source_directory(parent) || utility::is_test_directory(parent) {
             return utility::get_head_directory(parent.parent().unwrap());
         } else {
-            return utility::get_head_directory(parent);
+            utility::get_head_directory(parent)
         }
     }
 
@@ -178,7 +178,7 @@ impl Dependency {
         if mmk_data.has_executables() {
             self.dependency_type = DependencyType::Executable(mmk_data.to_string("MMK_EXECUTABLE"));
         } else {
-            self.dependency_type = DependencyType::Library(self.add_library_name(&mmk_data));
+            self.dependency_type = DependencyType::Library(self.add_library_name(mmk_data));
         }
         Ok(())
     }
@@ -250,12 +250,12 @@ impl Dependency {
                     .unwrap();
                 let dep_path = &mmk_path.join("lib.mmk");
 
-                if let Some(dependency) = dep_registry.dependency_from_path(&dep_path) {
+                if let Some(dependency) = dep_registry.dependency_from_path(dep_path) {
                     self.detect_cycle_from_dependency(&dependency)?;
                     dep_vec.push(dependency);
                 } else {
-                    let file_content = utility::read_file(&dep_path)?;
-                    let mut dep_mmk_data = mmk_parser::Mmk::new(&dep_path);
+                    let file_content = utility::read_file(dep_path)?;
+                    let mut dep_mmk_data = mmk_parser::Mmk::new(dep_path);
                     dep_mmk_data.parse(&file_content)?;
                     let dependency = Dependency::from_path(&mmk_path, dep_registry, &dep_mmk_data)?;
                     dep_vec.push(dependency);
@@ -270,10 +270,10 @@ impl Dependency {
         mmk_data: &mmk_parser::Mmk,
     ) -> Result<(), DependencyError> {
         if mmk_data.data().contains_key("MMK_SOURCES") {
-            self.populate_associated_files_by_keyword(&mmk_data, "MMK_SOURCES")?;
+            self.populate_associated_files_by_keyword(mmk_data, "MMK_SOURCES")?;
         }
         if mmk_data.data().contains_key("MMK_HEADERS") {
-            self.populate_associated_files_by_keyword(&mmk_data, "MMK_HEADERS")?;
+            self.populate_associated_files_by_keyword(mmk_data, "MMK_HEADERS")?;
         }
         Ok(())
     }

@@ -10,14 +10,14 @@ pub fn dottie(top: &DependencyNode, recursive: bool, data: &mut String) -> std::
     let borrowed_top = top;
     let top_pretty_name = &borrowed_top.dependency().ref_dep.get_name().unwrap();
 
-    if recursive == false {
+    if !recursive {
         data.push_str(
             "\
         digraph G {\n\
         ",
         );
         dottie(top, true, data)?;
-        data.push_str("}");
+        data.push('}');
         dottie_file.write_all(data.as_bytes())?;
     }
 
@@ -29,7 +29,7 @@ pub fn dottie(top: &DependencyNode, recursive: bool, data: &mut String) -> std::
             requirement.dependency().ref_dep.get_name().unwrap(),
             top_pretty_name
         ));
-        dottie(&requirement, true, data)?;
+        dottie(requirement, true, data)?;
     }
     Ok(())
 }
@@ -39,7 +39,7 @@ fn create_dottie_file(first_run: bool) -> std::io::Result<File> {
     let dot_file_path = current_dir.join("dependency.gv");
 
     if dottie_file_exists() {
-        if first_run == false {
+        if !first_run {
             File::create(dot_file_path)
         } else {
             OpenOptions::new()

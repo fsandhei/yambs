@@ -16,7 +16,7 @@ impl IncludeDirectory {
         if include_path.is_dir() {
             return Some(include_path);
         }
-        while let Some(parent) = path.parent() {
+        if let Some(parent) = path.parent() {
             return Self::find(parent);
         }
         None
@@ -32,7 +32,7 @@ impl IncludeDirectories {
         if let Some(requires) = mmk.get_args("MMK_REQUIRE") {
             for keyword in requires {
                 let path_as_str = keyword.argument();
-                let path = IncludeDirectory::find(&std::path::Path::new(path_as_str))?;
+                let path = IncludeDirectory::find(std::path::Path::new(path_as_str))?;
                 if keyword.option() == "SYSTEM" {
                     include_directories.push(IncludeDirectory {
                         include_type: IncludeType::System,
@@ -110,7 +110,7 @@ mod tests {
         let third_dep_include_path = third_dep_dir.path().join("include");
         std::fs::create_dir(&third_dep_include_path).unwrap();
 
-        let mut mmk_file = mmk_parser::Mmk::new(&std::path::Path::new("some/path/to/lib.mmk"));
+        let mut mmk_file = mmk_parser::Mmk::new(std::path::Path::new("some/path/to/lib.mmk"));
         mmk_file.data_mut().insert(
             "MMK_REQUIRE".to_string(),
             vec![
@@ -158,7 +158,7 @@ mod tests {
         let third_dep_include_path = third_dep_src_dir.join("include");
         std::fs::create_dir(&third_dep_include_path).unwrap();
 
-        let mut mmk_file = mmk_parser::Mmk::new(&std::path::Path::new("some/path/to/lib.mmk"));
+        let mut mmk_file = mmk_parser::Mmk::new(std::path::Path::new("some/path/to/lib.mmk"));
         mmk_file.data_mut().insert(
             "MMK_REQUIRE".to_string(),
             vec![
@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn from_mmk_registers_sys_includes() {
-        let mut mmk_file = mmk_parser::Mmk::new(&std::path::Path::new("some/path/to/lib.mmk"));
+        let mut mmk_file = mmk_parser::Mmk::new(std::path::Path::new("some/path/to/lib.mmk"));
         mmk_file.data_mut().insert(
             "MMK_SYS_INCLUDE".to_string(),
             vec![Keyword::from("/some/dependency/include")],

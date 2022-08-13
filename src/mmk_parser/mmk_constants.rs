@@ -56,7 +56,7 @@ impl Constants {
         Self { list: collection }
     }
 
-    pub fn get_constant(&self, data: &String) -> Option<String> {
+    pub fn get_constant(&self, data: &str) -> Option<String> {
         let constant_pattern = Regex::new(r"\$\{(.*)\}").unwrap();
         if let Some(captured) = constant_pattern.captures(data) {
             let capture_s = captured.get(1).unwrap().as_str();
@@ -75,7 +75,7 @@ impl Constants {
         None
     }
 
-    fn is_constant(&self, data: &String) -> bool {
+    fn is_constant(&self, data: &str) -> bool {
         if data == "project_top" || data == "src_dir" {
             return true;
         }

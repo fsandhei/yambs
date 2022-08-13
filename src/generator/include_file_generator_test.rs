@@ -5,13 +5,13 @@ use tempdir::TempDir;
 
 use super::*;
 
-fn produce_include_path(base_dir: TempDir) -> PathBuf {
-    let build_dir = PathBuf::from(".build");
+fn produce_include_path(base_dir: TempDir) -> std::path::PathBuf {
+    let build_dir = std::path::PathBuf::from(".build");
     let output_directory = base_dir.path().join(build_dir).join("make_include");
     output_directory
 }
 
-fn construct_generator<'generator>(path: &PathBuf) -> IncludeFileGenerator<'generator> {
+fn construct_generator<'generator>(path: &std::path::PathBuf) -> IncludeFileGenerator<'generator> {
     IncludeFileGenerator::new(path, crate::compiler::Compiler::new().unwrap())
 }
 

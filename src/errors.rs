@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+
+use log4rs::config::runtime::ConfigErrors;
 use thiserror;
 
 #[derive(thiserror::Error, Debug)]
@@ -19,6 +21,8 @@ pub enum MyMakeError {
     ConfigurationTime(#[from] BuildManagerError),
     #[error(transparent)]
     CompilerError(#[from] CompilerError),
+    #[error(transparent)]
+    Logger(#[from] LoggerError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -145,6 +149,16 @@ pub enum FsError {
     FailedToCreateStringFromUtf8(#[source] std::string::FromUtf8Error),
     #[error("Failed to execute external program")]
     FailedToExecute(#[source] std::io::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum LoggerError {
+    #[error("Failed to create file appender: {0}")]
+    FailedToCreateFileAppender(#[source] std::io::Error),
+    #[error("Failed to create logger configuration: {0}")]
+    FailedToCreateConfig(#[source] ConfigErrors),
+    #[error(transparent)]
+    FailedToSetLogger(#[from] log::SetLoggerError),
 }
 
 #[non_exhaustive]

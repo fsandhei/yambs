@@ -19,8 +19,7 @@ fn try_main() -> Result<(), MyMakeError> {
     let logger = logger::Logger::init(
         command_line.build_directory.as_path(),
         log::LevelFilter::Trace,
-    )
-    .expect("Failed to initialize logger.");
+    )?;
     let output = Output::new();
     let cache = Cache::new(&command_line.build_directory)?;
     let compiler = compiler::Compiler::new()?;

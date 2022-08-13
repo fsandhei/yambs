@@ -1,6 +1,5 @@
 use crate::cache;
 use crate::dependency::DependencyNode;
-use crate::errors::CompilerError;
 use crate::utility;
 // LEGG TIL TESTER
 
@@ -53,16 +52,5 @@ impl DependencyRegistry {
 }
 
 impl cache::Cacher for DependencyRegistry {
-    type Err = CompilerError;
     const CACHE_FILE_NAME: &'static str = "dependencies";
-
-    fn cache(&self, cache: &cache::Cache) -> Result<(), Self::Err> {
-        cache
-            .cache(&self, Self::CACHE_FILE_NAME)
-            .map_err(CompilerError::FailedToCache)
-    }
-
-    fn is_changed(&self, cache: &cache::Cache) -> bool {
-        cache.detect_change(self, Self::CACHE_FILE_NAME)
-    }
 }

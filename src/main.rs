@@ -2,7 +2,7 @@ use colored::Colorize;
 use structopt::StructOpt;
 
 use yambs::build_state_machine::*;
-use yambs::cache::{Cache, Cacher};
+use yambs::cache::Cache;
 use yambs::cli::command_line::CommandLine;
 use yambs::compiler;
 use yambs::dependency::{DependencyNode, DependencyState};
@@ -55,11 +55,11 @@ fn evaluate_compiler(
     cache: &Cache,
     output: &Output,
 ) -> Result<(), MyMakeError> {
-    if !compiler.is_changed(cache) {
+    if !cache.detect_change(compiler) {
         let test_dir = command_line.build_directory.as_path().join("sample");
         output.status("Evaluating compiler by doing a sample build...");
         compiler.evaluate(&test_dir)?;
-        compiler.cache(cache)?;
+        cache.cache(compiler)?;
         output.status("Evaluating compiler by doing a sample build... done");
     }
     Ok(())

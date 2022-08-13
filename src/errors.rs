@@ -23,6 +23,8 @@ pub enum MyMakeError {
     CompilerError(#[from] CompilerError),
     #[error(transparent)]
     Logger(#[from] LoggerError),
+    #[error(transparent)]
+    Cache(#[from] CacheError),
 }
 
 #[derive(Debug, thiserror::Error)]

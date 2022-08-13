@@ -4,7 +4,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use textwrap::indent;
 
-use crate::cache::{Cache, Cacher};
+use crate::cache::Cacher;
 use crate::errors::CompilerError;
 use crate::utility;
 
@@ -18,7 +18,8 @@ pub struct Compiler {
 impl Compiler {
     pub fn new() -> Result<Self, CompilerError> {
         let compiler_exe = std::env::var_os("CXX")
-            .map(std::path::PathBuf::from).ok_or(CompilerError::CXXEnvNotSet)?;
+            .map(std::path::PathBuf::from)
+            .ok_or(CompilerError::CXXEnvNotSet)?;
         let compiler_type = Compiler::evaluate_compiler_type(&compiler_exe)?;
         let compiler_version = parse_version(&compiler_exe)?;
         Ok(Self {
@@ -76,7 +77,8 @@ impl Compiler {
                     } else {
                         None
                     }
-                }).ok_or(CompilerError::InvalidCompiler);
+                })
+                .ok_or(CompilerError::InvalidCompiler);
         }
         Err(CompilerError::CXXEnvNotSet)
     }
@@ -96,7 +98,6 @@ fn create_sample_cpp_main(test_dir: &std::path::Path) -> std::io::Result<std::pa
     Ok(main_cpp_path)
 }
 
-// TODO: Add test for this
 fn try_get_version(compiler_exe: &std::path::Path) -> Result<semver::Version, CompilerError> {
     let version_regex = Regex::new(r"[0-9]+\.[0-9]+\.[0-9]+").unwrap();
 
@@ -105,7 +106,8 @@ fn try_get_version(compiler_exe: &std::path::Path) -> Result<semver::Version, Co
     if version_regex.is_match(&raw_version) {
         return Ok(version_regex
             .captures(&raw_version)
-            .and_then(|captures| captures.get(0)).map(|captured_version| captured_version.as_str())
+            .and_then(|captures| captures.get(0))
+            .map(|captured_version| captured_version.as_str())
             .and_then(|version| semver::Version::parse(version).ok())
             .unwrap());
     }
@@ -129,18 +131,7 @@ pub enum Type {
 }
 
 impl Cacher for Compiler {
-    type Err = CompilerError;
     const CACHE_FILE_NAME: &'static str = "compiler";
-
-    fn cache(&self, cache: &Cache) -> Result<(), Self::Err> {
-        cache
-            .cache(&self, Self::CACHE_FILE_NAME)
-            .map_err(CompilerError::FailedToCache)
-    }
-
-    fn is_changed(&self, cache: &Cache) -> bool {
-        cache.detect_change(self, Self::CACHE_FILE_NAME)
-    }
 }
 
 impl std::string::ToString for Compiler {
@@ -218,6 +209,46 @@ mod tests {
             lock.lock("clang-13");
             let compiler = Compiler::new().unwrap();
             assert!(matches!(compiler.compiler_type(), &Type::Clang));
+        }
+    }
+
+    #[test]
+    fn try_get_version_clang() {
+        let mut lock = EnvLock::new();
+        {
+            lock.lock("clang");
+            let compiler_exe = std::env::var_os("CXX")
+                .map(std::path::PathBuf::from)
+                .unwrap();
+            assert_eq!(
+                try_get_version(&compiler_exe).unwrap(),
+                semver::Version::parse("13.0.1").unwrap()
+            );
+        }
+        {
+            lock.lock("clang-13");
+            let compiler_exe = std::env::var_os("CXX")
+                .map(std::path::PathBuf::from)
+                .unwrap();
+            assert_eq!(
+                try_get_version(&compiler_exe).unwrap(),
+                semver::Version::parse("13.0.1").unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn try_get_version_gcc() {
+        let mut lock = EnvLock::new();
+        {
+            lock.lock("gcc");
+            let compiler_exe = std::env::var_os("CXX")
+                .map(std::path::PathBuf::from)
+                .unwrap();
+            assert_eq!(
+                try_get_version(&compiler_exe).unwrap(),
+                semver::Version::parse("11.2.0").unwrap()
+            );
         }
     }
 }

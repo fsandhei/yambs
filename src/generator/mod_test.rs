@@ -332,11 +332,10 @@ fn generate_appending_flags_test_cxxflags() -> std::io::Result<()> {
     let test_file = gen.output_directory.join("makefile");
     assert!(Generator::generate_appending_flags(&mut gen).is_ok());
     assert_eq!(
-        format!(
-            "\
+        "\
     CXXFLAGS += -pthread\n\
     "
-        ),
+        .to_string(),
         fs::read_to_string(test_file.to_str().unwrap()).unwrap()
     );
     Ok(())
@@ -363,11 +362,10 @@ fn generate_appending_flags_test_cppflags() -> std::io::Result<()> {
     let test_file = gen.output_directory.join("makefile");
     assert!(Generator::generate_appending_flags(&mut gen).is_ok());
     assert_eq!(
-        format!(
-            "\
+        "\
     CPPFLAGS += -somesetting\n\
     "
-        ),
+        .to_string(),
         fs::read_to_string(test_file.to_str().unwrap()).unwrap()
     );
     Ok(())
@@ -398,12 +396,11 @@ fn generate_appending_flags_test() -> std::io::Result<()> {
     let test_file = gen.output_directory.join("makefile");
     assert!(Generator::generate_appending_flags(&mut gen).is_ok());
     assert_eq!(
-        format!(
-            "\
+        "\
     CXXFLAGS += -pthread\n\
     CPPFLAGS += -somesetting\n\
     "
-        ),
+        .to_string(),
         fs::read_to_string(test_file.to_str().unwrap()).unwrap()
     );
     Ok(())

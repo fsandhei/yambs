@@ -58,17 +58,15 @@ impl Mmk {
 
     pub fn get_args(&self, key: &str) -> Option<&Vec<Keyword>> {
         if self.valid_keyword(key).ok().is_none() {
-            return None;
+            None
+        } else if self.data.contains_key(key) {
+            Some(&self.data[key])
         } else {
-            if self.data.contains_key(key) {
-                Some(&self.data[key])
-            } else {
-                None
-            }
+            None
         }
     }
 
-    pub fn to_string(self: &Self, key: &str) -> String {
+    pub fn to_string(&self, key: &str) -> String {
         let mut formatted_string = String::new();
         if self.data.contains_key(key) {
             for item in &self.data[key] {
@@ -79,8 +77,8 @@ impl Mmk {
                 if key == "MMK_SYS_INCLUDE" {
                     formatted_string.push_str("-isystem ");
                 }
-                formatted_string.push_str(&item.argument());
-                formatted_string.push_str(" ");
+                formatted_string.push_str(item.argument());
+                formatted_string.push(' ');
             }
         }
         formatted_string.trim_end().to_string()
@@ -92,7 +90,7 @@ impl Mmk {
             for keyword in &self.data["MMK_REQUIRE"] {
                 if keyword.option() == "SYSTEM" {
                     formatted_string.push_str("-isystem");
-                    formatted_string.push_str(" ");
+                    formatted_string.push(' ');
                 } else {
                     formatted_string.push_str("-I");
                 }
@@ -100,7 +98,7 @@ impl Mmk {
                     &std::path::PathBuf::from(keyword.argument()),
                 )?;
                 formatted_string.push_str(dep_path.to_str().unwrap());
-                formatted_string.push_str(" ");
+                formatted_string.push(' ');
             }
             return Ok(formatted_string.trim_end().to_string());
         }
@@ -108,7 +106,7 @@ impl Mmk {
     }
 
     pub fn valid_keyword(&self, keyword: &str) -> Result<(), ParseError> {
-        let stripped_keyword = keyword.trim_end_matches(":");
+        let stripped_keyword = keyword.trim_end_matches(':');
         if stripped_keyword == "MMK_REQUIRE"
             || stripped_keyword == "MMK_SOURCES"
             || stripped_keyword == "MMK_HEADERS"
@@ -137,11 +135,11 @@ impl Mmk {
         let mut current_line = data_iter.next();
         while current_line != None {
             let line = current_line.unwrap().trim();
-            if line != "" && !self.valid_keyword(&line).is_ok() {
+            if !line.is_empty() && self.valid_keyword(line).is_err() {
                 let keyword = self.parse_and_create_keyword(line);
 
                 arg_vec.push(keyword);
-            } else if line == "" {
+            } else if line.is_empty() {
                 break;
             } else {
                 return Err(ParseError::InvalidSpacing {
@@ -155,7 +153,7 @@ impl Mmk {
     }
 
     fn parse_and_create_keyword(&self, line: &str) -> Keyword {
-        let line_split: Vec<&str> = line.split(" ").collect();
+        let line_split: Vec<&str> = line.split(' ').collect();
         let keyword: Keyword;
         if line_split.len() == 1 {
             let arg = line_split[0];
@@ -177,8 +175,8 @@ impl Mmk {
         self.data.contains_key("MMK_SYS_INCLUDE")
     }
 
-    pub fn parse(&mut self, data: &String) -> Result<(), ParseError> {
-        let no_comment_data = remove_comments(data);
+    pub fn parse(&mut self, data: &str) -> Result<(), ParseError> {
+        let no_comment_data = remove_comments(&data);
         let mut lines = no_comment_data.lines();
         let mut current_line = lines.next();
         let mmk_rule = Regex::new(r"(MMK_\w+):[\r\n]*").unwrap();
@@ -201,9 +199,9 @@ impl Mmk {
                 .get_item(Constant::new(&constant_string))
                 .unwrap();
             let constant_reconstructed = format!("${{{}}}", constant_string);
-            return mmk_keyword_value.replace(&constant_reconstructed, &item);
+            mmk_keyword_value.replace(&constant_reconstructed, &item)
         } else {
-            return mmk_keyword_value.to_string();
+            mmk_keyword_value.to_string()
         }
     }
 
@@ -238,11 +236,11 @@ pub fn validate_file_name(path: &std::path::Path) -> Result<(), ParseError> {
     Ok(())
 }
 
-pub fn remove_comments(data: &String) -> String {
+pub fn remove_comments(data: &str) -> String {
     let mut lines = data.lines();
     let mut current_line = lines.next();
     let comment_expression = Regex::new(r"#.*").unwrap();
-    let mut non_comment_data: String = data.clone();
+    let mut non_comment_data = data.to_string();
 
     while current_line != None {
         non_comment_data = comment_expression

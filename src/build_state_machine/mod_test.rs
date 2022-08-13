@@ -64,12 +64,12 @@ impl DependencyAccessor for GeneratorMock {
         if let Some(dependency) = &self.dep {
             return Ok(dependency);
         }
-        return Err(DependencyError::NotSet);
+        Err(DependencyError::NotSet)
     }
 }
 
 fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
-    let dir: TempDir = TempDir::new(&dir_name).unwrap();
+    let dir: TempDir = TempDir::new(dir_name).unwrap();
     let source_dir = dir.path().join("source");
     utility::create_dir(&source_dir).unwrap();
     let test_file_path = source_dir.join("lib.mmk");

@@ -18,7 +18,7 @@ fn expected_associated_files(root_path: &std::path::Path) -> AssociatedFiles {
 }
 
 fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
-    let dir: TempDir = TempDir::new(&dir_name).unwrap();
+    let dir: TempDir = TempDir::new(dir_name).unwrap();
     let source_dir = dir.path().join("source");
     utility::create_dir(&source_dir).unwrap();
     let test_file_path = source_dir.join("lib.mmk");
@@ -209,7 +209,7 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
     let top_dependency =
         Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1).unwrap();
 
-    let expected_lib_name_dep = utility::get_head_directory(&dir_dep.path())
+    let expected_lib_name_dep = utility::get_head_directory(dir_dep.path())
         .display()
         .to_string();
     let metadata = std::fs::metadata(&test_file_path).unwrap();
@@ -285,10 +285,10 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
     let top_dependency =
         Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1).unwrap();
 
-    let expected_lib_name_dep = utility::get_head_directory(&dir_dep.path())
+    let expected_lib_name_dep = utility::get_head_directory(dir_dep.path())
         .display()
         .to_string();
-    let expected_lib_name_second_dep = utility::get_head_directory(&second_dir_dep.path())
+    let expected_lib_name_second_dep = utility::get_head_directory(second_dir_dep.path())
         .display()
         .to_string();
 
@@ -388,10 +388,10 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
     let top_dependency =
         Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1).unwrap();
 
-    let expected_lib_name_dep = utility::get_head_directory(&dir_dep.path())
+    let expected_lib_name_dep = utility::get_head_directory(dir_dep.path())
         .display()
         .to_string();
-    let expected_lib_name_second_dep = utility::get_head_directory(&second_dir_dep.path())
+    let expected_lib_name_second_dep = utility::get_head_directory(second_dir_dep.path())
         .display()
         .to_string();
 
@@ -512,13 +512,13 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() {
     let top_dependency =
         Dependency::from_path(&test_file_path, &mut dep_registry, &mmk_file_1).unwrap();
 
-    let expected_lib_name_dep = utility::get_head_directory(&dir_dep.path())
+    let expected_lib_name_dep = utility::get_head_directory(dir_dep.path())
         .display()
         .to_string();
-    let expected_lib_name_second_dep = utility::get_head_directory(&second_dir_dep.path())
+    let expected_lib_name_second_dep = utility::get_head_directory(second_dir_dep.path())
         .display()
         .to_string();
-    let expected_lib_name_third_dep = utility::get_head_directory(&third_dir_dep.path())
+    let expected_lib_name_third_dep = utility::get_head_directory(third_dir_dep.path())
         .display()
         .to_string();
 

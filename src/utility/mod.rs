@@ -10,18 +10,18 @@ pub fn get_include_directory_from_path<P: AsRef<Path>>(path: P) -> Result<PathBu
     } else {
         let parent = path.as_ref().parent().unwrap();
         if parent.join("include").is_dir() {
-            return Ok(parent.join("include"));
+            Ok(parent.join("include"))
         } else {
-            return Err(FsError::NoIncludeDirectory(parent.into()));
+            Err(FsError::NoIncludeDirectory(parent.into()))
         }
     }
 }
 
 pub fn get_mmk_library_file_from_path(path: &Path) -> Result<PathBuf, FsError> {
     if path.join("lib.mmk").is_file() {
-        return Ok(path.join("lib.mmk"));
+        Ok(path.join("lib.mmk"))
     } else {
-        return Err(FsError::NoLibraryFile(path.into()));
+        Err(FsError::NoLibraryFile(path.into()))
     }
 }
 
@@ -44,7 +44,7 @@ pub fn get_project_top_directory(path: &Path) -> &Path {
     if is_source_directory(parent) || is_test_directory(parent) {
         return parent.parent().unwrap();
     } else {
-        return parent;
+        parent
     }
 }
 
@@ -81,7 +81,7 @@ pub fn create_file(file: &Path) -> Result<File, FsError> {
 // This should be separated into its own "Make" mod.
 pub fn print_full_path(os: &mut String, dir: &str, filename: &str, no_newline: bool) {
     os.push_str(dir);
-    os.push_str("/");
+    os.push('/');
     os.push_str(filename);
     if !no_newline {
         os.push_str(" \\\n");

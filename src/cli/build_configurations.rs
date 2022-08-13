@@ -67,17 +67,17 @@ impl std::str::FromStr for Configuration {
         let sanitizer: Regex = Regex::new(r"^thread|address|undefined|leak").expect("Regex failed");
         let config = s.to_lowercase();
         if cpp_pattern.is_match(&config) {
-            return parse_cpp_version(&config);
+            parse_cpp_version(&config)
         } else if build_config.is_match(&config) {
             if config == "release" {
-                return Ok(Configuration::Release);
+                Ok(Configuration::Release)
             } else {
-                return Ok(Configuration::Debug);
+                Ok(Configuration::Debug)
             }
         } else if sanitizer.is_match(&config) {
-            return Ok(Configuration::Sanitizer(config));
+            Ok(Configuration::Sanitizer(config))
         } else {
-            return Err(CommandLineError::InvalidConfiguration);
+            Err(CommandLineError::InvalidConfiguration)
         }
     }
 }
@@ -113,7 +113,7 @@ impl BuildConfigurations {
         let pos = self
             .configurations
             .as_slice()
-            .into_iter()
+            .iter()
             .position(|config| config == configuration);
         if let Some(found_pos) = pos {
             self.configurations.remove(found_pos);
@@ -146,7 +146,7 @@ impl std::str::FromStr for BuildConfigurations {
         if s.is_empty() {
             return Ok(build_configurations);
         }
-        let cli_configurations = s.split(",").filter(|s| !s.is_empty());
+        let cli_configurations = s.split(',').filter(|s| !s.is_empty());
         for cli_config in cli_configurations {
             if cli_config == "release" || cli_config == "c++17" {
                 continue;
@@ -178,7 +178,7 @@ impl std::string::ToString for BuildConfigurations {
         let mut configuration_as_string = String::new();
         for configuration in &self.configurations {
             configuration_as_string.push_str(&configuration.to_string());
-            configuration_as_string.push_str(",");
+            configuration_as_string.push(',');
         }
         configuration_as_string
     }

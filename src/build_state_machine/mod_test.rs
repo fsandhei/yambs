@@ -4,7 +4,7 @@ use std::io::Write;
 use tempdir::TempDir;
 
 use super::*;
-use crate::dependency::{DependencyAccessor, DependencyNode};
+use crate::dependency::{DependencyAccessor, DependencyNode, DependencyRegistry};
 use crate::errors::{DependencyError, GeneratorError};
 use crate::generator::{Generator, GeneratorExecutor, RuntimeSettings, Sanitizer};
 use crate::mmk_parser::{Keyword, Mmk};
@@ -113,6 +113,7 @@ fn make_mmk_file(dir_name: &str) -> (TempDir, std::path::PathBuf, File, Mmk) {
 fn read_mmk_files_one_file() {
     let mut generator = GeneratorMock::new();
     let mut builder = BuildManager::new(&mut generator);
+    let mut dep_registry = DependencyRegistry::new();
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
 
     write!(
@@ -123,7 +124,7 @@ fn read_mmk_files_one_file() {
     )
     .unwrap();
     assert!(builder
-        .parse_and_register_dependencies(&test_file_path)
+        .parse_and_register_dependencies(&mut dep_registry, &test_file_path)
         .is_ok());
 }
 
@@ -131,6 +132,7 @@ fn read_mmk_files_one_file() {
 fn read_mmk_files_two_files() -> std::io::Result<()> {
     let mut generator = GeneratorMock::new();
     let mut builder = BuildManager::new(&mut generator);
+    let mut dep_registry = DependencyRegistry::new();
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, _file_dep, _) = make_mmk_file("example_dep");
 
@@ -153,7 +155,7 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
     )?;
 
     assert!(builder
-        .parse_and_register_dependencies(&test_file_path)
+        .parse_and_register_dependencies(&mut dep_registry, &test_file_path)
         .is_ok());
     Ok(())
 }
@@ -162,6 +164,7 @@ fn read_mmk_files_two_files() -> std::io::Result<()> {
 fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
     let mut generator = GeneratorMock::new();
     let mut builder = BuildManager::new(&mut generator);
+    let mut dep_registry = DependencyRegistry::new();
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, _file_dep, _) = make_mmk_file("example_dep");
     let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
@@ -191,7 +194,7 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
             .to_string()
     )?;
 
-    assert!((builder.parse_and_register_dependencies(&test_file_path)).is_ok());
+    assert!((builder.parse_and_register_dependencies(&mut dep_registry, &test_file_path)).is_ok());
     Ok(())
 }
 
@@ -199,6 +202,7 @@ fn read_mmk_files_three_files_two_dependencies() -> std::io::Result<()> {
 fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
     let mut generator = GeneratorMock::new();
     let mut builder = BuildManager::new(&mut generator);
+    let mut dep_registry = DependencyRegistry::new();
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, mut file_dep, _) = make_mmk_file("example_dep");
     let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
@@ -236,7 +240,7 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
     )?;
 
     assert!(builder
-        .parse_and_register_dependencies(&test_file_path)
+        .parse_and_register_dependencies(&mut dep_registry, &test_file_path)
         .is_ok());
     Ok(())
 }
@@ -245,6 +249,7 @@ fn read_mmk_files_three_files_two_dependencies_serial() -> std::io::Result<()> {
 fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std::io::Result<()> {
     let mut generator = GeneratorMock::new();
     let mut builder = BuildManager::new(&mut generator);
+    let mut dep_registry = DependencyRegistry::new();
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, mut file_dep, _) = make_mmk_file("example_dep");
     let (_second_dir_dep, test_file_second_dep_path, _file_second_file_dep, _) =
@@ -291,7 +296,7 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
     )?;
 
     assert!(builder
-        .parse_and_register_dependencies(&test_file_path)
+        .parse_and_register_dependencies(&mut dep_registry, &test_file_path)
         .is_ok());
     Ok(())
 }
@@ -300,6 +305,7 @@ fn read_mmk_files_four_files_two_dependencies_serial_and_one_dependency() -> std
 fn read_mmk_files_two_files_circulation() -> Result<(), BuildManagerError> {
     let mut generator = GeneratorMock::new();
     let mut builder = BuildManager::new(&mut generator);
+    let mut dep_registry = DependencyRegistry::new();
     let (_dir, test_file_path, mut file, _) = make_mmk_file("example");
     let (_dir_dep, test_file_dep_path, mut file_dep, _) = make_mmk_file("example_dep");
 
@@ -336,7 +342,7 @@ fn read_mmk_files_two_files_circulation() -> Result<(), BuildManagerError> {
     )
     .unwrap();
 
-    let result = builder.parse_and_register_dependencies(&test_file_path);
+    let result = builder.parse_and_register_dependencies(&mut dep_registry, &test_file_path);
 
     assert!(result.is_err());
     Ok(())

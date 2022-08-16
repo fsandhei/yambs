@@ -10,20 +10,18 @@ mod filter;
 mod make;
 use make::Make;
 
-pub struct BuildManager<'a> {
+pub struct BuildManager<'gen> {
     top_dependency: Option<DependencyNode>,
-    dep_registry: DependencyRegistry,
-    generator: &'a mut dyn GeneratorExecutor,
+    generator: &'gen mut dyn GeneratorExecutor,
     debug: bool,
     make: Make,
     top_build_directory: BuildDirectory,
 }
 
-impl<'a> BuildManager<'a> {
-    pub fn new(generator: &mut dyn GeneratorExecutor) -> BuildManager {
+impl<'gen> BuildManager<'gen> {
+    pub fn new(generator: &'gen mut dyn GeneratorExecutor) -> BuildManager {
         BuildManager {
             top_dependency: None,
-            dep_registry: DependencyRegistry::new(),
             generator,
             debug: false,
             make: Make::default(),
@@ -67,6 +65,7 @@ impl<'a> BuildManager<'a> {
 
     pub fn parse_and_register_dependencies(
         &mut self,
+        dep_registry: &mut DependencyRegistry,
         top_path: &std::path::Path,
     ) -> Result<(), BuildManagerError> {
         let file_content = utility::read_file(top_path)?;
@@ -75,7 +74,7 @@ impl<'a> BuildManager<'a> {
             .parse(&file_content)
             .map_err(BuildManagerError::FailedToParse)?;
 
-        let top_dependency = Dependency::from_path(top_path, &mut self.dep_registry, &mmk_data)?;
+        let top_dependency = Dependency::from_path(top_path, dep_registry, &mmk_data)?;
         self.top_dependency = Some(top_dependency);
         Ok(())
     }
@@ -93,10 +92,6 @@ impl<'a> BuildManager<'a> {
                 "builder.generate_builder()",
             )))
         }
-    }
-
-    pub fn number_of_dependencies(&self) -> usize {
-        self.dep_registry.number_of_dependencies()
     }
 
     pub fn resolve_build_directory(&self, path: &std::path::Path) -> std::path::PathBuf {

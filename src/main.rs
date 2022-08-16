@@ -5,7 +5,7 @@ use yambs::build_state_machine::*;
 use yambs::cache::Cache;
 use yambs::cli::command_line::CommandLine;
 use yambs::compiler;
-use yambs::dependency::{DependencyNode, DependencyState};
+use yambs::dependency::{DependencyNode, DependencyRegistry, DependencyState};
 use yambs::errors::MyMakeError;
 use yambs::external;
 use yambs::generator::MakefileGenerator;
@@ -23,6 +23,7 @@ fn try_main() -> Result<(), MyMakeError> {
     let output = Output::new();
     let cache = Cache::new(&command_line.build_directory)?;
     let compiler = compiler::Compiler::new()?;
+    let mut dependency_registry = DependencyRegistry::new();
 
     evaluate_compiler(&compiler, &command_line, &cache, &output)?;
 
@@ -33,7 +34,12 @@ fn try_main() -> Result<(), MyMakeError> {
         .configure(&command_line)
         .map_err(MyMakeError::ConfigurationTime)?;
 
-    parse_and_register_dependencies(&mut builder, &command_line.input_file, &output)?;
+    parse_and_register_dependencies(
+        &mut builder,
+        &command_line.input_file,
+        &output,
+        &mut dependency_registry,
+    )?;
 
     if command_line.create_dottie_graph {
         return create_dottie_graph(&builder, &output);
@@ -42,6 +48,7 @@ fn try_main() -> Result<(), MyMakeError> {
     generate_makefiles(&mut builder, &output, &command_line)?;
 
     build_project(&mut builder, &output, &command_line, &logger)?;
+    cache.cache(&dependency_registry)?;
     Ok(())
 }
 
@@ -82,10 +89,11 @@ fn parse_and_register_dependencies(
     builder: &mut BuildManager,
     top_path: &std::path::Path,
     output: &Output,
+    dep_registry: &mut DependencyRegistry,
 ) -> Result<(), MyMakeError> {
-    builder.parse_and_register_dependencies(top_path)?;
+    builder.parse_and_register_dependencies(dep_registry, top_path)?;
     if builder.top_dependency().is_some() {
-        let number_of_mmk_files = builder.number_of_dependencies();
+        let number_of_mmk_files = dep_registry.number_of_dependencies();
         output.status(&format!("Read {} Yambs files", number_of_mmk_files));
     }
     Ok(())

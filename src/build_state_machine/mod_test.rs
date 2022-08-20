@@ -370,7 +370,7 @@ fn read_mmk_files_two_files_circulation() -> Result<(), BuildManagerError> {
 fn resolve_build_directory_debug() {
     let mut generator = GeneratorMock::new();
     let mut builder = BuildManager::new(&mut generator);
-    builder.debug();
+    builder.configuration = BuildConfiguration::Debug;
     let path = std::path::PathBuf::from("some/path");
     let expected = path.join("debug");
     assert_eq!(builder.resolve_build_directory(&path), expected);
@@ -379,7 +379,8 @@ fn resolve_build_directory_debug() {
 #[test]
 fn resolve_build_directory_release() {
     let mut generator = GeneratorMock::new();
-    let builder = BuildManager::new(&mut generator);
+    let mut builder = BuildManager::new(&mut generator);
+    builder.configuration = BuildConfiguration::Release;
     let path = std::path::PathBuf::from("some/path");
     let expected = path.join("release");
     assert_eq!(builder.resolve_build_directory(&path), expected);

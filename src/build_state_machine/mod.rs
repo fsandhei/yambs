@@ -10,10 +10,15 @@ mod filter;
 mod make;
 use make::Make;
 
-pub struct BuildManager<'gen> {
+enum BuildConfiguration {
+    Debug,
+    Release,
+}
+
+pub struct BuildManager<'a> {
     top_dependency: Option<DependencyNode>,
-    generator: &'gen mut dyn GeneratorExecutor,
-    debug: bool,
+    generator: &'a mut dyn GeneratorExecutor,
+    configuration: BuildConfiguration,
     make: Make,
     top_build_directory: BuildDirectory,
 }
@@ -23,7 +28,7 @@ impl<'gen> BuildManager<'gen> {
         BuildManager {
             top_dependency: None,
             generator,
-            debug: false,
+            configuration: BuildConfiguration::Release,
             make: Make::default(),
             top_build_directory: BuildDirectory::default(),
         }
@@ -40,23 +45,6 @@ impl<'gen> BuildManager<'gen> {
         self.use_configuration(&command_line.configuration)?;
 
         Ok(())
-    }
-
-    pub fn add_make(&mut self, flag: &str, value: &str) {
-        self.make.with_flag(flag, value);
-    }
-
-    pub fn use_std(&mut self, version: &str) -> Result<(), BuildManagerError> {
-        Ok(self.generator.use_std(version)?)
-    }
-
-    pub fn debug(&mut self) {
-        self.debug = true;
-        self.generator.debug();
-    }
-
-    pub fn release(&mut self) {
-        self.generator.release();
     }
 
     pub fn make(&self) -> &Make {
@@ -95,11 +83,26 @@ impl<'gen> BuildManager<'gen> {
     }
 
     pub fn resolve_build_directory(&self, path: &std::path::Path) -> std::path::PathBuf {
-        if self.debug {
-            path.join("debug")
-        } else {
-            path.join("release")
+        match self.configuration {
+            BuildConfiguration::Debug => path.join("debug"),
+            BuildConfiguration::Release => path.join("release"),
         }
+    }
+
+    fn add_make(&mut self, flag: &str, value: &str) {
+        self.make.with_flag(flag, value);
+    }
+
+    fn use_std(&mut self, version: &str) -> Result<(), BuildManagerError> {
+        Ok(self.generator.use_std(version)?)
+    }
+
+    fn debug(&mut self) {
+        self.generator.debug();
+    }
+
+    fn release(&mut self) {
+        self.generator.release();
     }
 
     fn use_configuration(
@@ -109,6 +112,7 @@ impl<'gen> BuildManager<'gen> {
         for configuration in configurations {
             match configuration {
                 Configuration::Debug => {
+                    self.configuration = BuildConfiguration::Debug;
                     self.debug();
                     Ok(())
                 }

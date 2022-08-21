@@ -53,12 +53,33 @@ pub struct CommandLine {
     /// Create dottie graph of build tree.
     #[structopt(long = "dottie-graph")]
     pub create_dottie_graph: bool,
+    #[structopt(subcommand)]
+    pub subcommand: Option<Subcommand>,
 }
 
 fn validate_file_path(path: &str) -> Result<PathBuf, CommandLineError> {
     let file_name = crate::mmk_parser::validate_file_path(path)?;
     crate::mmk_parser::validate_file_name(&file_name)?;
     Ok(file_name)
+}
+
+#[derive(StructOpt, Debug)]
+pub enum Subcommand {
+    /// Print previous invocation line used and exit.
+    Remake(RemakeOpts),
+}
+
+#[derive(StructOpt, Debug)]
+pub struct RemakeOpts {
+    /// Build directory to read invocation from.
+    #[structopt(
+        long,
+        short = "b",
+        default_value,
+        hide_default_value(true),
+        parse(try_from_str)
+    )]
+    pub build_directory: BuildDirectory,
 }
 
 // TODO: Add tests for cli usage:

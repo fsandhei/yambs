@@ -3,7 +3,7 @@ use structopt::StructOpt;
 
 use yambs::build_state_machine::*;
 use yambs::cache::Cache;
-use yambs::cli::command_line::CommandLine;
+use yambs::cli::command_line::{CommandLine, RemakeOpts, Subcommand};
 use yambs::compiler;
 use yambs::dependency::{DependencyNode, DependencyRegistry, DependencyState};
 use yambs::errors::MyMakeError;
@@ -23,6 +23,23 @@ fn try_main() -> Result<(), MyMakeError> {
 
     log_invoked_command();
     let output = Output::new();
+
+    if let Some(subcommand) = command_line.subcommand {
+        match subcommand {
+            Subcommand::Remake(ref remake_opts) => {
+                execute_remake(remake_opts)?;
+                return Ok(());
+            }
+        }
+    }
+    // match command_line.subcommand {
+    //     Some(Subcommand::Remake(remake_opts)) => {
+    //         execute_remake(remake_opts)?;
+    //         Ok(())
+    //     }
+    //     None => (),
+    // };
+
     let cache = Cache::new(&command_line.build_directory)?;
     let compiler = compiler::Compiler::new()?;
     let mut dependency_registry = DependencyRegistry::new();
@@ -83,6 +100,10 @@ fn evaluate_compiler(
         cache.cache(compiler)?;
         output.status("Evaluating compiler by doing a sample build... done");
     }
+    Ok(())
+}
+
+fn execute_remake(opts: &RemakeOpts) -> Result<(), MyMakeError> {
     Ok(())
 }
 

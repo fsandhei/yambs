@@ -1,5 +1,7 @@
 use crate::errors::LoggerError;
 
+pub const YAMBS_LOG_FILE: &str = "yambs_log.txt";
+
 pub struct Logger {
     _handle: log4rs::Handle,
     path: std::path::PathBuf,
@@ -10,7 +12,7 @@ impl Logger {
         log_directory: &std::path::Path,
         log_level: log::LevelFilter,
     ) -> Result<Logger, LoggerError> {
-        let path = log_directory.join("yambs_log.txt");
+        let path = log_directory.join(YAMBS_LOG_FILE);
         let logfile = log4rs::append::file::FileAppender::builder()
             .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
                 r"[{d(%Y-%m-%d %H:%M:%S)} {l} \({t}\)]  - {m}{n}",

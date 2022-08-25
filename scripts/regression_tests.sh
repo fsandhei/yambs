@@ -109,7 +109,7 @@ EOF
       rm -rf "$ROOT_DIR/build"
    fi
    mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
-   "$YAMBS" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
+   "$YAMBS" build "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"
@@ -140,7 +140,7 @@ EOF
       rm -rf "$ROOT_DIR/build"
    fi
    mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
-   "$YAMBS" -g "$TEST_DIR/run.mmk" -c "c++17" && "$ROOT_DIR/build/release/x"
+   "$YAMBS" build "$TEST_DIR/run.mmk" -c "c++17" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"
@@ -193,7 +193,7 @@ EOF
       rm -rf "$ROOT_DIR/build"
    fi
    mkdir "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
-   "$YAMBS" -g "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
+   "$YAMBS" build "$TEST_DIR/run.mmk" && "$ROOT_DIR/build/release/x"
    build_result=$?
    if [ "$build_result" -ne 0 ]; then
       return "$build_result"

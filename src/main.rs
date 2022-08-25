@@ -20,6 +20,8 @@ fn try_main() -> Result<(), MyMakeError> {
         command_line.build_directory.as_path(),
         log::LevelFilter::Trace,
     )?;
+
+    log_invoked_command();
     let output = Output::new();
     let cache = Cache::new(&command_line.build_directory)?;
     let compiler = compiler::Compiler::new()?;
@@ -54,6 +56,18 @@ fn try_main() -> Result<(), MyMakeError> {
 
 fn main() {
     try_main().unwrap_or_terminate();
+}
+
+fn log_invoked_command() {
+    log::info!(
+        "Command line: {}",
+        std::env::args()
+            .map(|mut s| {
+                s.push(' ');
+                s
+            })
+            .collect::<String>()
+    )
 }
 
 fn evaluate_compiler(

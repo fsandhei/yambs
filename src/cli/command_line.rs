@@ -78,13 +78,7 @@ pub struct BuildOpts {
 #[derive(StructOpt, Debug)]
 pub struct RemakeOpts {
     /// Build directory to read invocation from.
-    #[structopt(
-        long,
-        short = "b",
-        default_value,
-        hide_default_value(true),
-        parse(try_from_str)
-    )]
+    #[structopt(parse(try_from_str))]
     pub build_directory: BuildDirectory,
 }
 

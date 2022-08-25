@@ -93,7 +93,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> Result<(), MyMakeError> {
     Ok(())
 }
 
-fn do_remake(opts: &RemakeOpts) -> Result<(), MyMakeError> {
+fn do_remake(_opts: &RemakeOpts) -> Result<(), MyMakeError> {
     Ok(())
 }
 

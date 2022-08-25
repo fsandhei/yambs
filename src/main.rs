@@ -1,4 +1,7 @@
+use std::io::BufRead;
+
 use colored::Colorize;
+use regex::Regex;
 use structopt::StructOpt;
 
 use yambs::build_state_machine::*;
@@ -93,7 +96,22 @@ fn do_build(opts: &BuildOpts, output: &Output) -> Result<(), MyMakeError> {
     Ok(())
 }
 
-fn do_remake(_opts: &RemakeOpts) -> Result<(), MyMakeError> {
+fn do_remake(opts: &RemakeOpts) -> Result<(), MyMakeError> {
+    let log_file = &opts.build_directory.as_path().join(logger::YAMBS_LOG_FILE);
+    let log_fh = std::fs::File::open(log_file)?;
+    let mut reader = std::io::BufReader::new(log_fh);
+    let mut line = String::new();
+    let line_length = reader
+        .read_line(&mut line)
+        .expect("Failed to read line from log file.");
+    if line_length == 0 {
+        panic!("Could not find first line of log file.");
+    }
+
+    let command_line_regex = Regex::new(r"Command line:\s(?P<cmd>.*)").unwrap();
+    let caps = command_line_regex.captures(&line).unwrap();
+    let invoked_command = caps.name("cmd").unwrap().as_str();
+    println!("{}", invoked_command);
     Ok(())
 }
 

@@ -1,5 +1,5 @@
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
-use crate::cli::command_line::CommandLine;
+use crate::cli::command_line::BuildOpts;
 use crate::dependency::{Dependency, DependencyNode, DependencyRegistry};
 use crate::errors::BuildManagerError;
 use crate::generator::GeneratorExecutor;
@@ -38,11 +38,11 @@ impl<'gen> BuildManager<'gen> {
         self.top_dependency.as_ref()
     }
 
-    pub fn configure(&mut self, command_line: &CommandLine) -> Result<(), BuildManagerError> {
-        self.add_make("-j", &command_line.jobs.to_string());
-        self.top_build_directory = command_line.build_directory.to_owned();
+    pub fn configure(&mut self, opts: &BuildOpts) -> Result<(), BuildManagerError> {
+        self.add_make("-j", &opts.jobs.to_string());
+        self.top_build_directory = opts.build_directory.to_owned();
 
-        self.use_configuration(&command_line.configuration)?;
+        self.use_configuration(&opts.configuration)?;
 
         Ok(())
     }

@@ -3,7 +3,7 @@ use structopt::StructOpt;
 
 use yambs::build_state_machine::*;
 use yambs::cache::Cache;
-use yambs::cli::command_line::{CommandLine, RemakeOpts, Subcommand};
+use yambs::cli::command_line::{BuildOpts, CommandLine, RemakeOpts, Subcommand};
 use yambs::compiler;
 use yambs::dependency::{DependencyNode, DependencyRegistry, DependencyState};
 use yambs::errors::MyMakeError;
@@ -16,58 +16,14 @@ use yambs::utility;
 
 fn try_main() -> Result<(), MyMakeError> {
     let command_line = CommandLine::from_args();
-    let logger = logger::Logger::init(
-        command_line.build_directory.as_path(),
-        log::LevelFilter::Trace,
-    )?;
-
-    log_invoked_command();
     let output = Output::new();
 
     if let Some(subcommand) = command_line.subcommand {
         match subcommand {
-            Subcommand::Remake(ref remake_opts) => {
-                execute_remake(remake_opts)?;
-                return Ok(());
-            }
+            Subcommand::Build(ref build_opts) => do_build(build_opts, &output)?,
+            Subcommand::Remake(ref remake_opts) => do_remake(remake_opts)?,
         }
     }
-    // match command_line.subcommand {
-    //     Some(Subcommand::Remake(remake_opts)) => {
-    //         execute_remake(remake_opts)?;
-    //         Ok(())
-    //     }
-    //     None => (),
-    // };
-
-    let cache = Cache::new(&command_line.build_directory)?;
-    let compiler = compiler::Compiler::new()?;
-    let mut dependency_registry = DependencyRegistry::new();
-
-    evaluate_compiler(&compiler, &command_line, &cache, &output)?;
-
-    let mut generator = MakefileGenerator::new(&command_line.build_directory, compiler);
-    let mut builder = BuildManager::new(&mut generator);
-
-    builder
-        .configure(&command_line)
-        .map_err(MyMakeError::ConfigurationTime)?;
-
-    parse_and_register_dependencies(
-        &mut builder,
-        &command_line.input_file,
-        &output,
-        &mut dependency_registry,
-    )?;
-
-    if command_line.create_dottie_graph {
-        return create_dottie_graph(&builder, &output);
-    }
-
-    generate_makefiles(&mut builder, &output, &command_line)?;
-
-    build_project(&mut builder, &output, &command_line, &logger)?;
-    cache.cache(&dependency_registry)?;
     Ok(())
 }
 
@@ -89,12 +45,12 @@ fn log_invoked_command() {
 
 fn evaluate_compiler(
     compiler: &compiler::Compiler,
-    command_line: &CommandLine,
+    opts: &BuildOpts,
     cache: &Cache,
     output: &Output,
 ) -> Result<(), MyMakeError> {
     if !cache.detect_change(compiler) {
-        let test_dir = command_line.build_directory.as_path().join("sample");
+        let test_dir = opts.build_directory.as_path().join("sample");
         output.status("Evaluating compiler by doing a sample build...");
         compiler.evaluate(&test_dir)?;
         cache.cache(compiler)?;
@@ -103,19 +59,53 @@ fn evaluate_compiler(
     Ok(())
 }
 
-fn execute_remake(opts: &RemakeOpts) -> Result<(), MyMakeError> {
+fn do_build(opts: &BuildOpts, output: &Output) -> Result<(), MyMakeError> {
+    let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
+    log_invoked_command();
+    let cache = Cache::new(&opts.build_directory)?;
+    let compiler = compiler::Compiler::new()?;
+    let mut dependency_registry = DependencyRegistry::new();
+
+    evaluate_compiler(&compiler, &opts, &cache, &output)?;
+
+    let mut generator = MakefileGenerator::new(&opts.build_directory, compiler);
+    let mut builder = BuildManager::new(&mut generator);
+
+    builder
+        .configure(&opts)
+        .map_err(MyMakeError::ConfigurationTime)?;
+
+    parse_and_register_dependencies(
+        &mut builder,
+        &opts.input_file,
+        &output,
+        &mut dependency_registry,
+    )?;
+
+    if opts.create_dottie_graph {
+        return create_dottie_graph(&builder, &output);
+    }
+
+    generate_makefiles(&mut builder, &output, opts)?;
+
+    build_project(&mut builder, &output, opts, &logger)?;
+    cache.cache(&dependency_registry)?;
+    Ok(())
+}
+
+fn do_remake(opts: &RemakeOpts) -> Result<(), MyMakeError> {
     Ok(())
 }
 
 fn generate_makefiles(
     builder: &mut BuildManager,
     output: &Output,
-    command_line: &CommandLine,
+    opts: &BuildOpts,
 ) -> Result<(), MyMakeError> {
     builder.generate_makefiles()?;
     output.status(&format!(
         "Build files generated in {}",
-        command_line.build_directory.as_path().display()
+        opts.build_directory.as_path().display()
     ));
     Ok(())
 }
@@ -147,16 +137,16 @@ fn create_dottie_graph(builder: &BuildManager, output: &Output) -> Result<(), My
 fn build_project(
     builder: &mut BuildManager,
     output: &Output,
-    command_line: &CommandLine,
+    opts: &BuildOpts,
     logger: &logger::Logger,
 ) -> Result<(), MyMakeError> {
     if let Some(top_dependency) = &builder.top_dependency() {
         let process_output = build_dependency(
             builder,
             top_dependency,
-            command_line.build_directory.as_path(),
+            opts.build_directory.as_path(),
             output,
-            command_line,
+            opts,
         );
         let build_status_message = {
             if process_output.is_ok() && process_output.unwrap().status.success() {
@@ -181,7 +171,7 @@ pub fn build_dependency(
     dependency: &DependencyNode,
     build_path: &std::path::Path,
     output: &Output,
-    command_line: &CommandLine,
+    opts: &BuildOpts,
 ) -> Result<std::process::Output, MyMakeError> {
     let build_directory = builder.resolve_build_directory(build_path);
 
@@ -196,7 +186,7 @@ pub fn build_dependency(
             .is_build_completed()
         {
             let top_build_directory_resolved =
-                builder.resolve_build_directory(command_line.build_directory.as_path());
+                builder.resolve_build_directory(opts.build_directory.as_path());
             let directory_to_link = top_build_directory_resolved
                 .join("libs")
                 .join(required_dependency.dependency().ref_dep.get_project_name());
@@ -213,13 +203,8 @@ pub fn build_dependency(
             .dependency_mut()
             .ref_dep
             .change_state(DependencyState::Building);
-        let dep_output = build_dependency(
-            builder,
-            required_dependency,
-            build_path_dep,
-            output,
-            command_line,
-        )?;
+        let dep_output =
+            build_dependency(builder, required_dependency, build_path_dep, output, opts)?;
         if !dep_output.status.success() {
             return Ok(dep_output);
         }
@@ -235,7 +220,7 @@ pub fn build_dependency(
         .change_state(DependencyState::Building);
 
     let change_directory_message = format!("Entering directory {}\n", build_directory.display());
-    if command_line.verbose {
+    if opts.verbose {
         output.status(&change_directory_message);
     }
     change_directory(build_directory);

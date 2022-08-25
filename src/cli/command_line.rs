@@ -18,41 +18,12 @@ use crate::errors::CommandLineError;
 #[structopt(
     author = "Fredrik Sandhei <fredrik.sandhei@gmail.com>",
     version = "0.1.0",
-    name = "Yambs",
+    name = "YAMBS",
     about = "\
              GNU Make build system overlay for C++ projects. Yambs generates makefiles and builds the project with the \n\
-             specifications written in the respective Yambs files."
+             specifications written in the respective YAMBS files."
 )]
 pub struct CommandLine {
-    /// Input file for Yambs.
-    #[structopt(short = "g", parse(try_from_str = validate_file_path))]
-    pub input_file: PathBuf,
-    /// Toggles verbose output.
-    #[structopt(short = "v", long = "verbose")]
-    pub verbose: bool,
-    #[structopt(
-        short = "c",
-        long = "configuration",
-        default_value,
-        parse(try_from_str = BuildConfigurations::from_str),
-    )]
-    /// Set runtime configurations (build configurations, C++ standard, sanitizers, etc)
-    pub configuration: BuildConfigurations,
-    #[structopt(short = "j", long = "jobs", default_value = "10")]
-    /// Set parallelization of builds for Make.
-    pub jobs: u8,
-    /// Set build directory. Generated output by Yambs will be put here. Defaults to current working directory.
-    #[structopt(
-        long,
-        short = "b",
-        default_value,
-        hide_default_value(true),
-        parse(try_from_str)
-    )]
-    pub build_directory: BuildDirectory,
-    /// Create dottie graph of build tree.
-    #[structopt(long = "dottie-graph")]
-    pub create_dottie_graph: bool,
     #[structopt(subcommand)]
     pub subcommand: Option<Subcommand>,
 }
@@ -65,8 +36,43 @@ fn validate_file_path(path: &str) -> Result<PathBuf, CommandLineError> {
 
 #[derive(StructOpt, Debug)]
 pub enum Subcommand {
+    /// Build project specified by recipe YAMBS file.
+    Build(BuildOpts),
     /// Print previous invocation line used and exit.
     Remake(RemakeOpts),
+}
+
+#[derive(StructOpt, Debug)]
+pub struct BuildOpts {
+    /// Input recipe file for YAMBS.
+    #[structopt(parse(try_from_str = validate_file_path))]
+    pub input_file: PathBuf,
+    /// Set runtime configurations (build configurations, C++ standard, sanitizers, etc)
+    #[structopt(
+        short = "c",
+        long = "configuration",
+        default_value,
+        parse(try_from_str = BuildConfigurations::from_str),
+    )]
+    pub configuration: BuildConfigurations,
+    /// Set parallelization of builds for Make.
+    #[structopt(short = "j", long = "jobs", default_value = "10")]
+    pub jobs: u8,
+    /// Set build directory. Generated output by Yambs will be put here. Defaults to current working directory.
+    #[structopt(
+        long,
+        short = "b",
+        default_value,
+        hide_default_value(true),
+        parse(try_from_str)
+    )]
+    pub build_directory: BuildDirectory,
+    /// Create dottie graph of build tree and exit.
+    #[structopt(long = "dottie-graph")]
+    pub create_dottie_graph: bool,
+    /// Toggles verbose output.
+    #[structopt(short = "v", long = "verbose")]
+    pub verbose: bool,
 }
 
 #[derive(StructOpt, Debug)]

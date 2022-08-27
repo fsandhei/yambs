@@ -49,10 +49,10 @@ fn evaluate_compiler(
 ) -> anyhow::Result<()> {
     if !cache.detect_change(compiler) {
         let test_dir = opts.build_directory.as_path().join("sample");
-        output.status("Evaluating compiler by doing a sample build...");
+        output.status("Evaluating compiler by doing a sample build...\n");
         compiler.evaluate(&test_dir)?;
         cache.cache(compiler)?;
-        output.status("Evaluating compiler by doing a sample build... done");
+        output.status("Evaluating compiler by doing a sample build... done\n");
     }
     Ok(())
 }
@@ -117,7 +117,7 @@ fn generate_makefiles(
 ) -> anyhow::Result<()> {
     builder.generate_makefiles()?;
     output.status(&format!(
-        "Build files generated in {}",
+        "Build files generated in {}\n",
         opts.build_directory.as_path().display()
     ));
     Ok(())
@@ -132,7 +132,7 @@ fn parse_and_register_dependencies(
     builder.parse_and_register_dependencies(dep_registry, top_path)?;
     if builder.top_dependency().is_some() {
         let number_of_mmk_files = dep_registry.number_of_dependencies();
-        output.status(&format!("Read {} Yambs files", number_of_mmk_files));
+        output.status(&format!("Read {} Yambs files\n", number_of_mmk_files));
     }
     Ok(())
 }
@@ -141,7 +141,7 @@ fn create_dottie_graph(builder: &BuildManager, output: &Output) -> anyhow::Resul
     let mut dottie_buffer = String::new();
     if let Some(dependency) = builder.top_dependency() {
         if external::dottie(dependency, false, &mut dottie_buffer).is_ok() {
-            output.status("Created dottie file dependency.gv");
+            output.status("Created dottie file dependency.gv\n");
         }
     }
     Ok(())
@@ -163,14 +163,17 @@ fn build_project(
         );
         let build_status_message = {
             if process_output.is_ok() && process_output.unwrap().status.success() {
-                format!("{}", "Build SUCCESS".green())
+                format!("{}\n", "Build SUCCESS".green())
             } else {
-                format!("{}", "Build FAILED".red())
+                format!("{}\n", "Build FAILED".red())
             }
         };
         output.status(&build_status_message);
         let log_path = logger.path();
-        output.status(&format!("Build log available at {:?}", log_path.display()));
+        output.status(&format!(
+            "Build log available at {:?}\n",
+            log_path.display()
+        ));
     }
     Ok(())
 }
@@ -239,13 +242,13 @@ pub fn build_dependency(
     change_directory(build_directory);
     output.status(&construct_build_message(dependency));
 
-    let output = builder.make().spawn(output)?;
+    let process_output = builder.make().spawn(output)?;
     dependency
         .dependency_mut()
         .ref_dep
         .change_state(DependencyState::BuildComplete);
 
-    Ok(output)
+    Ok(process_output)
 }
 
 fn construct_build_message(dependency: &DependencyNode) -> String {
@@ -257,5 +260,5 @@ fn construct_build_message(dependency: &DependencyNode) -> String {
     let dep_type_name = dependency.dependency().ref_dep.get_name().unwrap();
 
     let target = format!("{} {}", dep_type, dep_type_name);
-    format!("Building {}", target)
+    format!("Building {}\n", target)
 }

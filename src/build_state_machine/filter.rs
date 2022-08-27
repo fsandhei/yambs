@@ -4,7 +4,6 @@ use regex::Regex;
 
 use crate::output;
 
-#[allow(dead_code)]
 fn filter_string_regex(input: &str, pattern: Regex) -> String {
     pattern.replace(input, "").trim_start().to_string()
 }
@@ -19,13 +18,11 @@ pub fn filter_string(input: &str) -> String {
     filter_string_regex(input, pattern_ar_open)
 }
 
-#[allow(dead_code)]
 fn is_warning_message(input: &str) -> bool {
     let warning_pattern_gcc = Regex::new(r".*\[-W.*\]$").unwrap();
     warning_pattern_gcc.is_match(input)
 }
 
-#[allow(dead_code)]
 fn is_error_message(input: &str) -> bool {
     let error_pattern_gcc = Regex::new(r".* error:.*").unwrap();
     error_pattern_gcc.is_match(input)
@@ -34,11 +31,11 @@ fn is_error_message(input: &str) -> bool {
 pub fn println_colored(input: &str, output: &output::Output) {
     input.lines().for_each(|line| {
         if is_warning_message(line) {
-            output.warning(&line.to_string());
+            output.warning(&format!("{}\n", line));
         } else if is_error_message(line) {
-            output.error(&line.to_string())
+            output.error(&format!("{}\n", line));
         } else {
-            output.status(line);
+            output.status(&format!("{}\n", line));
         }
     });
 }

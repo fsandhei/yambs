@@ -59,9 +59,9 @@ impl InnerOutput {
 
         match output_type {
             OutputType::Status | OutputType::Warning => {
-                println!("{}", prepared_output.color(color))
+                print!("{}", prepared_output.color(color))
             }
-            OutputType::Error => eprintln!("{}", prepared_output.color(color)),
+            OutputType::Error => eprint!("{}", prepared_output.color(color)),
         };
     }
 

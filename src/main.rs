@@ -178,10 +178,6 @@ fn build_project(
     Ok(())
 }
 
-fn change_directory(directory: std::path::PathBuf) {
-    std::env::set_current_dir(directory).unwrap()
-}
-
 pub fn build_dependency(
     builder: &BuildManager,
     dependency: &DependencyNode,
@@ -239,7 +235,12 @@ pub fn build_dependency(
     if opts.verbose {
         output.status(&change_directory_message);
     }
-    change_directory(build_directory);
+    std::env::set_current_dir(&build_directory).with_context(|| {
+        format!(
+            "Failed to change directory to {}",
+            build_directory.display()
+        )
+    })?;
     output.status(&construct_build_message(dependency));
 
     let process_output = builder.make().spawn(output)?;

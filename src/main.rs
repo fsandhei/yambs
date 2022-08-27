@@ -1,5 +1,6 @@
 use std::io::BufRead;
 
+use anyhow::Context;
 use colored::Colorize;
 use regex::Regex;
 use structopt::StructOpt;
@@ -17,7 +18,7 @@ use yambs::output::Output;
 use yambs::unwrap_or_terminate::MyMakeUnwrap;
 use yambs::utility;
 
-fn try_main() -> Result<(), MyMakeError> {
+fn try_main() -> anyhow::Result<()> {
     let command_line = CommandLine::from_args();
     let output = Output::new();
 
@@ -51,7 +52,7 @@ fn evaluate_compiler(
     opts: &BuildOpts,
     cache: &Cache,
     output: &Output,
-) -> Result<(), MyMakeError> {
+) -> anyhow::Result<()> {
     if !cache.detect_change(compiler) {
         let test_dir = opts.build_directory.as_path().join("sample");
         output.status("Evaluating compiler by doing a sample build...");
@@ -62,7 +63,7 @@ fn evaluate_compiler(
     Ok(())
 }
 
-fn do_build(opts: &BuildOpts, output: &Output) -> Result<(), MyMakeError> {
+fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
     let cache = Cache::new(&opts.build_directory)?;
@@ -96,16 +97,16 @@ fn do_build(opts: &BuildOpts, output: &Output) -> Result<(), MyMakeError> {
     Ok(())
 }
 
-fn do_remake(opts: &RemakeOpts) -> Result<(), MyMakeError> {
+fn do_remake(opts: &RemakeOpts) -> anyhow::Result<()> {
     let log_file = &opts.build_directory.as_path().join(logger::YAMBS_LOG_FILE);
-    let log_fh = std::fs::File::open(log_file)?;
+    let log_fh = std::fs::File::open(log_file).context("Failed to find log file")?;
     let mut reader = std::io::BufReader::new(log_fh);
     let mut line = String::new();
     let line_length = reader
         .read_line(&mut line)
-        .expect("Failed to read line from log file.");
+        .context("Failed to read line from log file")?;
     if line_length == 0 {
-        panic!("Could not find first line of log file.");
+        anyhow::bail!("Could not find first line of log file");
     }
 
     let command_line_regex = Regex::new(r"Command line:\s(?P<cmd>.*)").unwrap();
@@ -119,7 +120,7 @@ fn generate_makefiles(
     builder: &mut BuildManager,
     output: &Output,
     opts: &BuildOpts,
-) -> Result<(), MyMakeError> {
+) -> anyhow::Result<()> {
     builder.generate_makefiles()?;
     output.status(&format!(
         "Build files generated in {}",
@@ -133,7 +134,7 @@ fn parse_and_register_dependencies(
     top_path: &std::path::Path,
     output: &Output,
     dep_registry: &mut DependencyRegistry,
-) -> Result<(), MyMakeError> {
+) -> anyhow::Result<()> {
     builder.parse_and_register_dependencies(dep_registry, top_path)?;
     if builder.top_dependency().is_some() {
         let number_of_mmk_files = dep_registry.number_of_dependencies();
@@ -142,7 +143,7 @@ fn parse_and_register_dependencies(
     Ok(())
 }
 
-fn create_dottie_graph(builder: &BuildManager, output: &Output) -> Result<(), MyMakeError> {
+fn create_dottie_graph(builder: &BuildManager, output: &Output) -> anyhow::Result<()> {
     let mut dottie_buffer = String::new();
     if let Some(dependency) = builder.top_dependency() {
         if external::dottie(dependency, false, &mut dottie_buffer).is_ok() {
@@ -157,7 +158,7 @@ fn build_project(
     output: &Output,
     opts: &BuildOpts,
     logger: &logger::Logger,
-) -> Result<(), MyMakeError> {
+) -> anyhow::Result<()> {
     if let Some(top_dependency) = &builder.top_dependency() {
         let process_output = build_dependency(
             builder,
@@ -190,7 +191,7 @@ pub fn build_dependency(
     build_path: &std::path::Path,
     output: &Output,
     opts: &BuildOpts,
-) -> Result<std::process::Output, MyMakeError> {
+) -> anyhow::Result<std::process::Output> {
     let build_directory = builder.resolve_build_directory(build_path);
 
     for required_dependency in dependency.dependency().ref_dep.requires() {

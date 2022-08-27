@@ -12,7 +12,8 @@ name = "integration_tests"
 path = "tests/integration_test.rs"
 
 [dependencies]
-colored = "2.0.0"
+anyhow = "1.0"
+colored = "2.0"
 structopt = "0.3"
 log = "0.4"
 log4rs = "1.1"

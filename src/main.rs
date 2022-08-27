@@ -10,7 +10,6 @@ use yambs::cache::Cache;
 use yambs::cli::command_line::{BuildOpts, CommandLine, RemakeOpts, Subcommand};
 use yambs::compiler;
 use yambs::dependency::{DependencyNode, DependencyRegistry, DependencyState};
-use yambs::errors::MyMakeError;
 use yambs::external;
 use yambs::generator::MakefileGenerator;
 use yambs::logger;
@@ -77,7 +76,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     builder
         .configure(&opts)
-        .map_err(MyMakeError::ConfigurationTime)?;
+        .context("An error occured when configuring the project.")?;
 
     parse_and_register_dependencies(
         &mut builder,

@@ -11,7 +11,7 @@ use regex::Regex;
 mod keyword;
 mod mmk_constants;
 
-use crate::errors::{FsError, MyMakeError, ParseError};
+use crate::errors::{FsError, ParseError};
 use crate::utility;
 pub use keyword::Keyword;
 pub use mmk_constants::{Constant, Constants};
@@ -84,7 +84,7 @@ impl Mmk {
         formatted_string.trim_end().to_string()
     }
 
-    pub fn get_include_directories(&self) -> Result<String, MyMakeError> {
+    pub fn get_include_directories(&self) -> Result<String, ParseError> {
         if self.data.contains_key("MMK_REQUIRE") {
             let mut formatted_string = String::new();
             for keyword in &self.data["MMK_REQUIRE"] {

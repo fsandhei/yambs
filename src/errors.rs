@@ -9,24 +9,6 @@ pub enum AssociatedFileError {
     CouldNotSpecifyFileType,
 }
 
-// TODO: Need to rethink MyMakeError and nomenclature of Compile, Configuration and Build time.
-#[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
-pub enum MyMakeError {
-    #[error(transparent)]
-    Fs(#[from] FsError),
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    ConfigurationTime(#[from] BuildManagerError),
-    #[error(transparent)]
-    CompilerError(#[from] CompilerError),
-    #[error(transparent)]
-    Logger(#[from] LoggerError),
-    #[error(transparent)]
-    Cache(#[from] CacheError),
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum CompilerError {
     #[error("Environment variable CXX was not set. Please set it to a valid C++ compiler.")]

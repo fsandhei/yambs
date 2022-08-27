@@ -9,5 +9,4 @@ pub mod generator;
 pub mod logger;
 pub mod mmk_parser;
 pub mod output;
-pub mod unwrap_or_terminate;
 pub mod utility;

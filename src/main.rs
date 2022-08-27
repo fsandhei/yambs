@@ -14,10 +14,9 @@ use yambs::external;
 use yambs::generator::MakefileGenerator;
 use yambs::logger;
 use yambs::output::Output;
-use yambs::unwrap_or_terminate::MyMakeUnwrap;
 use yambs::utility;
 
-fn try_main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     let command_line = CommandLine::from_args();
     let output = Output::new();
 
@@ -28,10 +27,6 @@ fn try_main() -> anyhow::Result<()> {
         }
     }
     Ok(())
-}
-
-fn main() {
-    try_main().unwrap_or_terminate();
 }
 
 fn log_invoked_command() {

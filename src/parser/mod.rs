@@ -22,14 +22,14 @@ pub struct Recipe {
 struct Executable {
     main: std::path::PathBuf,
     sources: Vec<std::path::PathBuf>,
-    requires: Option<Vec<String>>,
+    requires: Option<Vec<RequiredProject>>,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 struct Library {
     main: std::path::PathBuf,
     sources: Vec<std::path::PathBuf>,
-    requires: Option<Vec<String>>,
+    requires: Option<Vec<RequiredProject>>,
     #[serde(default)]
     lib_type: LibraryType,
 }
@@ -43,6 +43,27 @@ enum LibraryType {
 impl Default for LibraryType {
     fn default() -> Self {
         LibraryType::Static
+    }
+}
+
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+#[serde(transparent)]
+struct RequiredProject {
+    #[serde(flatten)]
+    path: std::path::PathBuf,
+    #[serde(default)]
+    origin: ProjectOrigin,
+}
+
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+enum ProjectOrigin {
+    System,
+    Include,
+}
+
+impl Default for ProjectOrigin {
+    fn default() -> Self {
+        ProjectOrigin::Include
     }
 }
 
@@ -101,8 +122,14 @@ mod tests {
                     std::path::PathBuf::from("z.cpp"),
                 ],
                 requires: Some(vec![
-                    "SomeProject".to_string(),
-                    "SomeSecondProject".to_string(),
+                    RequiredProject {
+                        path: std::path::PathBuf::from("SomeProject"),
+                        origin: ProjectOrigin::Include,
+                    },
+                    RequiredProject {
+                        path: std::path::PathBuf::from("SomeSecondProject"),
+                        origin: ProjectOrigin::Include,
+                    },
                 ]),
             };
             let expected = Recipe {
@@ -160,8 +187,14 @@ mod tests {
                     std::path::PathBuf::from("z.cpp"),
                 ],
                 requires: Some(vec![
-                    "SomeProject".to_string(),
-                    "SomeSecondProject".to_string(),
+                    RequiredProject {
+                        path: std::path::PathBuf::from("SomeProject"),
+                        origin: ProjectOrigin::Include,
+                    },
+                    RequiredProject {
+                        path: std::path::PathBuf::from("SomeSecondProject"),
+                        origin: ProjectOrigin::Include,
+                    },
                 ]),
                 lib_type: LibraryType::Static,
             };

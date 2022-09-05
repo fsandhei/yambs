@@ -14,18 +14,36 @@ fn parse_toml(toml: &str) -> Result<Recipe, ParseTomlError> {
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Recipe {
-    sources: Vec<String>,
-    #[serde(flatten)]
-    program_type: ProgramType,
+    executable: Option<std::collections::HashMap<String, Executable>>,
+    library: Option<std::collections::HashMap<String, Library>>,
+}
+
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+struct Executable {
+    main: std::path::PathBuf,
+    sources: Vec<std::path::PathBuf>,
     requires: Option<Vec<String>>,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-enum ProgramType {
-    #[serde(rename = "executable")]
-    Executable(String),
-    #[serde(rename = "library")]
-    Library(String),
+struct Library {
+    main: std::path::PathBuf,
+    sources: Vec<std::path::PathBuf>,
+    requires: Option<Vec<String>>,
+    #[serde(default)]
+    lib_type: LibraryType,
+}
+
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+enum LibraryType {
+    Static,
+    Dynamic,
+}
+
+impl Default for LibraryType {
+    fn default() -> Self {
+        LibraryType::Static
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -40,45 +58,119 @@ pub enum ParseTomlError {
 mod tests {
     use super::*;
 
-    const TOML_RECIPE: &str = r#"
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
-    executable = 'x'
-    "#;
-
-    const TOML_WITH_REQUIRE_RECIPE: &str = r#"
-    requires = ["SomeProject", "SomeSecondProject"]
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
-    executable = 'x'
-    "#;
-
     #[test]
-    fn parse_produces_recipe_file_from_toml() {
+    fn parse_produces_recipe_with_executables() {
+        const TOML_RECIPE: &str = r#"
+    [executable.x]
+    main = "main.cpp"
+    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    "#;
         {
             let recipe = parse_toml(TOML_RECIPE).unwrap();
-            let expected = Recipe {
+            let executable = Executable {
+                main: std::path::PathBuf::from("main.cpp"),
                 sources: vec![
-                    "x.cpp".to_string(),
-                    "y.cpp".to_string(),
-                    "z.cpp".to_string(),
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
                 ],
-                program_type: ProgramType::Executable("x".to_string()),
                 requires: None,
+            };
+            let expected = Recipe {
+                executable: Some(std::collections::HashMap::from([(
+                    "x".to_string(),
+                    executable,
+                )])),
+                library: None,
             };
             assert_eq!(recipe, expected);
         }
+        const TOML_WITH_REQUIRE_RECIPE: &str = r#"
+    [executable.x]
+    requires = ["SomeProject", "SomeSecondProject"]
+    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    main = "main.cpp"
+    "#;
         {
             let recipe = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
-            let expected = Recipe {
+            let executable = Executable {
+                main: std::path::PathBuf::from("main.cpp"),
                 sources: vec![
-                    "x.cpp".to_string(),
-                    "y.cpp".to_string(),
-                    "z.cpp".to_string(),
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
                 ],
-                program_type: ProgramType::Executable("x".to_string()),
                 requires: Some(vec![
                     "SomeProject".to_string(),
                     "SomeSecondProject".to_string(),
                 ]),
+            };
+            let expected = Recipe {
+                executable: Some(std::collections::HashMap::from([(
+                    "x".to_string(),
+                    executable,
+                )])),
+                library: None,
+            };
+            assert_eq!(recipe, expected);
+        }
+    }
+
+    #[test]
+    fn parse_produces_recipe_with_libraries() {
+        const TOML_RECIPE: &str = r#"
+    [library.MyLibrary]
+    main = "generator.cpp"
+    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    "#;
+        {
+            let recipe = parse_toml(TOML_RECIPE).unwrap();
+            let library = Library {
+                main: std::path::PathBuf::from("generator.cpp"),
+                sources: vec![
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
+                ],
+                requires: None,
+                lib_type: LibraryType::Static,
+            };
+            let expected = Recipe {
+                library: Some(std::collections::HashMap::from([(
+                    "MyLibrary".to_string(),
+                    library,
+                )])),
+                executable: None,
+            };
+            assert_eq!(recipe, expected);
+        }
+        const TOML_WITH_REQUIRE_RECIPE: &str = r#"
+    [library.MyLibrary]
+    requires = ["SomeProject", "SomeSecondProject"]
+    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    main = "generator.cpp"
+    "#;
+        {
+            let recipe = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
+            let library = Library {
+                main: std::path::PathBuf::from("generator.cpp"),
+                sources: vec![
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
+                ],
+                requires: Some(vec![
+                    "SomeProject".to_string(),
+                    "SomeSecondProject".to_string(),
+                ]),
+                lib_type: LibraryType::Static,
+            };
+            let expected = Recipe {
+                library: Some(std::collections::HashMap::from([(
+                    "MyLibrary".to_string(),
+                    library,
+                )])),
+                executable: None,
             };
             assert_eq!(recipe, expected);
         }

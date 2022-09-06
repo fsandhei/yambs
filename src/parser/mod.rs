@@ -5,13 +5,20 @@ use either::Either;
 
 use keywords::Keywords;
 
+pub struct ParsedRecipe {
+    path: std::path::PathBuf,
+    recipe: Recipe,
+}
+
 // FIXME: Write tests!
-pub fn parse(toml_path: &std::path::Path) -> Result<Recipe, ParseTomlError> {
-    // let toml_fh = std::fs::File::open(toml_path).map_err(ParseTomlError::FailedToOpen)?;
+pub fn parse(toml_path: &std::path::Path) -> Result<ParsedRecipe, ParseTomlError> {
     let toml_content =
         String::from_utf8(std::fs::read(toml_path).map_err(ParseTomlError::FailedToRead)?)
             .map_err(ParseTomlError::FailedToConvertUtf8)?;
-    parse_toml(&toml_content)
+    Ok(ParsedRecipe {
+        path: toml_path.to_path_buf(),
+        recipe: parse_toml(&toml_content)?,
+    })
 }
 
 fn parse_toml(toml: &str) -> Result<Recipe, ParseTomlError> {

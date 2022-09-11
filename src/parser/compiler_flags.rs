@@ -1,5 +1,5 @@
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-pub struct Keywords {
+pub struct CompilerFlags {
     #[serde(rename = "CXXFLAGS_APPEND")]
     cxx_flags: CXXFlags,
     #[serde(rename = "CPPFLAGS_APPEND")]

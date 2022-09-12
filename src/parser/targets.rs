@@ -1,17 +1,23 @@
 use crate::parser::compiler_flags::CompilerFlags;
-use crate::parser::{ExecutableData, LibraryData, RequiredProject};
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Target(pub either::Either<Executable, Library>);
+use crate::parser::RequiredProject;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Executable {
-    pub data: ExecutableData,
+    pub name: String,
+    pub main: std::path::PathBuf,
+    pub sources: Vec<std::path::PathBuf>,
+    pub requires: Vec<RequiredProject>,
+    pub compiler_flags: Option<CompilerFlags>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Library {
-    pub data: LibraryData,
+    pub name: String,
+    pub main: std::path::PathBuf,
+    pub sources: Vec<std::path::PathBuf>,
+    pub requires: Vec<RequiredProject>,
+    pub compiler_flags: Option<CompilerFlags>,
+    pub lib_type: LibraryType,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
@@ -33,7 +39,8 @@ pub struct RawLibraryData {
 pub struct RawCommonData {
     pub main: std::path::PathBuf,
     pub sources: Vec<std::path::PathBuf>,
-    pub requires: Option<Vec<RequiredProject>>,
+    #[serde(default)]
+    pub requires: Vec<RequiredProject>,
     #[serde(flatten)]
     pub compiler_flags: Option<CompilerFlags>,
 }

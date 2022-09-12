@@ -38,8 +38,15 @@ impl std::convert::From<RawRecipe> for Recipe {
             if let Some(executables) = contents.executables {
                 executables
                     .into_iter()
-                    .map(|(name, data)| ExecutableData::from_raw(name, data))
-                    .map(|data| Either::Left(targets::Executable { data }))
+                    .map(|(name, data)| {
+                        Either::Left(targets::Executable {
+                            name,
+                            main: data.common_raw.main,
+                            sources: data.common_raw.sources,
+                            requires: data.common_raw.requires,
+                            compiler_flags: data.common_raw.compiler_flags,
+                        })
+                    })
                     .collect::<Vec<Either<targets::Executable, targets::Library>>>()
             } else {
                 Vec::new()
@@ -49,8 +56,16 @@ impl std::convert::From<RawRecipe> for Recipe {
             if let Some(libraries) = contents.libraries {
                 libraries
                     .into_iter()
-                    .map(|(name, data)| LibraryData::from_raw(name, data))
-                    .map(|data| either::Right(targets::Library { data }))
+                    .map(|(name, data)| {
+                        either::Right(targets::Library {
+                            name,
+                            main: data.common_raw.main,
+                            sources: data.common_raw.sources,
+                            requires: data.common_raw.requires,
+                            compiler_flags: data.common_raw.compiler_flags,
+                            lib_type: data.lib_type,
+                        })
+                    })
                     .collect::<Vec<Either<targets::Executable, targets::Library>>>()
             } else {
                 Vec::new()
@@ -68,32 +83,6 @@ pub struct RawRecipe {
     pub executables: Option<std::collections::HashMap<String, targets::RawExecutableData>>,
     #[serde(rename = "library")]
     pub libraries: Option<std::collections::HashMap<String, targets::RawLibraryData>>,
-}
-
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-pub struct ExecutableData {
-    pub name: String,
-    #[serde(flatten)]
-    pub data: targets::RawExecutableData,
-}
-
-impl ExecutableData {
-    pub fn from_raw(name: String, data: targets::RawExecutableData) -> Self {
-        Self { name, data }
-    }
-}
-
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-pub struct LibraryData {
-    pub name: String,
-    #[serde(flatten)]
-    pub data: targets::RawLibraryData,
-}
-
-impl LibraryData {
-    pub fn from_raw(name: String, data: targets::RawLibraryData) -> Self {
-        Self { name, data }
-    }
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
@@ -143,9 +132,8 @@ pub enum ParseTomlError {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::targets::RawLibraryData;
 
-    use super::targets::{Executable, Library, RawCommonData, RawExecutableData};
+    use super::targets::{Executable, Library};
     use super::*;
 
     #[test]
@@ -157,23 +145,16 @@ mod tests {
     "#;
         {
             let recipe = parse_toml(TOML_RECIPE).unwrap();
-            let executable_data = ExecutableData {
-                name: "x".to_string(),
-                data: RawExecutableData {
-                    common_raw: RawCommonData {
-                        main: std::path::PathBuf::from("main.cpp"),
-                        sources: vec![
-                            std::path::PathBuf::from("x.cpp"),
-                            std::path::PathBuf::from("y.cpp"),
-                            std::path::PathBuf::from("z.cpp"),
-                        ],
-                        requires: None,
-                        compiler_flags: None,
-                    },
-                },
-            };
             let executable = Executable {
-                data: executable_data,
+                name: "x".to_string(),
+                main: std::path::PathBuf::from("main.cpp"),
+                sources: vec![
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
+                ],
+                requires: Vec::new(),
+                compiler_flags: None,
             };
             let expected = Recipe {
                 targets: vec![Either::Left(executable)],
@@ -188,34 +169,25 @@ mod tests {
     "#;
         {
             let recipe = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
-            let executable_data = ExecutableData {
-                name: "x".to_string(),
-                data: RawExecutableData {
-                    common_raw: RawCommonData {
-                        main: std::path::PathBuf::from("main.cpp"),
-                        sources: vec![
-                            std::path::PathBuf::from("x.cpp"),
-                            std::path::PathBuf::from("y.cpp"),
-                            std::path::PathBuf::from("z.cpp"),
-                        ],
-                        requires: Some(vec![
-                            RequiredProject {
-                                project: Either::Left(std::path::PathBuf::from("SomeProject")),
-                                origin: ProjectOrigin::Include,
-                            },
-                            RequiredProject {
-                                project: Either::Left(std::path::PathBuf::from(
-                                    "SomeSecondProject",
-                                )),
-                                origin: ProjectOrigin::Include,
-                            },
-                        ]),
-                        compiler_flags: None,
-                    },
-                },
-            };
             let executable = Executable {
-                data: executable_data,
+                name: "x".to_string(),
+                main: std::path::PathBuf::from("main.cpp"),
+                sources: vec![
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
+                ],
+                requires: vec![
+                    RequiredProject {
+                        project: Either::Left(std::path::PathBuf::from("SomeProject")),
+                        origin: ProjectOrigin::Include,
+                    },
+                    RequiredProject {
+                        project: Either::Left(std::path::PathBuf::from("SomeSecondProject")),
+                        origin: ProjectOrigin::Include,
+                    },
+                ],
+                compiler_flags: None,
             };
             let expected = Recipe {
                 targets: vec![Either::Left(executable)],
@@ -238,52 +210,36 @@ mod tests {
     "#;
         {
             let recipe = parse_toml(input).unwrap();
-            let executable_data_x = ExecutableData {
-                name: "x".to_string(),
-                data: RawExecutableData {
-                    common_raw: RawCommonData {
-                        main: std::path::PathBuf::from("main.cpp"),
-                        sources: vec![
-                            std::path::PathBuf::from("x.cpp"),
-                            std::path::PathBuf::from("y.cpp"),
-                            std::path::PathBuf::from("z.cpp"),
-                        ],
-                        requires: None,
-                        compiler_flags: None,
-                    },
-                },
-            };
-            let executable_data_y = ExecutableData {
-                name: "y".to_string(),
-                data: RawExecutableData {
-                    common_raw: RawCommonData {
-                        main: std::path::PathBuf::from("main.cpp"),
-                        sources: vec![
-                            std::path::PathBuf::from("x.cpp"),
-                            std::path::PathBuf::from("y.cpp"),
-                            std::path::PathBuf::from("z.cpp"),
-                        ],
-                        requires: Some(vec![
-                            RequiredProject {
-                                project: Either::Left(std::path::PathBuf::from("SomeProject")),
-                                origin: ProjectOrigin::Include,
-                            },
-                            RequiredProject {
-                                project: Either::Left(std::path::PathBuf::from(
-                                    "SomeSecondProject",
-                                )),
-                                origin: ProjectOrigin::Include,
-                            },
-                        ]),
-                        compiler_flags: None,
-                    },
-                },
-            };
             let executable_x = Executable {
-                data: executable_data_x,
+                name: "x".to_string(),
+                main: std::path::PathBuf::from("main.cpp"),
+                sources: vec![
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
+                ],
+                requires: Vec::new(),
+                compiler_flags: None,
             };
             let executable_y = Executable {
-                data: executable_data_y,
+                name: "y".to_string(),
+                main: std::path::PathBuf::from("main.cpp"),
+                sources: vec![
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
+                ],
+                requires: vec![
+                    RequiredProject {
+                        project: Either::Left(std::path::PathBuf::from("SomeProject")),
+                        origin: ProjectOrigin::Include,
+                    },
+                    RequiredProject {
+                        project: Either::Left(std::path::PathBuf::from("SomeSecondProject")),
+                        origin: ProjectOrigin::Include,
+                    },
+                ],
+                compiler_flags: None,
             };
             let expected = Recipe {
                 targets: vec![Either::Left(executable_y), Either::Left(executable_x)],
@@ -301,23 +257,18 @@ mod tests {
     "#;
         {
             let recipe = parse_toml(TOML_RECIPE).unwrap();
-            let library_data = LibraryData {
+            let library = Library {
                 name: "MyLibraryData".to_string(),
-                data: RawLibraryData {
-                    common_raw: RawCommonData {
-                        main: std::path::PathBuf::from("generator.cpp"),
-                        sources: vec![
-                            std::path::PathBuf::from("x.cpp"),
-                            std::path::PathBuf::from("y.cpp"),
-                            std::path::PathBuf::from("z.cpp"),
-                        ],
-                        requires: None,
-                        compiler_flags: None,
-                    },
-                    lib_type: targets::LibraryType::default(),
-                },
+                main: std::path::PathBuf::from("generator.cpp"),
+                sources: vec![
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
+                ],
+                requires: Vec::new(),
+                compiler_flags: None,
+                lib_type: targets::LibraryType::default(),
             };
-            let library = Library { data: library_data };
             let expected = Recipe {
                 targets: vec![Either::Right(library)],
             };
@@ -331,34 +282,27 @@ mod tests {
     "#;
         {
             let recipe = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
-            let library_data = LibraryData {
+            let library = Library {
                 name: "MyLibraryData".to_string(),
-                data: RawLibraryData {
-                    common_raw: RawCommonData {
-                        main: std::path::PathBuf::from("generator.cpp"),
-                        sources: vec![
-                            std::path::PathBuf::from("x.cpp"),
-                            std::path::PathBuf::from("y.cpp"),
-                            std::path::PathBuf::from("z.cpp"),
-                        ],
-                        requires: Some(vec![
-                            RequiredProject {
-                                project: Either::Left(std::path::PathBuf::from("SomeProject")),
-                                origin: ProjectOrigin::Include,
-                            },
-                            RequiredProject {
-                                project: Either::Left(std::path::PathBuf::from(
-                                    "SomeSecondProject",
-                                )),
-                                origin: ProjectOrigin::Include,
-                            },
-                        ]),
-                        compiler_flags: None,
+                main: std::path::PathBuf::from("generator.cpp"),
+                sources: vec![
+                    std::path::PathBuf::from("x.cpp"),
+                    std::path::PathBuf::from("y.cpp"),
+                    std::path::PathBuf::from("z.cpp"),
+                ],
+                requires: vec![
+                    RequiredProject {
+                        project: Either::Left(std::path::PathBuf::from("SomeProject")),
+                        origin: ProjectOrigin::Include,
                     },
-                    lib_type: targets::LibraryType::default(),
-                },
+                    RequiredProject {
+                        project: Either::Left(std::path::PathBuf::from("SomeSecondProject")),
+                        origin: ProjectOrigin::Include,
+                    },
+                ],
+                compiler_flags: None,
+                lib_type: targets::LibraryType::default(),
             };
-            let library = Library { data: library_data };
             let expected = Recipe {
                 targets: vec![Either::Right(library)],
             };

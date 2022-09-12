@@ -28,19 +28,19 @@ fn parse_toml(toml: &str) -> Result<Recipe, ParseTomlError> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Recipe {
-    pub targets: Vec<targets::Target>,
+    pub targets: Vec<Either<targets::Executable, targets::Library>>,
 }
 
 impl std::convert::From<RawRecipe> for Recipe {
     fn from(contents: RawRecipe) -> Self {
-        let mut targets = Vec::<targets::Target>::new();
+        let mut targets = Vec::<Either<targets::Executable, targets::Library>>::new();
         let mut executables = {
             if let Some(executables) = contents.executables {
                 executables
                     .into_iter()
                     .map(|(name, data)| ExecutableData::from_raw(name, data))
-                    .map(|data| targets::Target(Either::Left(targets::Executable { data })))
-                    .collect::<Vec<targets::Target>>()
+                    .map(|data| Either::Left(targets::Executable { data }))
+                    .collect::<Vec<Either<targets::Executable, targets::Library>>>()
             } else {
                 Vec::new()
             }
@@ -50,8 +50,8 @@ impl std::convert::From<RawRecipe> for Recipe {
                 libraries
                     .into_iter()
                     .map(|(name, data)| LibraryData::from_raw(name, data))
-                    .map(|data| targets::Target(either::Right(targets::Library { data })))
-                    .collect::<Vec<targets::Target>>()
+                    .map(|data| either::Right(targets::Library { data }))
+                    .collect::<Vec<Either<targets::Executable, targets::Library>>>()
             } else {
                 Vec::new()
             }
@@ -145,7 +145,7 @@ pub enum ParseTomlError {
 mod tests {
     use crate::parser::targets::RawLibraryData;
 
-    use super::targets::{Executable, Library, RawCommonData, RawExecutableData, Target};
+    use super::targets::{Executable, Library, RawCommonData, RawExecutableData};
     use super::*;
 
     #[test]
@@ -176,7 +176,7 @@ mod tests {
                 data: executable_data,
             };
             let expected = Recipe {
-                targets: vec![Target(Either::Left(executable))],
+                targets: vec![Either::Left(executable)],
             };
             assert_eq!(recipe, expected);
         }
@@ -218,7 +218,7 @@ mod tests {
                 data: executable_data,
             };
             let expected = Recipe {
-                targets: vec![Target(Either::Left(executable))],
+                targets: vec![Either::Left(executable)],
             };
             assert_eq!(recipe, expected);
         }
@@ -286,10 +286,7 @@ mod tests {
                 data: executable_data_y,
             };
             let expected = Recipe {
-                targets: vec![
-                    Target(Either::Left(executable_y)),
-                    Target(Either::Left(executable_x)),
-                ],
+                targets: vec![Either::Left(executable_y), Either::Left(executable_x)],
             };
             assert_eq!(recipe, expected);
         }
@@ -322,7 +319,7 @@ mod tests {
             };
             let library = Library { data: library_data };
             let expected = Recipe {
-                targets: vec![Target(Either::Right(library))],
+                targets: vec![Either::Right(library)],
             };
             assert_eq!(recipe, expected);
         }
@@ -363,7 +360,7 @@ mod tests {
             };
             let library = Library { data: library_data };
             let expected = Recipe {
-                targets: vec![Target(Either::Right(library))],
+                targets: vec![Either::Right(library)],
             };
             assert_eq!(recipe, expected);
         }

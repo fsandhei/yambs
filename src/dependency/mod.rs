@@ -10,6 +10,7 @@ mod dependency_accessor;
 mod dependency_registry;
 mod dependency_state;
 mod include_directories;
+mod target;
 pub use associated_files::{AssociatedFiles, SourceFile};
 pub use dependency_accessor::DependencyAccessor;
 pub use dependency_registry::DependencyRegistry;

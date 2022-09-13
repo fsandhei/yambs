@@ -1,8 +1,8 @@
-mod compiler_flags;
-mod constants;
-pub mod targets;
-
 use either::Either;
+
+use crate::targets;
+
+mod constants;
 
 pub struct ParsedRecipe {
     pub path: std::path::PathBuf,

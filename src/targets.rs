@@ -1,4 +1,4 @@
-use crate::parser::compiler_flags::CompilerFlags;
+use crate::flags::CompilerFlags;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Executable {

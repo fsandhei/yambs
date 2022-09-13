@@ -1,12 +1,11 @@
 use crate::parser::compiler_flags::CompilerFlags;
-use crate::parser::RequiredProject;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Executable {
     pub name: String,
     pub main: std::path::PathBuf,
     pub sources: Vec<std::path::PathBuf>,
-    pub requires: Vec<RequiredProject>,
+    pub dependencies: Vec<Dependency>,
     pub compiler_flags: Option<CompilerFlags>,
 }
 
@@ -15,7 +14,7 @@ pub struct Library {
     pub name: String,
     pub main: std::path::PathBuf,
     pub sources: Vec<std::path::PathBuf>,
-    pub requires: Vec<RequiredProject>,
+    pub dependencies: Vec<Dependency>,
     pub compiler_flags: Option<CompilerFlags>,
     pub lib_type: LibraryType,
 }
@@ -40,7 +39,7 @@ pub struct RawCommonData {
     pub main: std::path::PathBuf,
     pub sources: Vec<std::path::PathBuf>,
     #[serde(default)]
-    pub requires: Vec<RequiredProject>,
+    pub dependencies: std::collections::HashMap<String, DependencyData>,
     #[serde(flatten)]
     pub compiler_flags: Option<CompilerFlags>,
 }
@@ -54,5 +53,39 @@ pub enum LibraryType {
 impl Default for LibraryType {
     fn default() -> Self {
         LibraryType::Static
+    }
+}
+
+#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+pub struct Dependency {
+    pub name: String,
+    pub data: DependencyData,
+}
+
+impl Dependency {
+    pub fn new(name: &str, data: &DependencyData) -> Self {
+        Self {
+            name: name.to_string(),
+            data: data.to_owned(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+pub struct DependencyData {
+    pub path: std::path::PathBuf,
+    #[serde(default)]
+    pub origin: DependencySource,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+pub enum DependencySource {
+    System,
+    Include,
+}
+
+impl Default for DependencySource {
+    fn default() -> Self {
+        DependencySource::Include
     }
 }

@@ -39,11 +39,17 @@ impl std::convert::From<RawRecipe> for Recipe {
                 executables
                     .into_iter()
                     .map(|(name, data)| {
+                        let dependencies = data
+                            .common_raw
+                            .dependencies
+                            .iter()
+                            .map(|(name, data)| targets::Dependency::new(&name, data))
+                            .collect::<Vec<targets::Dependency>>();
                         Either::Left(targets::Executable {
                             name,
                             main: data.common_raw.main,
                             sources: data.common_raw.sources,
-                            requires: data.common_raw.requires,
+                            dependencies,
                             compiler_flags: data.common_raw.compiler_flags,
                         })
                     })
@@ -57,11 +63,17 @@ impl std::convert::From<RawRecipe> for Recipe {
                 libraries
                     .into_iter()
                     .map(|(name, data)| {
+                        let dependencies = data
+                            .common_raw
+                            .dependencies
+                            .iter()
+                            .map(|(name, data)| targets::Dependency::new(&name, data))
+                            .collect::<Vec<targets::Dependency>>();
                         either::Right(targets::Library {
                             name,
                             main: data.common_raw.main,
                             sources: data.common_raw.sources,
-                            requires: data.common_raw.requires,
+                            dependencies,
                             compiler_flags: data.common_raw.compiler_flags,
                             lib_type: data.lib_type,
                         })
@@ -85,41 +97,6 @@ pub struct RawRecipe {
     pub libraries: Option<std::collections::HashMap<String, targets::RawLibraryData>>,
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-#[serde(transparent)]
-pub struct RequiredProject {
-    #[serde(flatten, with = "either::serde_untagged")]
-    project: Either<std::path::PathBuf, String>,
-    #[serde(default)]
-    origin: ProjectOrigin,
-}
-
-impl RequiredProject {
-    pub fn try_path(self) -> Option<std::path::PathBuf> {
-        self.project.left()
-    }
-
-    pub fn try_name(self) -> Option<String> {
-        self.project.right()
-    }
-
-    pub fn origin(&self) -> &ProjectOrigin {
-        &self.origin
-    }
-}
-
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-pub enum ProjectOrigin {
-    System,
-    Include,
-}
-
-impl Default for ProjectOrigin {
-    fn default() -> Self {
-        ProjectOrigin::Include
-    }
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum ParseTomlError {
     #[error("Failed to parse TOML recipe file.")]
@@ -133,7 +110,7 @@ pub enum ParseTomlError {
 #[cfg(test)]
 mod tests {
 
-    use super::targets::{Executable, Library};
+    use super::targets::{Dependency, DependencyData, DependencySource, Executable, Library};
     use super::*;
 
     #[test]
@@ -153,7 +130,7 @@ mod tests {
                     std::path::PathBuf::from("y.cpp"),
                     std::path::PathBuf::from("z.cpp"),
                 ],
-                requires: Vec::new(),
+                dependencies: Vec::new(),
                 compiler_flags: None,
             };
             let expected = Recipe {
@@ -163,9 +140,11 @@ mod tests {
         }
         const TOML_WITH_REQUIRE_RECIPE: &str = r#"
     [executable.x]
-    requires = ["SomeProject", "SomeSecondProject"]
     sources = ['x.cpp', 'y.cpp', 'z.cpp']
     main = "main.cpp"
+    [executable.x.dependencies]
+    SomeProject = { path = "/some/path/SomeProject" }
+    SomeSecondProject = { path = "/some/path/SomeSecondProject" }
     "#;
         {
             let recipe = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
@@ -177,14 +156,20 @@ mod tests {
                     std::path::PathBuf::from("y.cpp"),
                     std::path::PathBuf::from("z.cpp"),
                 ],
-                requires: vec![
-                    RequiredProject {
-                        project: Either::Left(std::path::PathBuf::from("SomeProject")),
-                        origin: ProjectOrigin::Include,
+                dependencies: vec![
+                    Dependency {
+                        name: "SomeProject".to_string(),
+                        data: DependencyData {
+                            path: std::path::PathBuf::from("/some/path/SomeProject"),
+                            origin: DependencySource::Include,
+                        },
                     },
-                    RequiredProject {
-                        project: Either::Left(std::path::PathBuf::from("SomeSecondProject")),
-                        origin: ProjectOrigin::Include,
+                    Dependency {
+                        name: "SomeSecondProject".to_string(),
+                        data: DependencyData {
+                            path: std::path::PathBuf::from("/some/path/SomeSecondProject"),
+                            origin: DependencySource::Include,
+                        },
                     },
                 ],
                 compiler_flags: None,
@@ -204,9 +189,12 @@ mod tests {
     sources = ['x.cpp', 'y.cpp', 'z.cpp']
 
     [executable.y]
-    requires = ["SomeProject", "SomeSecondProject"]
     sources = ['x.cpp', 'y.cpp', 'z.cpp']
     main = "main.cpp"
+
+    [executable.y.dependencies]
+    SomeProject = { path = "/some/path/to/SomeProject" }
+    SomeSecondProject = { path = "/some/path/to/SomeSecondProject" }
     "#;
         {
             let recipe = parse_toml(input).unwrap();
@@ -218,7 +206,7 @@ mod tests {
                     std::path::PathBuf::from("y.cpp"),
                     std::path::PathBuf::from("z.cpp"),
                 ],
-                requires: Vec::new(),
+                dependencies: Vec::new(),
                 compiler_flags: None,
             };
             let executable_y = Executable {
@@ -229,20 +217,26 @@ mod tests {
                     std::path::PathBuf::from("y.cpp"),
                     std::path::PathBuf::from("z.cpp"),
                 ],
-                requires: vec![
-                    RequiredProject {
-                        project: Either::Left(std::path::PathBuf::from("SomeProject")),
-                        origin: ProjectOrigin::Include,
+                dependencies: vec![
+                    Dependency {
+                        name: "SomeProject".to_string(),
+                        data: DependencyData {
+                            path: std::path::PathBuf::from("/some/path/to/SomeProject"),
+                            origin: DependencySource::Include,
+                        },
                     },
-                    RequiredProject {
-                        project: Either::Left(std::path::PathBuf::from("SomeSecondProject")),
-                        origin: ProjectOrigin::Include,
+                    Dependency {
+                        name: "SomeSecondProject".to_string(),
+                        data: DependencyData {
+                            path: std::path::PathBuf::from("/some/path/to/SomeSecondProject"),
+                            origin: DependencySource::Include,
+                        },
                     },
                 ],
                 compiler_flags: None,
             };
             let expected = Recipe {
-                targets: vec![Either::Left(executable_y), Either::Left(executable_x)],
+                targets: vec![Either::Left(executable_x), Either::Left(executable_y)],
             };
             assert_eq!(recipe, expected);
         }
@@ -265,7 +259,7 @@ mod tests {
                     std::path::PathBuf::from("y.cpp"),
                     std::path::PathBuf::from("z.cpp"),
                 ],
-                requires: Vec::new(),
+                dependencies: Vec::new(),
                 compiler_flags: None,
                 lib_type: targets::LibraryType::default(),
             };
@@ -276,9 +270,12 @@ mod tests {
         }
         const TOML_WITH_REQUIRE_RECIPE: &str = r#"
     [library.MyLibraryData]
-    requires = ["SomeProject", "SomeSecondProject"]
     sources = ['x.cpp', 'y.cpp', 'z.cpp']
     main = "generator.cpp"
+
+    [library.MyLibraryData.dependencies]
+    SomeProject = { path = "/some/path/to/SomeProject" }
+    SomeSecondProject = { path = "/some/path/to/SomeSecondProject" }
     "#;
         {
             let recipe = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
@@ -290,14 +287,20 @@ mod tests {
                     std::path::PathBuf::from("y.cpp"),
                     std::path::PathBuf::from("z.cpp"),
                 ],
-                requires: vec![
-                    RequiredProject {
-                        project: Either::Left(std::path::PathBuf::from("SomeProject")),
-                        origin: ProjectOrigin::Include,
+                dependencies: vec![
+                    Dependency {
+                        name: "SomeProject".to_string(),
+                        data: DependencyData {
+                            path: std::path::PathBuf::from("/some/path/to/SomeProject"),
+                            origin: DependencySource::Include,
+                        },
                     },
-                    RequiredProject {
-                        project: Either::Left(std::path::PathBuf::from("SomeSecondProject")),
-                        origin: ProjectOrigin::Include,
+                    Dependency {
+                        name: "SomeSecondProject".to_string(),
+                        data: DependencyData {
+                            path: std::path::PathBuf::from("/some/path/to/SomeSecondProject"),
+                            origin: DependencySource::Include,
+                        },
                     },
                 ],
                 compiler_flags: None,

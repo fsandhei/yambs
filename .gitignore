@@ -13,17 +13,5 @@ target
 # Build directory
 *build
 
-# Dependency related ignores
-crates/mmk_parser/target
-
-crates/generator/target
-
-crates/builder/target
-
-crates/external/target
-
-crates/error/target
-
-crates/dependency/target
-
-crates/utility/target
+# yambs recipe
+yambs.toml

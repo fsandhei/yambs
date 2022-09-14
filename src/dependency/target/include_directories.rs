@@ -82,126 +82,89 @@ mod tests {
 
     use tempdir::TempDir;
 
+    struct DependencyStub {
+        _tempdir: TempDir,
+        dep_include_path: std::path::PathBuf,
+        dependency: targets::Dependency,
+    }
+
+    impl DependencyStub {
+        fn create_include_dir(tempdir_name: &str, dependency_name: &str) -> Self {
+            let dep_dir = TempDir::new(tempdir_name).unwrap();
+            let dep_include_path = dep_dir.path().join("include");
+            std::fs::create_dir(&dep_include_path).unwrap();
+
+            let dependency = targets::Dependency {
+                name: dependency_name.to_string(),
+                data: targets::DependencyData {
+                    path: dep_dir.path().to_path_buf(),
+                    origin: targets::DependencySource::Include,
+                },
+            };
+            Self {
+                _tempdir: dep_dir,
+                dep_include_path,
+                dependency,
+            }
+        }
+    }
+
     #[test]
     fn from_mmk_registers_include_directories_within_mmk_directory() {
-        let dep_dir = TempDir::new("base_one").unwrap();
-        let dep_include_path = dep_dir.path().join("include");
-        std::fs::create_dir(&dep_include_path).unwrap();
-
-        let dependency_one = targets::Dependency {
-            name: "DependencyOne".to_string(),
-            data: targets::DependencyData {
-                path: dep_dir.path().to_path_buf(),
-                origin: targets::DependencySource::Include,
-            },
-        };
-
-        let sec_dep_dir = TempDir::new("base_two").unwrap();
-        let sec_dep_include_path = sec_dep_dir.path().join("include");
-        std::fs::create_dir(&sec_dep_include_path).unwrap();
-
-        let dependency_two = targets::Dependency {
-            name: "DependencyTwo".to_string(),
-            data: targets::DependencyData {
-                path: sec_dep_dir.path().to_path_buf(),
-                origin: targets::DependencySource::Include,
-            },
-        };
-
-        let third_dep_dir = TempDir::new("base_three").unwrap();
-        let third_dep_include_path = third_dep_dir.path().join("include");
-        std::fs::create_dir(&third_dep_include_path).unwrap();
-        let dependency_three = targets::Dependency {
-            name: "DependencyThree".to_string(),
-            data: targets::DependencyData {
-                path: third_dep_dir.path().to_path_buf(),
-                origin: targets::DependencySource::Include,
-            },
-        };
+        let stub_one = DependencyStub::create_include_dir("base_one", "DependencyOne");
+        let stub_two = DependencyStub::create_include_dir("base_two", "DependencyTwo");
+        let stub_three = DependencyStub::create_include_dir("base_three", "DependencyThree");
 
         let expected = IncludeDirectories(vec![
             IncludeDirectory {
                 include_type: IncludeType::Include,
-                path: dep_include_path,
+                path: stub_one.dep_include_path,
             },
             IncludeDirectory {
                 include_type: IncludeType::Include,
-                path: sec_dep_include_path,
+                path: stub_two.dep_include_path,
             },
             IncludeDirectory {
                 include_type: IncludeType::Include,
-                path: third_dep_include_path,
+                path: stub_three.dep_include_path,
             },
         ]);
         let actual = IncludeDirectories::from_dependencies(&[
-            dependency_one,
-            dependency_two,
-            dependency_three,
+            stub_one.dependency,
+            stub_two.dependency,
+            stub_three.dependency,
         ])
         .unwrap();
         assert_eq!(actual, expected);
     }
 
-    // #[test]
-    // fn from_mmk_registers_include_directories_in_parent_of_mmk_directory() {
-    //     let dep_dir = TempDir::new("base_one").unwrap();
-    //     let dep_src_dir = dep_dir.path().join("src");
-    //     std::fs::create_dir(&dep_src_dir).unwrap();
-    //     let dep_include_path = dep_src_dir.join("include");
-    //     std::fs::create_dir(&dep_include_path).unwrap();
+    #[test]
+    fn from_mmk_registers_include_directories_third_party() {
+        let stub_one = DependencyStub::create_include_dir("base_one", "DependencyOne");
+        let mut stub_two = DependencyStub::create_include_dir("base_two", "DependencyTwo");
+        stub_two.dependency.data.origin = targets::DependencySource::System;
+        let stub_three = DependencyStub::create_include_dir("base_three", "DependencyThree");
+        let expected = IncludeDirectories(vec![
+            IncludeDirectory {
+                include_type: IncludeType::Include,
+                path: stub_one.dep_include_path,
+            },
+            IncludeDirectory {
+                include_type: IncludeType::System,
+                path: stub_two.dep_include_path,
+            },
+            IncludeDirectory {
+                include_type: IncludeType::Include,
+                path: stub_three.dep_include_path,
+            },
+        ]);
 
-    //     let sec_dep_dir = TempDir::new("base_two").unwrap();
-    //     let sec_dep_src_dir = sec_dep_dir.path().join("src");
-    //     std::fs::create_dir(&sec_dep_src_dir).unwrap();
-    //     let sec_dep_include_path = sec_dep_src_dir.join("include");
-    //     std::fs::create_dir(&sec_dep_include_path).unwrap();
-
-    //     let third_dep_dir = TempDir::new("base_three").unwrap();
-    //     let third_dep_src_dir = third_dep_dir.path().join("src");
-    //     std::fs::create_dir(&third_dep_src_dir).unwrap();
-    //     let third_dep_include_path = third_dep_src_dir.join("include");
-    //     std::fs::create_dir(&third_dep_include_path).unwrap();
-
-    //     let mut mmk_file = mmk_parser::Mmk::new(std::path::Path::new("some/path/to/lib.mmk"));
-    //     mmk_file.data_mut().insert(
-    //         "MMK_REQUIRE".to_string(),
-    //         vec![
-    //             Keyword::from(&dep_src_dir.display().to_string()),
-    //             Keyword::from(&sec_dep_src_dir.display().to_string()),
-    //             Keyword::from(&third_dep_src_dir.display().to_string()),
-    //         ],
-    //     );
-
-    //     let expected = IncludeDirectories(vec![
-    //         IncludeDirectory {
-    //             include_type: IncludeType::Include,
-    //             path: dep_include_path,
-    //         },
-    //         IncludeDirectory {
-    //             include_type: IncludeType::Include,
-    //             path: sec_dep_include_path,
-    //         },
-    //         IncludeDirectory {
-    //             include_type: IncludeType::Include,
-    //             path: third_dep_include_path,
-    //         },
-    //     ]);
-    //     let actual = IncludeDirectories::from_mmk(&mmk_file).unwrap();
-    //     assert_eq!(actual, expected);
-    // }
-
-    // #[test]
-    // fn from_mmk_registers_sys_includes() {
-    //     let mut mmk_file = mmk_parser::Mmk::new(std::path::Path::new("some/path/to/lib.mmk"));
-    //     mmk_file.data_mut().insert(
-    //         "MMK_SYS_INCLUDE".to_string(),
-    //         vec![Keyword::from("/some/dependency/include")],
-    //     );
-    //     let expected = IncludeDirectories(vec![IncludeDirectory {
-    //         include_type: IncludeType::System,
-    //         path: std::path::PathBuf::from("/some/dependency/include"),
-    //     }]);
-    //     let actual = IncludeDirectories::from_mmk(&mmk_file).unwrap();
-    //     assert_eq!(actual, expected);
-    // }
+        let actual = IncludeDirectories::from_dependencies(&[
+            stub_one.dependency,
+            stub_two.dependency,
+            stub_three.dependency,
+        ])
+        .unwrap();
+        assert_eq!(actual, expected);
+    }
 }

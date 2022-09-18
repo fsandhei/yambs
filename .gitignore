@@ -1,5 +1,5 @@
 # General ignores
-target
+/target/
 
 # Emacs
 *~undo-tree~

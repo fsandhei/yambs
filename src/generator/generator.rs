@@ -16,6 +16,7 @@ pub trait RuntimeSettings {
     fn debug(&mut self);
     fn release(&mut self);
     fn use_std(&mut self, version: &str) -> Result<(), GeneratorError>;
+    fn set_target(&mut self, target: &TargetNode);
 }
 
 pub trait GeneratorExecutor: Generator {

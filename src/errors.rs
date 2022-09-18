@@ -30,21 +30,6 @@ pub enum CompilerError {
     FailedToFindVersionPattern,
 }
 
-#[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
-pub enum BuildManagerError {
-    #[error(transparent)]
-    Dependency(#[from] DependencyError),
-    #[error(transparent)]
-    Generator(#[from] GeneratorError),
-    #[error("Failed to parse MMK file")]
-    FailedToParse(#[source] ParseError),
-    #[error("{0}: called in an unexpected way.")]
-    UnexpectedCall(String),
-    #[error(transparent)]
-    Fs(#[from] FsError),
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
     #[error("Error occured when creating cache")]
@@ -133,6 +118,11 @@ pub enum FsError {
     FailedToCreateStringFromUtf8(#[source] std::string::FromUtf8Error),
     #[error("Failed to execute external program")]
     FailedToExecute(#[source] std::io::Error),
+    #[error(
+        "{0:?} is not a YAMBS recipe file.\n\
+             Hint: Recipe files are called yambs.toml"
+    )]
+    InvalidRecipeFilename(std::path::PathBuf),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -143,17 +133,6 @@ pub enum LoggerError {
     FailedToCreateConfig(#[source] ConfigErrors),
     #[error(transparent)]
     FailedToSetLogger(#[from] log::SetLoggerError),
-}
-
-#[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
-pub enum GeneratorError {
-    #[error(transparent)]
-    Fs(#[from] FsError),
-    #[error(transparent)]
-    Dependency(#[from] DependencyError),
-    #[error("Error occured creating rule")]
-    CreateRule,
 }
 
 #[non_exhaustive]

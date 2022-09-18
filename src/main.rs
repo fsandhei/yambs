@@ -9,7 +9,7 @@ use yambs::build_state_machine::*;
 use yambs::cache::Cache;
 use yambs::cli::command_line::{BuildOpts, CommandLine, RemakeOpts, Subcommand};
 use yambs::compiler;
-use yambs::dependency::{DependencyNode, DependencyRegistry, DependencyState};
+use yambs::dependency::target::{target_registry::TargetRegistry, TargetNode, TargetState};
 use yambs::external;
 use yambs::generator::MakefileGenerator;
 use yambs::logger;
@@ -62,7 +62,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     log_invoked_command();
     let cache = Cache::new(&opts.build_directory)?;
     let compiler = compiler::Compiler::new()?;
-    let mut dependency_registry = DependencyRegistry::new();
+    let mut dependency_registry = TargetRegistry::new();
 
     evaluate_compiler(&compiler, &opts, &cache, &output)?;
 
@@ -127,21 +127,22 @@ fn parse_and_register_dependencies(
     builder: &mut BuildManager,
     top_path: &std::path::Path,
     output: &Output,
-    dep_registry: &mut DependencyRegistry,
+    dep_registry: &mut TargetRegistry,
 ) -> anyhow::Result<()> {
     builder.parse_and_register_dependencies(dep_registry, top_path)?;
-    if builder.top_dependency().is_some() {
-        let number_of_mmk_files = dep_registry.number_of_dependencies();
-        output.status(&format!("Read {} Yambs files\n", number_of_mmk_files));
-    }
+    let number_of_mmk_files = dep_registry.number_of_targets();
+    output.status(&format!("Read {} Yambs files\n", number_of_mmk_files));
     Ok(())
 }
 
 fn create_dottie_graph(builder: &BuildManager, output: &Output) -> anyhow::Result<()> {
     let mut dottie_buffer = String::new();
-    if let Some(dependency) = builder.top_dependency() {
-        if external::dottie(dependency, false, &mut dottie_buffer).is_ok() {
-            output.status("Created dottie file dependency.gv\n");
+    for target in builder.targets() {
+        if external::dottie(target, false, &mut dottie_buffer).is_ok() {
+            output.status(&format!(
+                "Created dottie file dependency-{}.gv\n",
+                target.borrow().name().unwrap()
+            ));
         }
     }
     Ok(())
@@ -153,10 +154,10 @@ fn build_project(
     opts: &BuildOpts,
     logger: &logger::Logger,
 ) -> anyhow::Result<()> {
-    if let Some(top_dependency) = &builder.top_dependency() {
+    for target in builder.targets() {
         let process_output = build_dependency(
             builder,
-            top_dependency,
+            target,
             opts.build_directory.as_path(),
             output,
             opts,
@@ -169,39 +170,33 @@ fn build_project(
             }
         };
         output.status(&build_status_message);
-        let log_path = logger.path();
-        output.status(&format!(
-            "Build log available at {:?}\n",
-            log_path.display()
-        ));
     }
+    let log_path = logger.path();
+    output.status(&format!(
+        "Build log available at {:?}\n",
+        log_path.display()
+    ));
     Ok(())
 }
 
 pub fn build_dependency(
     builder: &BuildManager,
-    dependency: &DependencyNode,
+    dependency: &TargetNode,
     build_path: &std::path::Path,
     output: &Output,
     opts: &BuildOpts,
 ) -> anyhow::Result<std::process::Output> {
     let build_directory = builder.resolve_build_directory(build_path);
+    let borrowed_dependency = dependency.borrow();
+    for required_dependency in &borrowed_dependency.dependencies {
+        let borrowed_required_dependency = required_dependency.borrow();
+        let project_name = borrowed_required_dependency.project_name();
+        let build_path_dep = &build_directory.join("libs").join(project_name);
 
-    for required_dependency in dependency.dependency().ref_dep.requires() {
-        let build_path_dep = &build_directory
-            .join("libs")
-            .join(required_dependency.dependency().ref_dep.get_project_name());
-
-        if required_dependency
-            .dependency()
-            .ref_dep
-            .is_build_completed()
-        {
+        if required_dependency.borrow().state == TargetState::BuildComplete {
             let top_build_directory_resolved =
                 builder.resolve_build_directory(opts.build_directory.as_path());
-            let directory_to_link = top_build_directory_resolved
-                .join("libs")
-                .join(required_dependency.dependency().ref_dep.get_project_name());
+            let directory_to_link = top_build_directory_resolved.join("libs").join(project_name);
 
             if !build_path_dep.is_dir() {
                 utility::create_symlink(directory_to_link, build_path_dep)?;
@@ -211,25 +206,17 @@ pub fn build_dependency(
             continue;
         }
 
-        required_dependency
-            .dependency_mut()
-            .ref_dep
-            .change_state(DependencyState::Building);
+        required_dependency.borrow_mut().state = TargetState::Building;
         let dep_output =
-            build_dependency(builder, required_dependency, build_path_dep, output, opts)?;
+            build_dependency(builder, &required_dependency, build_path_dep, output, opts)?;
         if !dep_output.status.success() {
             return Ok(dep_output);
         }
-        required_dependency
-            .dependency_mut()
-            .ref_dep
-            .change_state(DependencyState::BuildComplete);
+
+        required_dependency.borrow_mut().state = TargetState::BuildComplete;
     }
 
-    dependency
-        .dependency_mut()
-        .ref_dep
-        .change_state(DependencyState::Building);
+    dependency.borrow_mut().state = TargetState::Building;
 
     let change_directory_message = format!("Entering directory {}\n", build_directory.display());
     if opts.verbose {
@@ -244,21 +231,18 @@ pub fn build_dependency(
     output.status(&construct_build_message(dependency));
 
     let process_output = builder.make().spawn(output)?;
-    dependency
-        .dependency_mut()
-        .ref_dep
-        .change_state(DependencyState::BuildComplete);
+    dependency.borrow_mut().state = TargetState::BuildComplete;
 
     Ok(process_output)
 }
 
-fn construct_build_message(dependency: &DependencyNode) -> String {
-    let dep_type = if dependency.dependency().ref_dep.is_executable() {
+fn construct_build_message(dependency: &TargetNode) -> String {
+    let dep_type = if dependency.borrow().is_executable() {
         "executable"
     } else {
         "library"
     };
-    let dep_type_name = dependency.dependency().ref_dep.get_name().unwrap();
+    let dep_type_name = dependency.borrow().name().unwrap();
 
     let target = format!("{} {}", dep_type, dep_type_name);
     format!("Building {}\n", target)

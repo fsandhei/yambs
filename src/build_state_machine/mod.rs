@@ -1,10 +1,9 @@
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::cli::command_line::BuildOpts;
-use crate::dependency::{Dependency, DependencyNode, DependencyRegistry};
-use crate::errors::BuildManagerError;
-use crate::generator::GeneratorExecutor;
-use crate::mmk_parser;
-use crate::utility;
+use crate::dependency::target::{target_registry::TargetRegistry, Target, TargetError, TargetNode};
+use crate::errors::FsError;
+use crate::generator::{GeneratorError, GeneratorExecutor};
+use crate::parser;
 
 mod filter;
 mod make;
@@ -15,8 +14,23 @@ enum BuildConfiguration {
     Release,
 }
 
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
+pub enum BuildManagerError {
+    #[error(transparent)]
+    Target(#[from] TargetError),
+    #[error(transparent)]
+    Generator(#[from] GeneratorError),
+    #[error("Failed to parse YAMBS Recipe file")]
+    FailedToParse(#[source] parser::ParseTomlError),
+    #[error("{0}: called in an unexpected way.")]
+    UnexpectedCall(String),
+    #[error(transparent)]
+    Fs(#[from] FsError),
+}
+
 pub struct BuildManager<'a> {
-    top_dependency: Option<DependencyNode>,
+    targets: Vec<TargetNode>,
     generator: &'a mut dyn GeneratorExecutor,
     configuration: BuildConfiguration,
     make: Make,
@@ -26,7 +40,7 @@ pub struct BuildManager<'a> {
 impl<'gen> BuildManager<'gen> {
     pub fn new(generator: &'gen mut dyn GeneratorExecutor) -> BuildManager {
         BuildManager {
-            top_dependency: None,
+            targets: Vec::new(),
             generator,
             configuration: BuildConfiguration::Release,
             make: Make::default(),
@@ -34,8 +48,8 @@ impl<'gen> BuildManager<'gen> {
         }
     }
 
-    pub fn top_dependency(&self) -> Option<&DependencyNode> {
-        self.top_dependency.as_ref()
+    pub fn targets(&self) -> &Vec<TargetNode> {
+        self.targets.as_ref()
     }
 
     pub fn configure(&mut self, opts: &BuildOpts) -> Result<(), BuildManagerError> {
@@ -53,33 +67,25 @@ impl<'gen> BuildManager<'gen> {
 
     pub fn parse_and_register_dependencies(
         &mut self,
-        dep_registry: &mut DependencyRegistry,
-        top_path: &std::path::Path,
+        dep_registry: &mut TargetRegistry,
+        recipe_path: &std::path::Path,
     ) -> Result<(), BuildManagerError> {
-        let file_content = utility::read_file(top_path)?;
-        let mut mmk_data = mmk_parser::Mmk::new(top_path);
-        mmk_data
-            .parse(&file_content)
-            .map_err(BuildManagerError::FailedToParse)?;
+        let recipe = parser::parse(recipe_path).map_err(BuildManagerError::FailedToParse)?;
 
-        let top_dependency = Dependency::from_path(top_path, dep_registry, &mmk_data)?;
-        self.top_dependency = Some(top_dependency);
+        for build_target in recipe.recipe.targets {
+            let target = Target::create(recipe_path, &build_target, dep_registry)
+                .map_err(BuildManagerError::Target)?;
+            self.targets.push(target);
+        }
         Ok(())
     }
 
-    fn add_dependency_to_generator(&mut self, dependency: &DependencyNode) {
-        self.generator.set_dependency(dependency);
-    }
-
     pub fn generate_makefiles(&mut self) -> Result<(), BuildManagerError> {
-        if let Some(top_dependency) = self.top_dependency.clone() {
-            self.add_dependency_to_generator(&top_dependency);
-            Ok(self.generator.generate_makefiles(&top_dependency)?)
-        } else {
-            Err(BuildManagerError::UnexpectedCall(String::from(
-                "builder.generate_builder()",
-            )))
+        for target in &self.targets {
+            self.generator.set_target(target);
+            self.generator.generate_makefiles(&target)?;
         }
+        Ok(())
     }
 
     pub fn resolve_build_directory(&self, path: &std::path::Path) -> std::path::PathBuf {

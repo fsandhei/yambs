@@ -1,5 +1,5 @@
 use crate::cache;
-use crate::dependency::target::{TargetNode, TargetType};
+use crate::dependency::target::TargetNode;
 use crate::utility;
 // LEGG TIL TESTER
 
@@ -48,19 +48,6 @@ impl TargetRegistry {
         }
         None
     }
-    //     pub fn target_from_path(&self, path: &std::path::Path) -> Option<TargetNode> {
-    //         for target in &self.registry {
-    //             let borrowed_target = target.try_borrow();
-    //             if let Ok(borrowed_target) = borrowed_target {
-    //                 if borrowed_target.path == *path {
-    //                     return Some(target.clone());
-    //                 } else {
-    //                     return None;
-    //                 }
-    //             }
-    //         }
-    //         None
-    //     }
 }
 
 impl cache::Cacher for TargetRegistry {

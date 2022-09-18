@@ -4,7 +4,8 @@ use std::str::FromStr;
 use structopt::StructOpt;
 
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory};
-use crate::errors::CommandLineError;
+use crate::errors::{CommandLineError, FsError};
+use crate::YAMBS_FILE_NAME;
 
 // TODO: Need to add tests for C++ validation and sanitizer validation
 // TODO: Add default values that correctly correspond for 'configuration' when not all options are
@@ -28,10 +29,21 @@ pub struct CommandLine {
     pub subcommand: Option<Subcommand>,
 }
 
-fn validate_file_path(path: &str) -> Result<PathBuf, CommandLineError> {
-    let file_name = crate::mmk_parser::validate_file_path(path)?;
-    crate::mmk_parser::validate_file_name(&file_name)?;
-    Ok(file_name)
+fn validate_file_path(path_as_str: &str) -> Result<std::path::PathBuf, CommandLineError> {
+    let file_path = std::path::PathBuf::from(path_as_str)
+        .canonicalize()
+        .map_err(FsError::Canonicalize)?;
+
+    if !file_path.is_file() {
+        return Err(FsError::FileDoesNotExist(file_path)).map_err(CommandLineError::Fs);
+    }
+
+    let filename = file_path.file_name();
+    if filename.unwrap().to_str().unwrap() != YAMBS_FILE_NAME {
+        return Err(FsError::InvalidRecipeFilename(file_path)).map_err(CommandLineError::Fs);
+    }
+
+    Ok(file_path)
 }
 
 #[derive(StructOpt, Debug)]

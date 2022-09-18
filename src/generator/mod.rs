@@ -84,7 +84,7 @@ impl MakefileGenerator {
         build_directory: std::path::PathBuf,
     ) {
         utility::create_dir(&build_directory).unwrap();
-        self.set_dependency(dependency);
+        self.set_target(dependency);
         self.output_directory = build_directory;
         self.create_makefile();
     }
@@ -116,13 +116,12 @@ impl MakefileGenerator {
     fn make_object_rule(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
 
-        let borrowed_dependency = self.get_dependency()?;
+        let borrowed_dependency = self.get_dependency()?.borrow();
         let sources = borrowed_dependency
-            .borrow()
             .associated_files
             .iter()
             .filter(|file| file.is_source());
-        let dependency_root_path = borrowed_dependency.borrow().recipe_dir_path;
+        let dependency_root_path = &borrowed_dependency.recipe_dir_path;
 
         for source in sources {
             let source_file = source.file();
@@ -159,9 +158,8 @@ impl MakefileGenerator {
 
     fn print_header_includes(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
-        let borrowed_dependency = self.get_dependency()?;
+        let borrowed_dependency = self.get_dependency()?.borrow();
         let sources = borrowed_dependency
-            .borrow()
             .associated_files
             .iter()
             .filter(|file| file.is_source());
@@ -182,7 +180,8 @@ impl MakefileGenerator {
 
     fn print_required_dependencies_libraries(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
-        for dependency in self.get_dependency()?.borrow().dependencies {
+        let borrowed_dependency = self.get_dependency()?.borrow();
+        for dependency in &borrowed_dependency.dependencies {
             if dependency.borrow().name().is_some() {
                 let required_dep = dependency;
                 let mut output_directory = self
@@ -228,13 +227,12 @@ impl MakefileGenerator {
 
     fn print_prerequisites(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
-        let borrowed_dependency = self.get_dependency()?;
+        let borrowed_dependency = self.get_dependency()?.borrow();
         let sources = borrowed_dependency
-            .borrow()
             .associated_files
             .iter()
             .filter(|file| file.is_source());
-        let dependency_root_path = borrowed_dependency.borrow().recipe_dir_path;
+        let dependency_root_path = &borrowed_dependency.recipe_dir_path;
 
         for source in sources {
             let source_file = source.file();
@@ -258,9 +256,9 @@ impl MakefileGenerator {
     }
 
     fn print_dependencies(&self) -> Result<String, GeneratorError> {
-        let borrowed_dependency = self.get_dependency()?;
+        let borrowed_dependency = self.get_dependency()?.borrow();
         let mut formatted_string = self.print_include_dependency_top()?;
-        if let Some(include_directories) = borrowed_dependency.borrow().include_directories {
+        if let Some(include_directories) = &borrowed_dependency.include_directories {
             for include in include_directories {
                 if include.include_type == IncludeType::System {
                     formatted_string
@@ -275,8 +273,8 @@ impl MakefileGenerator {
     }
 
     fn print_include_dependency_top(&self) -> Result<String, GeneratorError> {
-        let dep = self.get_dependency()?;
-        let project_base = utility::get_project_top_directory(&dep.borrow().recipe_dir_path);
+        let borrowed_dependency = self.get_dependency()?.borrow();
+        let project_base = utility::get_project_top_directory(&borrowed_dependency.recipe_dir_path);
         let include_line = format!(
             "-I{} -I{} ",
             project_base.display(),
@@ -335,12 +333,8 @@ impl MakefileGenerator {
         Ok(())
     }
 
-    pub fn set_dependency(&mut self, target: &TargetNode) {
-        self.dependency = Some(target.clone());
-    }
-
-    pub fn get_dependency(&self) -> Result<TargetNode, TargetError> {
-        self.dependency.ok_or(TargetError::NotSet)
+    pub fn get_dependency(&self) -> Result<&TargetNode, TargetError> {
+        self.dependency.as_ref().ok_or(TargetError::NotSet)
     }
 }
 
@@ -362,7 +356,8 @@ impl GeneratorExecutor for MakefileGenerator {
             utility::create_dir(&dependency_output_library_head)?;
         }
 
-        for required_dependency in dependency.borrow().dependencies {
+        let borrowed_dependency = dependency.borrow();
+        for required_dependency in &borrowed_dependency.dependencies {
             if required_dependency.borrow().state != TargetState::MakefileMade {
                 required_dependency.borrow_mut().state = TargetState::MakefileMade;
                 let mut build_directory = dependency_output_library_head
@@ -450,12 +445,8 @@ impl Generator for MakefileGenerator {
 
     fn generate_appending_flags(&mut self) -> Result<(), GeneratorError> {
         let mut data = String::new();
-        let borrowed_dependency = self.get_dependency()?;
-        let cxxflags = borrowed_dependency
-            .borrow()
-            .compiler_flags
-            .cxx_flags
-            .flags();
+        let borrowed_dependency = self.get_dependency()?.borrow();
+        let cxxflags = borrowed_dependency.compiler_flags.cxx_flags.flags();
         data.push_str(&format!(
             "CXXFLAGS += {cxxflags_str}",
             cxxflags_str = cxxflags
@@ -464,11 +455,7 @@ impl Generator for MakefileGenerator {
                 .collect::<String>()
         ));
 
-        let cppflags = borrowed_dependency
-            .borrow()
-            .compiler_flags
-            .cpp_flags
-            .flags();
+        let cppflags = borrowed_dependency.compiler_flags.cpp_flags.flags();
         data.push_str(&format!(
             "CPPFLAGS += {cppflags_str}",
             cppflags_str = cppflags
@@ -516,6 +503,10 @@ impl RuntimeSettings for MakefileGenerator {
             self.use_subdir(std::path::PathBuf::from("release"))
                 .unwrap();
         }
+    }
+
+    fn set_target(&mut self, target: &TargetNode) {
+        self.dependency = Some(target.clone());
     }
 }
 

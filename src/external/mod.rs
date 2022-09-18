@@ -3,12 +3,12 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 
-use crate::dependency::DependencyNode;
+use crate::dependency::target::TargetNode;
 
-pub fn dottie(top: &DependencyNode, recursive: bool, data: &mut String) -> std::io::Result<()> {
+pub fn dottie(top: &TargetNode, recursive: bool, data: &mut String) -> std::io::Result<()> {
     let mut dottie_file = create_dottie_file(recursive)?;
-    let borrowed_top = top;
-    let top_pretty_name = &borrowed_top.dependency().ref_dep.get_name().unwrap();
+    let borrowed_top = top.borrow();
+    let top_pretty_name = &borrowed_top.name().unwrap();
 
     if !recursive {
         data.push_str(
@@ -21,12 +21,12 @@ pub fn dottie(top: &DependencyNode, recursive: bool, data: &mut String) -> std::
         dottie_file.write_all(data.as_bytes())?;
     }
 
-    for requirement in borrowed_top.dependency().ref_dep.requires() {
+    for requirement in &borrowed_top.dependencies {
         data.push_str(&format!(
             "\
         {:?} -> {:?}\n\
         ",
-            requirement.dependency().ref_dep.get_name().unwrap(),
+            requirement.borrow().name().unwrap(),
             top_pretty_name
         ));
         dottie(requirement, true, data)?;

@@ -20,8 +20,8 @@ impl CompilerFlags {
 pub struct CXXFlags(std::vec::Vec<String>);
 
 impl CXXFlags {
-    pub fn flags(&self) -> std::vec::Vec<String> {
-        self.0
+    pub fn flags(&self) -> &std::vec::Vec<String> {
+        &self.0
     }
 }
 
@@ -30,7 +30,7 @@ impl CXXFlags {
 pub struct CPPFlags(std::vec::Vec<String>);
 
 impl CPPFlags {
-    pub fn flags(&self) -> std::vec::Vec<String> {
-        self.0
+    pub fn flags(&self) -> &std::vec::Vec<String> {
+        &self.0
     }
 }

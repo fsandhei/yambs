@@ -5,33 +5,33 @@ use crate::errors;
 use crate::flags::CompilerFlags;
 use crate::parser;
 use crate::targets;
+use crate::utility;
 use crate::YAMBS_FILE_NAME;
 
-mod associated_files;
-mod include_directories;
-mod target_registry;
+pub mod associated_files;
+pub mod include_directories;
+pub mod target_registry;
 use associated_files::AssociatedFiles;
 use include_directories::IncludeDirectories;
-use target_registry::TargetRegistry;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Target {
-    recipe_dir_path: std::path::PathBuf,
-    main: std::path::PathBuf,
-    modification_time: std::time::SystemTime,
-    dependencies: Vec<TargetNode>,
-    state: TargetState,
-    associated_files: AssociatedFiles,
-    target_type: TargetType,
-    include_directories: Option<IncludeDirectories>,
-    compiler_flags: CompilerFlags,
+    pub recipe_dir_path: std::path::PathBuf,
+    pub main: std::path::PathBuf,
+    pub modification_time: std::time::SystemTime,
+    pub dependencies: Vec<TargetNode>,
+    pub state: TargetState,
+    pub associated_files: AssociatedFiles,
+    pub target_type: TargetType,
+    pub include_directories: Option<IncludeDirectories>,
+    pub compiler_flags: CompilerFlags,
 }
 
 impl Target {
     pub fn create(
         recipe_dir_path: &std::path::Path,
         target: &targets::Target,
-        registry: &mut TargetRegistry,
+        registry: &mut target_registry::TargetRegistry,
     ) -> Result<TargetNode, TargetError> {
         let target_node = match target {
             targets::Target::Executable(executable) => {
@@ -49,6 +49,35 @@ impl Target {
         }
         target_node.borrow_mut().state = TargetState::Registered;
         Ok(target_node)
+    }
+
+    pub fn is_executable(&self) -> bool {
+        match self.target_type {
+            TargetType::Executable(_) => true,
+            TargetType::Library(_) => false,
+        }
+    }
+
+    pub fn is_library(&self) -> bool {
+        !self.is_executable()
+    }
+
+    pub fn library_file_name(&self) -> String {
+        match &self.target_type {
+            TargetType::Library(library_name) => library_name.to_owned(),
+            _ => panic!("Dependency is not a library"),
+        }
+    }
+
+    pub fn project_name(&self) -> &std::path::Path {
+        utility::get_head_directory(&self.recipe_dir_path)
+    }
+
+    pub fn name(&self) -> Option<String> {
+        match self.target_type {
+            TargetType::Executable(ref executable) => Some(executable.to_owned()),
+            TargetType::Library(ref library) => Some(library.to_owned()),
+        }
     }
 
     fn executable(
@@ -105,7 +134,7 @@ impl Target {
 
     fn detect_target(
         &self,
-        registry: &mut TargetRegistry,
+        registry: &mut target_registry::TargetRegistry,
         target: &targets::Target,
     ) -> Result<Vec<TargetNode>, TargetError> {
         let mut target_vec = Vec::new();
@@ -177,7 +206,6 @@ impl std::ops::Deref for TargetNode {
 pub enum TargetType {
     Executable(String),
     Library(String),
-    None,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]

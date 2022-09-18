@@ -15,6 +15,13 @@ impl Target {
         }
     }
 
+    pub fn executable(&self) -> Option<&Executable> {
+        match self {
+            Target::Executable(exe) => Some(exe),
+            _ => None,
+        }
+    }
+
     pub fn dependencies(&self) -> &Vec<Dependency> {
         match self {
             Target::Executable(exec) => &exec.dependencies,

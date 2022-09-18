@@ -13,3 +13,5 @@ pub mod output;
 pub mod parser;
 pub mod targets;
 pub mod utility;
+
+pub const YAMBS_FILE_NAME: &str = "yambs.toml";

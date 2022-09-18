@@ -1,9 +1,9 @@
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct CompilerFlags {
     #[serde(rename = "CXXFLAGS_APPEND")]
-    cxx_flags: CXXFlags,
+    pub cxx_flags: CXXFlags,
     #[serde(rename = "CPPFLAGS_APPEND")]
-    cpp_flags: CPPFlags,
+    pub cpp_flags: CPPFlags,
 }
 
 impl CompilerFlags {
@@ -17,8 +17,20 @@ impl CompilerFlags {
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(transparent)]
-struct CXXFlags(std::vec::Vec<String>);
+pub struct CXXFlags(std::vec::Vec<String>);
+
+impl CXXFlags {
+    pub fn flags(&self) -> std::vec::Vec<String> {
+        self.0
+    }
+}
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(transparent)]
-struct CPPFlags(std::vec::Vec<String>);
+pub struct CPPFlags(std::vec::Vec<String>);
+
+impl CPPFlags {
+    pub fn flags(&self) -> std::vec::Vec<String> {
+        self.0
+    }
+}

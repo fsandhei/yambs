@@ -1,7 +1,7 @@
-use crate::dependency::{DependencyAccessor, DependencyNode};
-use crate::errors::GeneratorError;
+use crate::dependency::target::TargetNode;
+use crate::generator::GeneratorError;
 
-pub trait Generator: DependencyAccessor + Sanitizer + RuntimeSettings {
+pub trait Generator: Sanitizer + RuntimeSettings {
     fn generate_makefile(&mut self) -> Result<(), GeneratorError>;
     fn generate_rule_executable(&mut self) -> Result<(), GeneratorError>;
     fn generate_rule_package(&mut self) -> Result<(), GeneratorError>;
@@ -19,7 +19,7 @@ pub trait RuntimeSettings {
 }
 
 pub trait GeneratorExecutor: Generator {
-    fn generate_makefiles(&mut self, dependency: &DependencyNode) -> Result<(), GeneratorError>;
+    fn generate_makefiles(&mut self, dependency: &TargetNode) -> Result<(), GeneratorError>;
 }
 
 pub trait UtilityGenerator<'config> {

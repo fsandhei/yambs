@@ -3,8 +3,8 @@ use std::fs::File;
 use std::io::Write;
 
 use crate::compiler::{Compiler, Type};
-use crate::errors::{FsError, GeneratorError};
-use crate::generator::{Sanitizer, UtilityGenerator};
+use crate::errors::FsError;
+use crate::generator::{GeneratorError, Sanitizer, UtilityGenerator};
 use crate::utility;
 
 fn evaluate_compiler(

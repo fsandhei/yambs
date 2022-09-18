@@ -1,5 +1,3 @@
-use either::Either;
-
 use crate::targets;
 
 mod constants;
@@ -28,12 +26,12 @@ fn parse_toml(toml: &str) -> Result<Recipe, ParseTomlError> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Recipe {
-    pub targets: Vec<Either<targets::Executable, targets::Library>>,
+    pub targets: Vec<targets::Target>,
 }
 
 impl std::convert::From<RawRecipe> for Recipe {
     fn from(contents: RawRecipe) -> Self {
-        let mut targets = Vec::<Either<targets::Executable, targets::Library>>::new();
+        let mut targets = Vec::<targets::Target>::new();
         let mut executables = {
             if let Some(executables) = contents.executables {
                 executables
@@ -45,7 +43,7 @@ impl std::convert::From<RawRecipe> for Recipe {
                             .iter()
                             .map(|(name, data)| targets::Dependency::new(&name, data))
                             .collect::<Vec<targets::Dependency>>();
-                        Either::Left(targets::Executable {
+                        targets::Target::Executable(targets::Executable {
                             name,
                             main: data.common_raw.main,
                             sources: data.common_raw.sources,
@@ -53,7 +51,7 @@ impl std::convert::From<RawRecipe> for Recipe {
                             compiler_flags: data.common_raw.compiler_flags,
                         })
                     })
-                    .collect::<Vec<Either<targets::Executable, targets::Library>>>()
+                    .collect::<Vec<targets::Target>>()
             } else {
                 Vec::new()
             }
@@ -69,7 +67,7 @@ impl std::convert::From<RawRecipe> for Recipe {
                             .iter()
                             .map(|(name, data)| targets::Dependency::new(&name, data))
                             .collect::<Vec<targets::Dependency>>();
-                        either::Right(targets::Library {
+                        targets::Target::Library(targets::Library {
                             name,
                             main: data.common_raw.main,
                             sources: data.common_raw.sources,
@@ -78,7 +76,7 @@ impl std::convert::From<RawRecipe> for Recipe {
                             lib_type: data.lib_type,
                         })
                     })
-                    .collect::<Vec<Either<targets::Executable, targets::Library>>>()
+                    .collect::<Vec<targets::Target>>()
             } else {
                 Vec::new()
             }
@@ -134,7 +132,7 @@ mod tests {
                 compiler_flags: None,
             };
             let expected = Recipe {
-                targets: vec![Either::Left(executable)],
+                targets: vec![targets::Target::Executable(executable)],
             };
             assert_eq!(recipe, expected);
         }
@@ -175,7 +173,7 @@ mod tests {
                 compiler_flags: None,
             };
             let expected = Recipe {
-                targets: vec![Either::Left(executable)],
+                targets: vec![targets::Target::Executable(executable)],
             };
             assert_eq!(recipe, expected);
         }
@@ -236,7 +234,10 @@ mod tests {
                 compiler_flags: None,
             };
             let expected = Recipe {
-                targets: vec![Either::Left(executable_x), Either::Left(executable_y)],
+                targets: vec![
+                    targets::Target::Executable(executable_x),
+                    targets::Target::Executable(executable_y),
+                ],
             };
             assert_eq!(recipe, expected);
         }
@@ -264,7 +265,7 @@ mod tests {
                 lib_type: targets::LibraryType::default(),
             };
             let expected = Recipe {
-                targets: vec![Either::Right(library)],
+                targets: vec![targets::Target::Library(library)],
             };
             assert_eq!(recipe, expected);
         }
@@ -307,7 +308,7 @@ mod tests {
                 lib_type: targets::LibraryType::default(),
             };
             let expected = Recipe {
-                targets: vec![Either::Right(library)],
+                targets: vec![targets::Target::Library(library)],
             };
             assert_eq!(recipe, expected);
         }

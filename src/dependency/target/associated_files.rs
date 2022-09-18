@@ -1,5 +1,3 @@
-use crate::errors::AssociatedFileError;
-
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 pub struct AssociatedFiles(std::vec::Vec<SourceFile>);
@@ -8,6 +6,16 @@ impl AssociatedFiles {
     pub fn new() -> Self {
         Self { 0: Vec::new() }
     }
+
+    pub fn from_paths(sources: &[std::path::PathBuf]) -> Result<Self, AssociatedFileError> {
+        Ok(Self(
+            sources
+                .iter()
+                .map(|source| SourceFile::new(&source))
+                .collect::<Result<Vec<SourceFile>, AssociatedFileError>>()?,
+        ))
+    }
+
     pub fn push(&mut self, file: SourceFile) {
         self.0.push(file)
     }
@@ -33,6 +41,12 @@ impl<'a> std::iter::IntoIterator for &'a AssociatedFiles {
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum AssociatedFileError {
+    #[error("Could not specify file type")]
+    CouldNotSpecifyFileType,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]

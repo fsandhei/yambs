@@ -1,9 +1,8 @@
 use crate::cache;
-use crate::dependency::target::TargetNode;
+use crate::dependency::target::{TargetNode, TargetType};
 use crate::utility;
 // LEGG TIL TESTER
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 pub struct TargetRegistry {
@@ -36,19 +35,32 @@ impl TargetRegistry {
         self.registry.push(target);
     }
 
-    pub fn target_from_path(&self, path: &std::path::Path) -> Option<TargetNode> {
+    pub fn get_target(&self, path: &std::path::Path) -> Option<TargetNode> {
         for target in &self.registry {
-            let borrowed_dep = target.try_borrow();
-            if let Ok(dep) = borrowed_dep {
-                if dep.path == *path {
+            let borrowed_target = target.try_borrow();
+            if let Ok(borrowed_target) = borrowed_target {
+                if borrowed_target.recipe_dir_path == *path {
                     return Some(target.clone());
+                } else {
+                    return None;
                 }
-            } else {
-                return None;
             }
         }
         None
     }
+    //     pub fn target_from_path(&self, path: &std::path::Path) -> Option<TargetNode> {
+    //         for target in &self.registry {
+    //             let borrowed_target = target.try_borrow();
+    //             if let Ok(borrowed_target) = borrowed_target {
+    //                 if borrowed_target.path == *path {
+    //                     return Some(target.clone());
+    //                 } else {
+    //                     return None;
+    //                 }
+    //             }
+    //         }
+    //         None
+    //     }
 }
 
 impl cache::Cacher for TargetRegistry {

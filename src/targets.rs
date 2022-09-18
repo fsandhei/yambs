@@ -1,6 +1,29 @@
 use crate::flags::CompilerFlags;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum Target {
+    Executable(Executable),
+    Library(Library),
+}
+
+impl Target {
+    pub fn library(&self) -> Option<&Library> {
+        match self {
+            Target::Library(library) => Some(library),
+            _ => None,
+        }
+    }
+
+    pub fn dependencies(&self) -> &Vec<Dependency> {
+        match self {
+            Target::Executable(exec) => &exec.dependencies,
+            Target::Library(lib) => &lib.dependencies,
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Executable {
     pub name: String,
     pub main: std::path::PathBuf,
@@ -9,7 +32,7 @@ pub struct Executable {
     pub compiler_flags: Option<CompilerFlags>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Library {
     pub name: String,
     pub main: std::path::PathBuf,

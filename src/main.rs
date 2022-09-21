@@ -67,26 +67,26 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     evaluate_compiler(&compiler, &opts, &cache, &output)?;
 
     let mut generator = MakefileGenerator::new(&opts.build_directory, compiler);
-    let mut builder = BuildManager::new(&mut generator);
+    let mut build_manager = BuildManager::new(&mut generator);
 
-    builder
+    build_manager
         .configure(&opts)
         .context("An error occured when configuring the project.")?;
 
     parse_and_register_dependencies(
-        &mut builder,
+        &mut build_manager,
         &opts.input_file,
         &output,
         &mut dependency_registry,
     )?;
 
     if opts.create_dottie_graph {
-        return create_dottie_graph(&builder, &output);
+        return create_dottie_graph(&build_manager, &output);
     }
 
-    generate_makefiles(&mut builder, &output, opts)?;
+    generate_makefiles(&mut build_manager, &output, opts)?;
 
-    build_project(&mut builder, &output, opts, &logger)?;
+    build_project(&mut build_manager, &output, opts, &logger)?;
     cache.cache(&dependency_registry)?;
     Ok(())
 }
@@ -111,11 +111,11 @@ fn do_remake(opts: &RemakeOpts) -> anyhow::Result<()> {
 }
 
 fn generate_makefiles(
-    builder: &mut BuildManager,
+    build_manager: &mut BuildManager,
     output: &Output,
     opts: &BuildOpts,
 ) -> anyhow::Result<()> {
-    builder.generate_makefiles()?;
+    build_manager.generate_makefiles()?;
     output.status(&format!(
         "Build files generated in {}\n",
         opts.build_directory.as_path().display()
@@ -124,20 +124,20 @@ fn generate_makefiles(
 }
 
 fn parse_and_register_dependencies(
-    builder: &mut BuildManager,
+    build_manager: &mut BuildManager,
     top_path: &std::path::Path,
     output: &Output,
     dep_registry: &mut TargetRegistry,
 ) -> anyhow::Result<()> {
-    builder.parse_and_register_dependencies(dep_registry, top_path)?;
-    let number_of_mmk_files = dep_registry.number_of_targets();
-    output.status(&format!("Read {} Yambs files\n", number_of_mmk_files));
+    build_manager.parse_and_register_dependencies(dep_registry, top_path)?;
+    let number_of_yambs_files = dep_registry.number_of_targets();
+    output.status(&format!("Read {} Yambs files\n", number_of_yambs_files));
     Ok(())
 }
 
-fn create_dottie_graph(builder: &BuildManager, output: &Output) -> anyhow::Result<()> {
+fn create_dottie_graph(build_manager: &BuildManager, output: &Output) -> anyhow::Result<()> {
     let mut dottie_buffer = String::new();
-    for target in builder.targets() {
+    for target in build_manager.targets() {
         if external::dottie(target, false, &mut dottie_buffer).is_ok() {
             output.status(&format!(
                 "Created dottie file dependency-{}.gv\n",
@@ -149,14 +149,14 @@ fn create_dottie_graph(builder: &BuildManager, output: &Output) -> anyhow::Resul
 }
 
 fn build_project(
-    builder: &mut BuildManager,
+    build_manager: &mut BuildManager,
     output: &Output,
     opts: &BuildOpts,
     logger: &logger::Logger,
 ) -> anyhow::Result<()> {
-    for target in builder.targets() {
+    for target in build_manager.targets() {
         let process_output = build_dependency(
-            builder,
+            build_manager,
             target,
             opts.build_directory.as_path(),
             output,
@@ -180,13 +180,13 @@ fn build_project(
 }
 
 pub fn build_dependency(
-    builder: &BuildManager,
+    build_manager: &BuildManager,
     dependency: &TargetNode,
     build_path: &std::path::Path,
     output: &Output,
     opts: &BuildOpts,
 ) -> anyhow::Result<std::process::Output> {
-    let build_directory = builder.resolve_build_directory(build_path);
+    let build_directory = build_manager.resolve_build_directory(build_path);
     for required_dependency in &dependency.borrow().dependencies {
         let borrowed_required_dependency = required_dependency.borrow();
         let project_name = borrowed_required_dependency.project_name();
@@ -194,7 +194,7 @@ pub fn build_dependency(
 
         if required_dependency.borrow().state == TargetState::BuildComplete {
             let top_build_directory_resolved =
-                builder.resolve_build_directory(opts.build_directory.as_path());
+                build_manager.resolve_build_directory(opts.build_directory.as_path());
             let directory_to_link = top_build_directory_resolved.join("libs").join(project_name);
 
             if !build_path_dep.is_dir() {
@@ -206,8 +206,13 @@ pub fn build_dependency(
         }
 
         required_dependency.borrow_mut().state = TargetState::Building;
-        let dep_output =
-            build_dependency(builder, &required_dependency, build_path_dep, output, opts)?;
+        let dep_output = build_dependency(
+            build_manager,
+            &required_dependency,
+            build_path_dep,
+            output,
+            opts,
+        )?;
         if !dep_output.status.success() {
             return Ok(dep_output);
         }
@@ -229,7 +234,7 @@ pub fn build_dependency(
     })?;
     output.status(&construct_build_message(dependency));
 
-    let process_output = builder.make().spawn(output)?;
+    let process_output = build_manager.make().spawn(output)?;
     dependency.borrow_mut().state = TargetState::BuildComplete;
 
     Ok(process_output)

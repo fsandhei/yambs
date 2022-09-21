@@ -1,4 +1,4 @@
-use crate::dependency::target::TargetNode;
+use crate::build_target::TargetNode;
 use crate::generator::GeneratorError;
 
 pub trait Generator: Sanitizer + RuntimeSettings {

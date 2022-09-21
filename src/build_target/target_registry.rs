@@ -1,5 +1,5 @@
+use crate::build_target::TargetNode;
 use crate::cache;
-use crate::dependency::target::TargetNode;
 use crate::utility;
 // LEGG TIL TESTER
 

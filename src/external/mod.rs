@@ -3,7 +3,7 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 
-use crate::dependency::target::TargetNode;
+use crate::build_target::TargetNode;
 
 pub fn dottie(top: &TargetNode, recursive: bool, data: &mut String) -> std::io::Result<()> {
     let mut dottie_file = create_dottie_file(recursive)?;

@@ -6,10 +6,10 @@ use regex::Regex;
 use structopt::StructOpt;
 
 use yambs::build_state_machine::*;
+use yambs::build_target::{target_registry::TargetRegistry, TargetNode, TargetState};
 use yambs::cache::Cache;
 use yambs::cli::command_line::{BuildOpts, CommandLine, RemakeOpts, Subcommand};
 use yambs::compiler;
-use yambs::dependency::target::{target_registry::TargetRegistry, TargetNode, TargetState};
 use yambs::external;
 use yambs::generator::MakefileGenerator;
 use yambs::logger;

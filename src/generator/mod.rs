@@ -5,11 +5,9 @@ use std::path::PathBuf;
 mod generator;
 mod include_file_generator;
 
+use crate::build_target::{include_directories::IncludeType, TargetError, TargetNode, TargetState};
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::compiler::Compiler;
-use crate::dependency::target::{
-    include_directories::IncludeType, TargetError, TargetNode, TargetState,
-};
 use crate::errors::FsError;
 use crate::utility;
 pub use generator::{Generator, GeneratorExecutor, RuntimeSettings, Sanitizer, UtilityGenerator};

@@ -1,8 +1,8 @@
 pub mod build_state_machine;
+pub mod build_target;
 pub mod cache;
 pub mod cli;
 pub mod compiler;
-pub mod dependency;
 pub mod errors;
 pub mod external;
 pub mod flags;

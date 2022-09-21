@@ -84,18 +84,20 @@ impl Target {
         recipe_dir_path: &std::path::Path,
         executable: &targets::Executable,
     ) -> Result<Self, TargetError> {
-        let metadata = std::fs::metadata(recipe_dir_path.join(YAMBS_FILE_NAME))
-            .expect("Could not fetch metadata from yambs.json");
+        let metadata =
+            std::fs::metadata(recipe_dir_path).expect("Could not fetch metadata from yambs.json");
+        let mut source_files = executable.sources.clone();
+        source_files.push(executable.main.clone());
 
         Ok(Self {
-            recipe_dir_path: recipe_dir_path.to_path_buf(),
+            recipe_dir_path: recipe_dir_path.parent().unwrap().to_path_buf(),
             main: executable.main.to_path_buf(),
             modification_time: metadata
                 .modified()
                 .expect("Could not fetch last modified time."),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
-            associated_files: AssociatedFiles::from_paths(&executable.sources)
+            associated_files: AssociatedFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
             target_type: TargetType::Executable(executable.name.to_string()),
             include_directories: IncludeDirectories::from_dependencies(&executable.dependencies),
@@ -110,18 +112,21 @@ impl Target {
         recipe_dir_path: &std::path::Path,
         library: &targets::Library,
     ) -> Result<Self, TargetError> {
-        let metadata = std::fs::metadata(recipe_dir_path.join(YAMBS_FILE_NAME))
-            .expect("Could not fetch metadata from yambs.json");
+        let metadata =
+            std::fs::metadata(recipe_dir_path).expect("Could not fetch metadata from yambs.json");
+
+        let mut source_files = library.sources.clone();
+        source_files.push(library.main.clone());
 
         Ok(Self {
-            recipe_dir_path: recipe_dir_path.to_path_buf(),
+            recipe_dir_path: recipe_dir_path.parent().unwrap().to_path_buf(),
             main: library.main.to_path_buf(),
             modification_time: metadata
                 .modified()
                 .expect("Could not fetch last modified time."),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
-            associated_files: AssociatedFiles::from_paths(&library.sources)
+            associated_files: AssociatedFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
             target_type: TargetType::Library(library.name.to_string()),
             include_directories: IncludeDirectories::from_dependencies(&library.dependencies),

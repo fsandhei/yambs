@@ -11,7 +11,10 @@ impl AssociatedFiles {
         Ok(Self(
             sources
                 .iter()
-                .map(|source| SourceFile::new(&source))
+                .map(|source| {
+                    log::debug!("Found source file {}", source.display());
+                    SourceFile::new(&source)
+                })
                 .collect::<Result<Vec<SourceFile>, AssociatedFileError>>()?,
         ))
     }
@@ -47,6 +50,8 @@ impl<'a> std::iter::IntoIterator for &'a AssociatedFiles {
 pub enum AssociatedFileError {
     #[error("Could not specify file type")]
     CouldNotSpecifyFileType,
+    #[error("Source file {0:?} does not exist")]
+    FileNotExisting(std::path::PathBuf),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
@@ -57,11 +62,15 @@ pub struct SourceFile {
 
 impl SourceFile {
     pub fn new(file: &std::path::Path) -> Result<Self, AssociatedFileError> {
+        if !file.exists() {
+            return Err(AssociatedFileError::FileNotExisting(file.to_path_buf()));
+        }
         let file_type = match file.extension().and_then(|extension| extension.to_str()) {
             Some("cpp") | Some("cc") => FileType::Source,
             Some("h") | Some("hpp") => FileType::Header,
             Some(_) | None => return Err(AssociatedFileError::CouldNotSpecifyFileType),
         };
+
         Ok(Self {
             file_type,
             file: file.to_path_buf(),

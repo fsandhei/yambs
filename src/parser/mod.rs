@@ -8,6 +8,8 @@ pub struct ParsedRecipe {
 }
 
 // FIXME: Write tests!
+// FIXME: Vurdere variabel for filstier som settes av yambs for å hjelpe forkortelse av paths.
+// Bruke relativ path, kanskje?
 pub fn parse(toml_path: &std::path::Path) -> Result<ParsedRecipe, ParseTomlError> {
     let toml_content =
         String::from_utf8(std::fs::read(toml_path).map_err(ParseTomlError::FailedToRead)?)
@@ -41,7 +43,15 @@ impl std::convert::From<RawRecipe> for Recipe {
                             .common_raw
                             .dependencies
                             .iter()
-                            .map(|(name, data)| targets::Dependency::new(&name, data))
+                            .map(|(name, data)| {
+                                let dependency = targets::Dependency::new(&name, data);
+                                log::debug!(
+                                    "Found executable {} in path {}",
+                                    dependency.name,
+                                    dependency.data.path.display()
+                                );
+                                dependency
+                            })
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Executable(targets::Executable {
                             name,
@@ -65,7 +75,15 @@ impl std::convert::From<RawRecipe> for Recipe {
                             .common_raw
                             .dependencies
                             .iter()
-                            .map(|(name, data)| targets::Dependency::new(&name, data))
+                            .map(|(name, data)| {
+                                let dependency = targets::Dependency::new(&name, data);
+                                log::debug!(
+                                    "Found library {} in path {}",
+                                    dependency.name,
+                                    dependency.data.path.display()
+                                );
+                                dependency
+                            })
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Library(targets::Library {
                             name,

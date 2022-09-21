@@ -340,6 +340,11 @@ impl MakefileGenerator {
 
 impl GeneratorExecutor for MakefileGenerator {
     fn generate_makefiles(&mut self, dependency: &TargetNode) -> Result<(), GeneratorError> {
+        log::debug!(
+            "Generating makefiles for target {:?} (recipe location: {})",
+            dependency.borrow().project_name().display(),
+            dependency.borrow().recipe_dir_path.display()
+        );
         if self.state == GeneratorState::IncludeNotGenerated {
             self.generate_include_files()?;
             self.state = GeneratorState::IncludeGenerated;
@@ -447,23 +452,25 @@ impl Generator for MakefileGenerator {
         let mut data = String::new();
         let borrowed_dependency = self.get_dependency()?.borrow();
         let cxxflags = borrowed_dependency.compiler_flags.cxx_flags.flags();
-        data.push_str(&format!(
-            "CXXFLAGS += {cxxflags_str}",
-            cxxflags_str = cxxflags
-                .iter()
-                .map(|cxxflag| format!("{}\n", cxxflag))
-                .collect::<String>()
-        ));
-
+        if !cxxflags.is_empty() {
+            data.push_str(&format!(
+                "CXXFLAGS += {cxxflags_str}",
+                cxxflags_str = cxxflags
+                    .iter()
+                    .map(|cxxflag| format!("{}\n", cxxflag))
+                    .collect::<String>()
+            ));
+        }
         let cppflags = borrowed_dependency.compiler_flags.cpp_flags.flags();
-        data.push_str(&format!(
-            "CPPFLAGS += {cppflags_str}",
-            cppflags_str = cppflags
-                .iter()
-                .map(|cppflag| format!("{}\n", cppflag))
-                .collect::<String>()
-        ));
-
+        if !cppflags.is_empty() {
+            data.push_str(&format!(
+                "CPPFLAGS += {cppflags_str}",
+                cppflags_str = cppflags
+                    .iter()
+                    .map(|cppflag| format!("{}\n", cppflag))
+                    .collect::<String>()
+            ));
+        }
         if !data.is_empty() {
             self.filename
                 .as_ref()

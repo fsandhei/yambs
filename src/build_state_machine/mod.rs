@@ -73,6 +73,20 @@ impl<'gen> BuildManager<'gen> {
         let recipe = parser::parse(recipe_path).map_err(BuildManagerError::FailedToParse)?;
 
         for build_target in recipe.recipe.targets {
+            if let Some(lib) = build_target.library() {
+                log::debug!(
+                    "Creating build target for library {} in recipe {}",
+                    lib.name,
+                    recipe_path.display()
+                );
+            }
+            if let Some(exe) = build_target.executable() {
+                log::debug!(
+                    "Creating build target for executable {} in recipe {}",
+                    exe.name,
+                    recipe_path.display()
+                );
+            }
             let target = Target::create(recipe_path, &build_target, dep_registry)
                 .map_err(BuildManagerError::Target)?;
             self.targets.push(target);

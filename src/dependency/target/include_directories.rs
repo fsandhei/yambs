@@ -15,6 +15,7 @@ impl IncludeDirectory {
     fn find(path: &std::path::Path) -> Option<std::path::PathBuf> {
         let include_path = path.join("include");
         if include_path.is_dir() {
+            log::debug!("Found include directory {:?}", include_path.display());
             return Some(include_path);
         }
         if let Some(parent) = path.parent() {

@@ -187,8 +187,7 @@ pub fn build_dependency(
     opts: &BuildOpts,
 ) -> anyhow::Result<std::process::Output> {
     let build_directory = builder.resolve_build_directory(build_path);
-    let borrowed_dependency = dependency.borrow();
-    for required_dependency in &borrowed_dependency.dependencies {
+    for required_dependency in &dependency.borrow().dependencies {
         let borrowed_required_dependency = required_dependency.borrow();
         let project_name = borrowed_required_dependency.project_name();
         let build_path_dep = &build_directory.join("libs").join(project_name);

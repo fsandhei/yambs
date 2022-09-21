@@ -274,7 +274,7 @@ impl MakefileGenerator {
 
     fn print_include_dependency_top(&self) -> Result<String, GeneratorError> {
         let borrowed_dependency = self.get_dependency()?.borrow();
-        let project_base = utility::get_project_top_directory(&borrowed_dependency.recipe_dir_path);
+        let project_base = &borrowed_dependency.recipe_dir_path;
         let include_line = format!(
             "-I{} -I{} ",
             project_base.display(),

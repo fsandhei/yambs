@@ -59,9 +59,9 @@ impl InnerOutput {
 
         match output_type {
             OutputType::Status | OutputType::Warning => {
-                print!("{}", prepared_output.color(color))
+                println!("{}", prepared_output.color(color))
             }
-            OutputType::Error => eprint!("{}", prepared_output.color(color)),
+            OutputType::Error => eprintln!("{}", prepared_output.color(color)),
         };
     }
 
@@ -105,10 +105,3 @@ mod tests {
         assert_eq!(OutputType::Error.as_color(), colored::Color::Red);
     }
 }
-// enum Log {
-//     Trace,
-//     Debug,
-//     Info,
-//     Warning,
-//     Error,
-// }

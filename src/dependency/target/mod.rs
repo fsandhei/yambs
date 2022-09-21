@@ -15,7 +15,7 @@ use associated_files::AssociatedFiles;
 use include_directories::IncludeDirectories;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Target {
+pub struct BuildTarget {
     pub manifest_dir_path: std::path::PathBuf,
     pub main: std::path::PathBuf,
     pub modification_time: std::time::SystemTime,
@@ -27,7 +27,7 @@ pub struct Target {
     pub compiler_flags: CompilerFlags,
 }
 
-impl Target {
+impl BuildTarget {
     pub fn create(
         manifest_dir_path: &std::path::Path,
         target: &targets::Target,
@@ -35,10 +35,10 @@ impl Target {
     ) -> Result<TargetNode, TargetError> {
         let target_node = match target {
             targets::Target::Executable(executable) => {
-                TargetNode::new(Target::executable(manifest_dir_path, &executable)?)
+                TargetNode::new(BuildTarget::executable(manifest_dir_path, &executable)?)
             }
             targets::Target::Library(library) => {
-                TargetNode::new(Target::library(manifest_dir_path, &library)?)
+                TargetNode::new(BuildTarget::library(manifest_dir_path, &library)?)
             }
         };
         log::debug!(
@@ -178,7 +178,7 @@ impl Target {
                         }
                     })
                     .unwrap();
-                let target = Target::create(&dependency.data.path, dep_target, registry)?;
+                let target = BuildTarget::create(&dependency.data.path, dep_target, registry)?;
                 target_vec.push(target)
             }
         }
@@ -202,21 +202,18 @@ impl Target {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct TargetNode(Rc<RefCell<Target>>);
+pub struct TargetNode(Rc<RefCell<BuildTarget>>);
 
 impl TargetNode {
-    pub fn new(target: Target) -> Self {
+    pub fn new(target: BuildTarget) -> Self {
         Self {
             0: Rc::new(RefCell::new(target)),
         }
     }
-    pub fn try_borrow(&self) -> Result<std::cell::Ref<'_, Target>, std::cell::BorrowError> {
-        self.0.try_borrow()
-    }
 }
 
 impl std::ops::Deref for TargetNode {
-    type Target = Rc<RefCell<Target>>;
+    type Target = Rc<RefCell<BuildTarget>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

@@ -1,6 +1,8 @@
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::cli::command_line::BuildOpts;
-use crate::dependency::target::{target_registry::TargetRegistry, Target, TargetError, TargetNode};
+use crate::dependency::target::{
+    target_registry::TargetRegistry, BuildTarget, TargetError, TargetNode,
+};
 use crate::errors::FsError;
 use crate::generator::{GeneratorError, GeneratorExecutor};
 use crate::parser;
@@ -87,7 +89,7 @@ impl<'gen> BuildManager<'gen> {
                     manifest_path.display()
                 );
             }
-            let target = Target::create(manifest_path, &build_target, dep_registry)
+            let target = BuildTarget::create(manifest_path, &build_target, dep_registry)
                 .map_err(BuildManagerError::Target)?;
             self.targets.push(target);
         }

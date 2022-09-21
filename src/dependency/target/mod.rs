@@ -41,11 +41,20 @@ impl Target {
                 TargetNode::new(Target::library(manifest_dir_path, &library)?)
             }
         };
+        log::debug!(
+            "Creating build target \"{}\"...",
+            target_node.borrow().name()
+        );
         registry.add_target(target_node.clone());
         target_node.borrow_mut().state = TargetState::InProcess;
         let target_vec = target_node.borrow().detect_target(registry, target)?;
 
         for target in target_vec {
+            log::debug!(
+                "Registering target \"{}\" (manifest directory {})",
+                target.borrow().name(),
+                target.borrow().manifest_dir_path.display()
+            );
             target_node.borrow_mut().add_target(target);
         }
         target_node.borrow_mut().state = TargetState::Registered;
@@ -74,10 +83,10 @@ impl Target {
         utility::get_head_directory(&self.manifest_dir_path)
     }
 
-    pub fn name(&self) -> Option<String> {
+    pub fn name(&self) -> String {
         match self.target_type {
-            TargetType::Executable(ref executable) => Some(executable.to_owned()),
-            TargetType::Library(ref library) => Some(library.to_owned()),
+            TargetType::Executable(ref executable) => executable.to_owned(),
+            TargetType::Library(ref library) => library.to_owned(),
         }
     }
 
@@ -143,12 +152,18 @@ impl Target {
         registry: &mut target_registry::TargetRegistry,
         target: &targets::Target,
     ) -> Result<Vec<TargetNode>, TargetError> {
+        log::debug!(
+            "Checking if target \"{}\" has registered dependencies",
+            self.name()
+        );
         let mut target_vec = Vec::new();
         for dependency in target.dependencies() {
             if let Some(registered_dep) = registry.get_target(&dependency.data.path) {
+                log::debug!("Found registered dependency. Checking for cyclic dependencies");
                 self.detect_cycle_from_target(&registered_dep)?;
                 target_vec.push(registered_dep);
             } else {
+                log::debug!("No registered dependency found. Creating dependency build target.");
                 let manifest_path = dependency.data.path.join(YAMBS_FILE_NAME);
                 let manifest = parser::parse(&manifest_path).map_err(TargetError::Parse)?;
                 let dep_target = manifest
@@ -241,8 +256,6 @@ pub enum TargetError {
     FailedToCache(#[source] errors::CacheError),
     #[error("Dependency circulation! {0:?} depends on {1:?}, which depends on itself")]
     Circulation(std::path::PathBuf, std::path::PathBuf),
-    #[error("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!")]
-    NotSet,
     #[error("Error occured classifying associated file")]
     AssociatedFile(#[source] associated_files::AssociatedFileError),
 }

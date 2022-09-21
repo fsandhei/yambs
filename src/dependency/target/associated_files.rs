@@ -11,10 +11,7 @@ impl AssociatedFiles {
         Ok(Self(
             sources
                 .iter()
-                .map(|source| {
-                    log::debug!("Found source file {}", source.display());
-                    SourceFile::new(&source)
-                })
+                .map(|source| SourceFile::new(&source))
                 .collect::<Result<Vec<SourceFile>, AssociatedFileError>>()?,
         ))
     }
@@ -70,6 +67,7 @@ impl SourceFile {
             Some("h") | Some("hpp") => FileType::Header,
             Some(_) | None => return Err(AssociatedFileError::CouldNotSpecifyFileType),
         };
+        log::debug!("Found source file {}", file.display());
 
         Ok(Self {
             file_type,

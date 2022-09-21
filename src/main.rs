@@ -141,7 +141,7 @@ fn create_dottie_graph(build_manager: &BuildManager, output: &Output) -> anyhow:
         if external::dottie(target, false, &mut dottie_buffer).is_ok() {
             output.status(&format!(
                 "Created dottie file dependency-{}.gv\n",
-                target.borrow().name().unwrap()
+                target.borrow().name()
             ));
         }
     }
@@ -246,7 +246,7 @@ fn construct_build_message(dependency: &TargetNode) -> String {
     } else {
         "library"
     };
-    let dep_type_name = dependency.borrow().name().unwrap();
+    let dep_type_name = dependency.borrow().name();
 
     let target = format!("{} {}", dep_type, dep_type_name);
     format!("Building {}\n", target)

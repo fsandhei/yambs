@@ -8,7 +8,7 @@ use crate::dependency::target::TargetNode;
 pub fn dottie(top: &TargetNode, recursive: bool, data: &mut String) -> std::io::Result<()> {
     let mut dottie_file = create_dottie_file(recursive)?;
     let borrowed_top = top.borrow();
-    let top_pretty_name = &borrowed_top.name().unwrap();
+    let top_pretty_name = &borrowed_top.name();
 
     if !recursive {
         data.push_str(
@@ -26,7 +26,7 @@ pub fn dottie(top: &TargetNode, recursive: bool, data: &mut String) -> std::io::
             "\
         {:?} -> {:?}\n\
         ",
-            requirement.borrow().name().unwrap(),
+            requirement.borrow().name(),
             top_pretty_name
         ));
         dottie(requirement, true, data)?;

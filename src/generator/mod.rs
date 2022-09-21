@@ -116,7 +116,7 @@ impl MakefileGenerator {
     fn make_object_rule(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
 
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency().borrow();
         let sources = borrowed_dependency
             .associated_files
             .iter()
@@ -158,7 +158,7 @@ impl MakefileGenerator {
 
     fn print_header_includes(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency().borrow();
         let sources = borrowed_dependency
             .associated_files
             .iter()
@@ -180,25 +180,23 @@ impl MakefileGenerator {
 
     fn print_required_dependencies_libraries(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency().borrow();
         for dependency in &borrowed_dependency.dependencies {
-            if dependency.borrow().name().is_some() {
-                let required_dep = dependency;
-                let mut output_directory = self
-                    .get_required_project_lib_dir()
-                    .join(required_dep.borrow().project_name());
-                if self.is_debug_build() {
-                    output_directory = output_directory.join("debug");
-                } else {
-                    output_directory = output_directory.join("release");
-                }
-                let library_name = format!("lib{}.a", &required_dep.borrow().library_file_name());
-                formatted_string.push('\t');
-                formatted_string.push_str(&format!(
-                    "{} \\\n",
-                    output_directory.join(library_name).display()
-                ));
+            let required_dep = dependency;
+            let mut output_directory = self
+                .get_required_project_lib_dir()
+                .join(required_dep.borrow().project_name());
+            if self.is_debug_build() {
+                output_directory = output_directory.join("debug");
+            } else {
+                output_directory = output_directory.join("release");
             }
+            let library_name = format!("lib{}.a", &required_dep.borrow().library_file_name());
+            formatted_string.push('\t');
+            formatted_string.push_str(&format!(
+                "{} \\\n",
+                output_directory.join(library_name).display()
+            ));
         }
         Ok(formatted_string)
     }
@@ -213,7 +211,7 @@ impl MakefileGenerator {
         let mut formatted_string = String::new();
         let library_name = format!(
             "lib{}.a",
-            &self.get_dependency()?.borrow().library_file_name()
+            &self.get_dependency().borrow().library_file_name()
         );
         utility::print_full_path(
             &mut formatted_string,
@@ -227,7 +225,7 @@ impl MakefileGenerator {
 
     fn print_prerequisites(&self) -> Result<String, GeneratorError> {
         let mut formatted_string = String::new();
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency().borrow();
         let sources = borrowed_dependency
             .associated_files
             .iter()
@@ -256,7 +254,7 @@ impl MakefileGenerator {
     }
 
     fn print_dependencies(&self) -> Result<String, GeneratorError> {
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency().borrow();
         let mut formatted_string = self.print_include_dependency_top()?;
         if let Some(include_directories) = &borrowed_dependency.include_directories {
             for include in include_directories {
@@ -273,7 +271,7 @@ impl MakefileGenerator {
     }
 
     fn print_include_dependency_top(&self) -> Result<String, GeneratorError> {
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency().borrow();
         let project_base = &borrowed_dependency.manifest_dir_path;
         let include_line = format!(
             "-I{} -I{} ",
@@ -333,8 +331,10 @@ impl MakefileGenerator {
         Ok(())
     }
 
-    pub fn get_dependency(&self) -> Result<&TargetNode, TargetError> {
-        self.dependency.as_ref().ok_or(TargetError::NotSet)
+    pub fn get_dependency(&self) -> &TargetNode {
+        self.dependency
+            .as_ref()
+            .expect("target is not set for generator.")
     }
 }
 
@@ -386,7 +386,7 @@ impl Generator for MakefileGenerator {
         self.create_makefile();
         self.generate_header()?;
         self.generate_appending_flags()?;
-        if self.get_dependency()?.borrow().is_executable() {
+        if self.get_dependency().borrow().is_executable() {
             self.generate_rule_executable()?;
         } else {
             self.generate_rule_package()?;
@@ -433,7 +433,7 @@ impl Generator for MakefileGenerator {
         \n\
         {include_headers}\n\
         ",
-            executable = self.get_dependency()?.borrow().name().unwrap(),
+            executable = self.get_dependency().borrow().name(),
             prerequisites = self.print_prerequisites()?,
             dependencies = self.print_dependencies()?,
             sources_to_objects = self.make_object_rule()?,
@@ -450,7 +450,7 @@ impl Generator for MakefileGenerator {
 
     fn generate_appending_flags(&mut self) -> Result<(), GeneratorError> {
         let mut data = String::new();
-        let borrowed_dependency = self.get_dependency()?.borrow();
+        let borrowed_dependency = self.get_dependency().borrow();
         let cxxflags = borrowed_dependency.compiler_flags.cxx_flags.flags();
         if !cxxflags.is_empty() {
             data.push_str(&format!(

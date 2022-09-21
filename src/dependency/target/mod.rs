@@ -41,6 +41,7 @@ impl Target {
                 TargetNode::new(Target::library(recipe_dir_path, &library)?)
             }
         };
+        registry.add_target(target_node.clone());
         target_node.borrow_mut().state = TargetState::InProcess;
         let target_vec = target_node.borrow().detect_target(registry, target)?;
 

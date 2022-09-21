@@ -48,7 +48,7 @@ fn validate_file_path(path_as_str: &str) -> Result<std::path::PathBuf, CommandLi
 
 #[derive(StructOpt, Debug)]
 pub enum Subcommand {
-    /// Build project specified by recipe YAMBS file.
+    /// Build project specified by manifest YAMBS file.
     Build(BuildOpts),
     /// Print previous invocation line used and exit.
     Remake(RemakeOpts),
@@ -56,7 +56,7 @@ pub enum Subcommand {
 
 #[derive(StructOpt, Debug)]
 pub struct BuildOpts {
-    /// Input recipe file for YAMBS.
+    /// Input manifest file for YAMBS.
     #[structopt(parse(try_from_str = validate_file_path))]
     pub input_file: PathBuf,
     /// Set runtime configurations (build configurations, C++ standard, sanitizers, etc)

@@ -2,37 +2,37 @@ use crate::targets;
 
 mod constants;
 
-pub struct ParsedRecipe {
+pub struct ParsedManifest {
     pub path: std::path::PathBuf,
-    pub recipe: Recipe,
+    pub data: ManifestData,
 }
 
 // FIXME: Write tests!
 // FIXME: Vurdere variabel for filstier som settes av yambs for å hjelpe forkortelse av paths.
 // Bruke relativ path, kanskje?
-pub fn parse(toml_path: &std::path::Path) -> Result<ParsedRecipe, ParseTomlError> {
+pub fn parse(toml_path: &std::path::Path) -> Result<ParsedManifest, ParseTomlError> {
     let toml_content =
         String::from_utf8(std::fs::read(toml_path).map_err(ParseTomlError::FailedToRead)?)
             .map_err(ParseTomlError::FailedToConvertUtf8)?;
-    Ok(ParsedRecipe {
+    Ok(ParsedManifest {
         path: toml_path.to_path_buf(),
-        recipe: parse_toml(&toml_content)?,
+        data: parse_toml(&toml_content)?,
     })
 }
 
-fn parse_toml(toml: &str) -> Result<Recipe, ParseTomlError> {
-    let recipe_contents =
-        toml::from_str::<RawRecipe>(toml).map_err(ParseTomlError::FailedToParse)?;
-    Ok(Recipe::from(recipe_contents))
+fn parse_toml(toml: &str) -> Result<ManifestData, ParseTomlError> {
+    let manifest_contents =
+        toml::from_str::<RawManifestData>(toml).map_err(ParseTomlError::FailedToParse)?;
+    Ok(ManifestData::from(manifest_contents))
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Recipe {
+pub struct ManifestData {
     pub targets: Vec<targets::Target>,
 }
 
-impl std::convert::From<RawRecipe> for Recipe {
-    fn from(contents: RawRecipe) -> Self {
+impl std::convert::From<RawManifestData> for ManifestData {
+    fn from(contents: RawManifestData) -> Self {
         let mut targets = Vec::<targets::Target>::new();
         let mut executables = {
             if let Some(executables) = contents.executables {
@@ -106,7 +106,7 @@ impl std::convert::From<RawRecipe> for Recipe {
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-pub struct RawRecipe {
+pub struct RawManifestData {
     #[serde(rename = "executable")]
     pub executables: Option<std::collections::HashMap<String, targets::RawExecutableData>>,
     #[serde(rename = "library")]
@@ -115,9 +115,9 @@ pub struct RawRecipe {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParseTomlError {
-    #[error("Failed to parse TOML recipe file.")]
+    #[error("Failed to parse TOML manifest file.")]
     FailedToParse(#[source] toml::de::Error),
-    #[error("Failed to read TOML recipe file.")]
+    #[error("Failed to read TOML manifest file.")]
     FailedToRead(#[source] std::io::Error),
     #[error("Failed to convert UTF-8 bytes to string")]
     FailedToConvertUtf8(#[source] std::string::FromUtf8Error),
@@ -130,14 +130,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_produces_recipe_with_executables() {
+    fn parse_produces_manifest_with_executables() {
         const TOML_RECIPE: &str = r#"
     [executable.x]
     main = "main.cpp"
     sources = ['x.cpp', 'y.cpp', 'z.cpp']
     "#;
         {
-            let recipe = parse_toml(TOML_RECIPE).unwrap();
+            let manifest = parse_toml(TOML_RECIPE).unwrap();
             let executable = Executable {
                 name: "x".to_string(),
                 main: std::path::PathBuf::from("main.cpp"),
@@ -149,10 +149,10 @@ mod tests {
                 dependencies: Vec::new(),
                 compiler_flags: None,
             };
-            let expected = Recipe {
+            let expected = ManifestData {
                 targets: vec![targets::Target::Executable(executable)],
             };
-            assert_eq!(recipe, expected);
+            assert_eq!(manifest, expected);
         }
         const TOML_WITH_REQUIRE_RECIPE: &str = r#"
     [executable.x]
@@ -163,7 +163,7 @@ mod tests {
     SomeSecondProject = { path = "/some/path/SomeSecondProject" }
     "#;
         {
-            let recipe = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
+            let manifest = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
             let executable = Executable {
                 name: "x".to_string(),
                 main: std::path::PathBuf::from("main.cpp"),
@@ -190,15 +190,15 @@ mod tests {
                 ],
                 compiler_flags: None,
             };
-            let expected = Recipe {
+            let expected = ManifestData {
                 targets: vec![targets::Target::Executable(executable)],
             };
-            assert_eq!(recipe, expected);
+            assert_eq!(manifest, expected);
         }
     }
 
     #[test]
-    fn parse_produces_recipe_with_multiple_executables() {
+    fn parse_produces_manifest_with_multiple_executables() {
         let input = r#"
     [executable.x]
     main = "main.cpp"
@@ -213,7 +213,7 @@ mod tests {
     SomeSecondProject = { path = "/some/path/to/SomeSecondProject" }
     "#;
         {
-            let recipe = parse_toml(input).unwrap();
+            let manifest = parse_toml(input).unwrap();
             let executable_x = Executable {
                 name: "x".to_string(),
                 main: std::path::PathBuf::from("main.cpp"),
@@ -251,25 +251,25 @@ mod tests {
                 ],
                 compiler_flags: None,
             };
-            let expected = Recipe {
+            let expected = ManifestData {
                 targets: vec![
                     targets::Target::Executable(executable_x),
                     targets::Target::Executable(executable_y),
                 ],
             };
-            assert_eq!(recipe, expected);
+            assert_eq!(manifest, expected);
         }
     }
 
     #[test]
-    fn parse_produces_recipe_with_libraries() {
+    fn parse_produces_manifest_with_libraries() {
         const TOML_RECIPE: &str = r#"
     [library.MyLibraryData]
     main = "generator.cpp"
     sources = ['x.cpp', 'y.cpp', 'z.cpp']
     "#;
         {
-            let recipe = parse_toml(TOML_RECIPE).unwrap();
+            let manifest = parse_toml(TOML_RECIPE).unwrap();
             let library = Library {
                 name: "MyLibraryData".to_string(),
                 main: std::path::PathBuf::from("generator.cpp"),
@@ -282,10 +282,10 @@ mod tests {
                 compiler_flags: None,
                 lib_type: targets::LibraryType::default(),
             };
-            let expected = Recipe {
+            let expected = ManifestData {
                 targets: vec![targets::Target::Library(library)],
             };
-            assert_eq!(recipe, expected);
+            assert_eq!(manifest, expected);
         }
         const TOML_WITH_REQUIRE_RECIPE: &str = r#"
     [library.MyLibraryData]
@@ -297,7 +297,7 @@ mod tests {
     SomeSecondProject = { path = "/some/path/to/SomeSecondProject" }
     "#;
         {
-            let recipe = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
+            let manifest = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
             let library = Library {
                 name: "MyLibraryData".to_string(),
                 main: std::path::PathBuf::from("generator.cpp"),
@@ -325,10 +325,10 @@ mod tests {
                 compiler_flags: None,
                 lib_type: targets::LibraryType::default(),
             };
-            let expected = Recipe {
+            let expected = ManifestData {
                 targets: vec![targets::Target::Library(library)],
             };
-            assert_eq!(recipe, expected);
+            assert_eq!(manifest, expected);
         }
     }
 }

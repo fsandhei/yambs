@@ -119,7 +119,7 @@ pub enum FsError {
     #[error("Failed to execute external program")]
     FailedToExecute(#[source] std::io::Error),
     #[error(
-        "{0:?} is not a YAMBS recipe file.\n\
+        "{0:?} is not a YAMBS manifest file.\n\
              Hint: Recipe files are called yambs.toml"
     )]
     InvalidRecipeFilename(std::path::PathBuf),

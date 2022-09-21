@@ -36,12 +36,12 @@ pub struct Constants {
 
 impl Constants {
     #[allow(dead_code)]
-    pub fn new(toml_recipe_dir: &Path, src_path: &Path) -> Self {
+    pub fn new(toml_manifest_dir: &Path, src_path: &Path) -> Self {
         let mut collection = HashMap::<Constant, String>::new();
 
         collection.insert(
             Constant::new("project_top"),
-            toml_recipe_dir.display().to_string(),
+            toml_manifest_dir.display().to_string(),
         );
         collection.insert(Constant::new("src_dir"), src_path.display().to_string());
         Self { list: collection }

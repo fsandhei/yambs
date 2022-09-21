@@ -68,26 +68,26 @@ impl<'gen> BuildManager<'gen> {
     pub fn parse_and_register_dependencies(
         &mut self,
         dep_registry: &mut TargetRegistry,
-        recipe_path: &std::path::Path,
+        manifest_path: &std::path::Path,
     ) -> Result<(), BuildManagerError> {
-        let recipe = parser::parse(recipe_path).map_err(BuildManagerError::FailedToParse)?;
+        let manifest = parser::parse(manifest_path).map_err(BuildManagerError::FailedToParse)?;
 
-        for build_target in recipe.recipe.targets {
+        for build_target in manifest.data.targets {
             if let Some(lib) = build_target.library() {
                 log::debug!(
-                    "Creating build target for library {} in recipe {}",
+                    "Creating build target for library {} in manifest {}",
                     lib.name,
-                    recipe_path.display()
+                    manifest_path.display()
                 );
             }
             if let Some(exe) = build_target.executable() {
                 log::debug!(
-                    "Creating build target for executable {} in recipe {}",
+                    "Creating build target for executable {} in manifest {}",
                     exe.name,
-                    recipe_path.display()
+                    manifest_path.display()
                 );
             }
-            let target = Target::create(recipe_path, &build_target, dep_registry)
+            let target = Target::create(manifest_path, &build_target, dep_registry)
                 .map_err(BuildManagerError::Target)?;
             self.targets.push(target);
         }

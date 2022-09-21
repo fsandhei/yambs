@@ -121,7 +121,7 @@ impl MakefileGenerator {
             .associated_files
             .iter()
             .filter(|file| file.is_source());
-        let dependency_root_path = &borrowed_dependency.recipe_dir_path;
+        let dependency_root_path = &borrowed_dependency.manifest_dir_path;
 
         for source in sources {
             let source_file = source.file();
@@ -232,7 +232,7 @@ impl MakefileGenerator {
             .associated_files
             .iter()
             .filter(|file| file.is_source());
-        let dependency_root_path = &borrowed_dependency.recipe_dir_path;
+        let dependency_root_path = &borrowed_dependency.manifest_dir_path;
 
         for source in sources {
             let source_file = source.file();
@@ -274,7 +274,7 @@ impl MakefileGenerator {
 
     fn print_include_dependency_top(&self) -> Result<String, GeneratorError> {
         let borrowed_dependency = self.get_dependency()?.borrow();
-        let project_base = &borrowed_dependency.recipe_dir_path;
+        let project_base = &borrowed_dependency.manifest_dir_path;
         let include_line = format!(
             "-I{} -I{} ",
             project_base.display(),
@@ -341,9 +341,9 @@ impl MakefileGenerator {
 impl GeneratorExecutor for MakefileGenerator {
     fn generate_makefiles(&mut self, dependency: &TargetNode) -> Result<(), GeneratorError> {
         log::debug!(
-            "Generating makefiles for target {:?} (recipe location: {})",
+            "Generating makefiles for target {:?} (manifest location: {})",
             dependency.borrow().project_name().display(),
-            dependency.borrow().recipe_dir_path.display()
+            dependency.borrow().manifest_dir_path.display()
         );
         if self.state == GeneratorState::IncludeNotGenerated {
             self.generate_include_files()?;

@@ -16,7 +16,7 @@ use include_directories::IncludeDirectories;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Target {
-    pub recipe_dir_path: std::path::PathBuf,
+    pub manifest_dir_path: std::path::PathBuf,
     pub main: std::path::PathBuf,
     pub modification_time: std::time::SystemTime,
     pub dependencies: Vec<TargetNode>,
@@ -29,16 +29,16 @@ pub struct Target {
 
 impl Target {
     pub fn create(
-        recipe_dir_path: &std::path::Path,
+        manifest_dir_path: &std::path::Path,
         target: &targets::Target,
         registry: &mut target_registry::TargetRegistry,
     ) -> Result<TargetNode, TargetError> {
         let target_node = match target {
             targets::Target::Executable(executable) => {
-                TargetNode::new(Target::executable(recipe_dir_path, &executable)?)
+                TargetNode::new(Target::executable(manifest_dir_path, &executable)?)
             }
             targets::Target::Library(library) => {
-                TargetNode::new(Target::library(recipe_dir_path, &library)?)
+                TargetNode::new(Target::library(manifest_dir_path, &library)?)
             }
         };
         registry.add_target(target_node.clone());
@@ -71,7 +71,7 @@ impl Target {
     }
 
     pub fn project_name(&self) -> &std::path::Path {
-        utility::get_head_directory(&self.recipe_dir_path)
+        utility::get_head_directory(&self.manifest_dir_path)
     }
 
     pub fn name(&self) -> Option<String> {
@@ -82,16 +82,16 @@ impl Target {
     }
 
     fn executable(
-        recipe_dir_path: &std::path::Path,
+        manifest_dir_path: &std::path::Path,
         executable: &targets::Executable,
     ) -> Result<Self, TargetError> {
         let metadata =
-            std::fs::metadata(recipe_dir_path).expect("Could not fetch metadata from yambs.json");
+            std::fs::metadata(manifest_dir_path).expect("Could not fetch metadata from yambs.json");
         let mut source_files = executable.sources.clone();
         source_files.push(executable.main.clone());
 
         Ok(Self {
-            recipe_dir_path: recipe_dir_path.parent().unwrap().to_path_buf(),
+            manifest_dir_path: manifest_dir_path.parent().unwrap().to_path_buf(),
             main: executable.main.to_path_buf(),
             modification_time: metadata
                 .modified()
@@ -110,17 +110,17 @@ impl Target {
     }
 
     fn library(
-        recipe_dir_path: &std::path::Path,
+        manifest_dir_path: &std::path::Path,
         library: &targets::Library,
     ) -> Result<Self, TargetError> {
         let metadata =
-            std::fs::metadata(recipe_dir_path).expect("Could not fetch metadata from yambs.json");
+            std::fs::metadata(manifest_dir_path).expect("Could not fetch metadata from yambs.json");
 
         let mut source_files = library.sources.clone();
         source_files.push(library.main.clone());
 
         Ok(Self {
-            recipe_dir_path: recipe_dir_path.parent().unwrap().to_path_buf(),
+            manifest_dir_path: manifest_dir_path.parent().unwrap().to_path_buf(),
             main: library.main.to_path_buf(),
             modification_time: metadata
                 .modified()
@@ -149,10 +149,10 @@ impl Target {
                 self.detect_cycle_from_target(&registered_dep)?;
                 target_vec.push(registered_dep);
             } else {
-                let recipe_path = dependency.data.path.join(YAMBS_FILE_NAME);
-                let recipe = parser::parse(&recipe_path).map_err(TargetError::Parse)?;
-                let dep_target = recipe
-                    .recipe
+                let manifest_path = dependency.data.path.join(YAMBS_FILE_NAME);
+                let manifest = parser::parse(&manifest_path).map_err(TargetError::Parse)?;
+                let dep_target = manifest
+                    .data
                     .targets
                     .iter()
                     .find(|dep| {
@@ -174,8 +174,8 @@ impl Target {
     fn detect_cycle_from_target(&self, target_node: &TargetNode) -> Result<(), TargetError> {
         if target_node.borrow().state == TargetState::InProcess {
             return Err(TargetError::Circulation(
-                target_node.borrow().recipe_dir_path.to_path_buf(),
-                self.recipe_dir_path.to_path_buf(),
+                target_node.borrow().manifest_dir_path.to_path_buf(),
+                self.manifest_dir_path.to_path_buf(),
             ));
         }
         Ok(())
@@ -235,7 +235,7 @@ impl TargetState {
 pub enum TargetError {
     #[error(transparent)]
     Fs(#[from] errors::FsError),
-    #[error("Failed to parse TOML recipe.")]
+    #[error("Failed to parse TOML manifest.")]
     Parse(#[source] parser::ParseTomlError),
     #[error("Failed to create cache of dependencies")]
     FailedToCache(#[source] errors::CacheError),

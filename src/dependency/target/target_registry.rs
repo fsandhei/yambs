@@ -39,7 +39,7 @@ impl TargetRegistry {
         for target in &self.registry {
             let borrowed_target = target.try_borrow();
             if let Ok(borrowed_target) = borrowed_target {
-                if borrowed_target.recipe_dir_path == *path {
+                if borrowed_target.manifest_dir_path == *path {
                     return Some(target.clone());
                 } else {
                     return None;

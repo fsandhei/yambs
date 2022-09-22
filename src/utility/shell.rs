@@ -27,6 +27,6 @@ where
         .args(args)
         .stdout(std::process::Stdio::piped())
         .spawn()
-        .unwrap();
+        .map_err(FsError::SpawnChild)?;
     child.wait_with_output().map_err(FsError::FailedToExecute)
 }

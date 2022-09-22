@@ -1,11 +1,9 @@
-use std::path::PathBuf;
 use std::str::FromStr;
 
 use structopt::StructOpt;
 
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory};
 use crate::errors::{CommandLineError, FsError};
-use crate::YAMBS_FILE_NAME;
 
 // TODO: Need to add tests for C++ validation and sanitizer validation
 // TODO: Add default values that correctly correspond for 'configuration' when not all options are
@@ -29,21 +27,43 @@ pub struct CommandLine {
     pub subcommand: Option<Subcommand>,
 }
 
-fn validate_file_path(path_as_str: &str) -> Result<std::path::PathBuf, CommandLineError> {
-    let file_path = std::path::PathBuf::from(path_as_str)
-        .canonicalize()
-        .map_err(FsError::Canonicalize)?;
+#[derive(Debug)]
+pub struct ManifestDirectory(std::path::PathBuf);
 
-    if !file_path.is_file() {
-        return Err(FsError::FileDoesNotExist(file_path)).map_err(CommandLineError::Fs);
+impl ManifestDirectory {
+    pub fn as_path(&self) -> &std::path::Path {
+        self.0.as_path()
     }
+}
 
-    let filename = file_path.file_name();
-    if filename.unwrap().to_str().unwrap() != YAMBS_FILE_NAME {
-        return Err(FsError::InvalidRecipeFilename(file_path)).map_err(CommandLineError::Fs);
+impl std::default::Default for ManifestDirectory {
+    fn default() -> Self {
+        Self(std::env::current_dir().unwrap())
     }
+}
 
-    Ok(file_path)
+impl std::string::ToString for ManifestDirectory {
+    fn to_string(&self) -> String {
+        self.0.display().to_string()
+    }
+}
+
+impl std::str::FromStr for ManifestDirectory {
+    type Err = CommandLineError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let canonicalized_path =
+            canonicalize_path(&std::path::PathBuf::from(s)).map_err(FsError::Canonicalize)?;
+        Ok(Self {
+            0: canonicalized_path,
+        })
+    }
+}
+
+fn canonicalize_path(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
+    if !path.is_absolute() {
+        return Ok(std::env::current_dir()?.join(path));
+    }
+    Ok(path.to_path_buf())
 }
 
 #[derive(StructOpt, Debug)]
@@ -56,9 +76,9 @@ pub enum Subcommand {
 
 #[derive(StructOpt, Debug)]
 pub struct BuildOpts {
-    /// Input manifest file for YAMBS.
-    #[structopt(parse(try_from_str = validate_file_path))]
-    pub input_file: PathBuf,
+    /// Input manifest file for YAMBS. By default, Yambs searches for yambs.toml manifest in current directory.
+    #[structopt(default_value, hide_default_value(true), long = "manifest-directory")]
+    pub manifest_dir: ManifestDirectory,
     /// Set runtime configurations (build configurations, C++ standard, sanitizers, etc)
     #[structopt(
         short = "c",

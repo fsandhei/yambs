@@ -106,6 +106,8 @@ pub enum FsError {
     WriteToFile(#[source] std::io::Error),
     #[error("Failed to spawn process {0:?}")]
     Spawn(std::process::Command),
+    #[error("Failed to spawn child process: {0:?}")]
+    SpawnChild(#[source] std::io::Error),
     #[error("Could not access directory")]
     AccessDirectory(#[source] std::io::Error),
     #[error("Could not find include directory from {0:?}")]

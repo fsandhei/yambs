@@ -8,13 +8,14 @@ use structopt::StructOpt;
 use yambs::build_state_machine::*;
 use yambs::build_target::{target_registry::TargetRegistry, TargetNode, TargetState};
 use yambs::cache::Cache;
-use yambs::cli::command_line::{BuildOpts, CommandLine, RemakeOpts, Subcommand};
+use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
 use yambs::compiler;
 use yambs::external;
 use yambs::generator::MakefileGenerator;
 use yambs::logger;
 use yambs::output::Output;
 use yambs::utility;
+use yambs::YAMBS_FILE_NAME;
 
 fn main() -> anyhow::Result<()> {
     let command_line = CommandLine::from_args();
@@ -25,6 +26,10 @@ fn main() -> anyhow::Result<()> {
             Subcommand::Build(ref build_opts) => do_build(build_opts, &output)?,
             Subcommand::Remake(ref remake_opts) => do_remake(remake_opts)?,
         }
+    } else {
+        CommandLine::clap().print_help()?;
+        println!();
+        std::process::exit(0);
     }
     Ok(())
 }
@@ -57,12 +62,25 @@ fn evaluate_compiler(
     Ok(())
 }
 
+fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path::PathBuf> {
+    let manifest_file = manifest_dir.as_path().join(YAMBS_FILE_NAME);
+
+    if !manifest_file.is_file() {
+        anyhow::bail!(
+            "Could not locate manifest file in {}",
+            manifest_dir.as_path().display()
+        );
+    }
+    Ok(manifest_file)
+}
+
 fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
     let cache = Cache::new(&opts.build_directory)?;
     let compiler = compiler::Compiler::new()?;
     let mut dependency_registry = TargetRegistry::new();
+    let manifest_path = locate_manifest(&opts.manifest_dir)?;
 
     evaluate_compiler(&compiler, &opts, &cache, &output)?;
 
@@ -75,7 +93,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     parse_and_register_dependencies(
         &mut build_manager,
-        &opts.input_file,
+        &manifest_path,
         &output,
         &mut dependency_registry,
     )?;

@@ -1,4 +1,5 @@
 use crate::targets;
+use crate::YAMBS_MANIFEST_DIR_ENV;
 
 mod constants;
 
@@ -31,6 +32,13 @@ pub struct ManifestData {
     pub targets: Vec<targets::Target>,
 }
 
+fn canonicalize_source(path: &std::path::Path) -> std::path::PathBuf {
+    std::env::var_os(YAMBS_MANIFEST_DIR_ENV)
+        .map(std::path::PathBuf::from)
+        .unwrap()
+        .join(path)
+}
+
 impl std::convert::From<RawManifestData> for ManifestData {
     fn from(contents: RawManifestData) -> Self {
         let mut targets = Vec::<targets::Target>::new();
@@ -55,8 +63,13 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Executable(targets::Executable {
                             name,
-                            main: data.common_raw.main,
-                            sources: data.common_raw.sources,
+                            main: canonicalize_source(&data.common_raw.main),
+                            sources: data
+                                .common_raw
+                                .sources
+                                .iter()
+                                .map(|source| canonicalize_source(&source))
+                                .collect::<Vec<std::path::PathBuf>>(),
                             dependencies,
                             compiler_flags: data.common_raw.compiler_flags,
                         })
@@ -87,8 +100,13 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Library(targets::Library {
                             name,
-                            main: data.common_raw.main,
-                            sources: data.common_raw.sources,
+                            main: canonicalize_source(&data.common_raw.main),
+                            sources: data
+                                .common_raw
+                                .sources
+                                .iter()
+                                .map(|source| canonicalize_source(&source))
+                                .collect::<Vec<std::path::PathBuf>>(),
                             dependencies,
                             compiler_flags: data.common_raw.compiler_flags,
                             lib_type: data.lib_type,

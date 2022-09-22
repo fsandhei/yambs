@@ -5,7 +5,7 @@ use colored::Colorize;
 use regex::Regex;
 use structopt::StructOpt;
 
-use yambs::build_state_machine::*;
+use yambs::build_state_machine::BuildManager;
 use yambs::build_target::{target_registry::TargetRegistry, TargetNode, TargetState};
 use yambs::cache::Cache;
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
@@ -15,7 +15,7 @@ use yambs::generator::MakefileGenerator;
 use yambs::logger;
 use yambs::output::Output;
 use yambs::utility;
-use yambs::YAMBS_FILE_NAME;
+use yambs::{YAMBS_FILE_NAME, YAMBS_MANIFEST_DIR_ENV};
 
 fn main() -> anyhow::Result<()> {
     let command_line = CommandLine::from_args();
@@ -37,7 +37,6 @@ fn main() -> anyhow::Result<()> {
 
 struct EnvironmentVariable {
     pub key: String,
-    pub value: String,
 }
 
 impl EnvironmentVariable {
@@ -46,7 +45,6 @@ where {
         std::env::set_var(key, value);
         Self {
             key: key.to_string(),
-            value: value.to_string(),
         }
     }
 }
@@ -66,7 +64,7 @@ impl EnvironmentVariables {
             match subcommand {
                 Subcommand::Build(ref build_opts) => {
                     env_vars.push(EnvironmentVariable::new(
-                        "YAMBS_MANIFEST_DIR",
+                        YAMBS_MANIFEST_DIR_ENV,
                         &build_opts.manifest_dir.as_path().display().to_string(),
                     ));
                 }

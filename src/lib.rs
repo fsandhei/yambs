@@ -8,7 +8,6 @@ pub mod external;
 pub mod flags;
 pub mod generator;
 pub mod logger;
-pub mod mmk_parser;
 pub mod output;
 pub mod parser;
 pub mod targets;

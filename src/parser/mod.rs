@@ -51,15 +51,7 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .common_raw
                             .dependencies
                             .iter()
-                            .map(|(name, data)| {
-                                let dependency = targets::Dependency::new(&name, data);
-                                log::debug!(
-                                    "Found executable {} in path {}",
-                                    dependency.name,
-                                    dependency.data.path.display()
-                                );
-                                dependency
-                            })
+                            .map(|(name, data)| targets::Dependency::new(&name, data))
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Executable(targets::Executable {
                             name,
@@ -88,15 +80,7 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .common_raw
                             .dependencies
                             .iter()
-                            .map(|(name, data)| {
-                                let dependency = targets::Dependency::new(&name, data);
-                                log::debug!(
-                                    "Found library {} in path {}",
-                                    dependency.name,
-                                    dependency.data.path.display()
-                                );
-                                dependency
-                            })
+                            .map(|(name, data)| targets::Dependency::new(&name, data))
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Library(targets::Library {
                             name,

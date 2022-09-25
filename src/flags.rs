@@ -1,8 +1,8 @@
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct CompilerFlags {
-    #[serde(rename = "CXXFLAGS_APPEND")]
+    #[serde(rename = "cxxflags_append")]
     pub cxx_flags: CXXFlags,
-    #[serde(rename = "CPPFLAGS_APPEND")]
+    #[serde(rename = "cppflags_append")]
     pub cpp_flags: CPPFlags,
 }
 

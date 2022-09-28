@@ -125,7 +125,8 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     evaluate_compiler(&compiler, &opts, &cache, &output)?;
 
-    let mut generator = MakefileGenerator::new(&opts.build_directory, compiler);
+    let mut generator =
+        MakefileGenerator::new(&opts.configuration, &opts.build_directory, compiler)?;
     let mut build_manager = BuildManager::new(&mut generator);
 
     build_manager

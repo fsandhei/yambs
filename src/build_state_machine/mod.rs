@@ -1,8 +1,8 @@
 use crate::build_target::{target_registry::TargetRegistry, BuildTarget, TargetError, TargetNode};
-use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
+use crate::cli::build_configurations::BuildDirectory;
 use crate::cli::command_line::BuildOpts;
 use crate::errors::FsError;
-use crate::generator::{GeneratorError, GeneratorExecutor};
+use crate::generator::{Generator, GeneratorError};
 use crate::parser;
 
 mod filter;
@@ -31,14 +31,14 @@ pub enum BuildManagerError {
 
 pub struct BuildManager<'a> {
     targets: Vec<TargetNode>,
-    generator: &'a mut dyn GeneratorExecutor,
+    generator: &'a mut dyn Generator,
     configuration: BuildConfiguration,
     make: Make,
     top_build_directory: BuildDirectory,
 }
 
 impl<'gen> BuildManager<'gen> {
-    pub fn new(generator: &'gen mut dyn GeneratorExecutor) -> BuildManager {
+    pub fn new(generator: &'gen mut dyn Generator) -> BuildManager {
         BuildManager {
             targets: Vec::new(),
             generator,
@@ -56,7 +56,7 @@ impl<'gen> BuildManager<'gen> {
         self.add_make("-j", &opts.jobs.to_string());
         self.top_build_directory = opts.build_directory.to_owned();
 
-        self.use_configuration(&opts.configuration)?;
+        // self.use_configuration(&opts.configuration)?;
 
         Ok(())
     }
@@ -95,10 +95,11 @@ impl<'gen> BuildManager<'gen> {
     }
 
     pub fn generate_makefiles(&mut self) -> Result<(), BuildManagerError> {
-        for target in &self.targets {
-            self.generator.set_target(target);
-            self.generator.generate_makefiles(&target)?;
-        }
+        self.generator.generate(&self.targets)?;
+        // for target in &self.targets {
+        // self.generator.set_target(target);
+        // self.generator.generate_makefiles(&target)?;
+        // }
         Ok(())
     }
 
@@ -113,46 +114,46 @@ impl<'gen> BuildManager<'gen> {
         self.make.with_flag(flag, value);
     }
 
-    fn use_std(&mut self, version: &str) -> Result<(), BuildManagerError> {
-        Ok(self.generator.use_std(version)?)
-    }
+    // fn use_std(&mut self, version: &str) -> Result<(), BuildManagerError> {
+    //     Ok(self.generator.use_std(version)?)
+    // }
 
-    fn debug(&mut self) {
-        self.generator.debug();
-    }
+    // fn debug(&mut self) {
+    //     self.generator.debug();
+    // }
 
-    fn release(&mut self) {
-        self.generator.release();
-    }
+    // fn release(&mut self) {
+    //     self.generator.release();
+    // }
 
-    fn use_configuration(
-        &mut self,
-        configurations: &BuildConfigurations,
-    ) -> Result<(), BuildManagerError> {
-        for configuration in configurations {
-            match configuration {
-                Configuration::Debug => {
-                    self.configuration = BuildConfiguration::Debug;
-                    self.debug();
-                    Ok(())
-                }
-                Configuration::Release => {
-                    self.release();
-                    Ok(())
-                }
-                Configuration::Sanitizer(sanitizer) => {
-                    self.set_sanitizer(sanitizer);
-                    Ok(())
-                }
-                Configuration::CppVersion(version) => self.use_std(version),
-            }?;
-        }
-        Ok(())
-    }
+    // fn use_configuration(
+    //     &mut self,
+    //     configurations: &BuildConfigurations,
+    // ) -> Result<(), BuildManagerError> {
+    //     for configuration in configurations {
+    //         match configuration {
+    //             Configuration::Debug => {
+    //                 self.configuration = BuildConfiguration::Debug;
+    //                 self.debug();
+    //                 Ok(())
+    //             }
+    //             Configuration::Release => {
+    //                 self.release();
+    //                 Ok(())
+    //             }
+    //             Configuration::Sanitizer(sanitizer) => {
+    //                 self.set_sanitizer(sanitizer);
+    //                 Ok(())
+    //             }
+    //             Configuration::CppVersion(version) => self.use_std(version),
+    //         }?;
+    //     }
+    //     Ok(())
+    // }
 
-    fn set_sanitizer(&mut self, sanitizers: &str) {
-        self.generator.set_sanitizer(sanitizers);
-    }
+    // fn set_sanitizer(&mut self, sanitizers: &str) {
+    //     self.generator.set_sanitizer(sanitizers);
+    // }
 }
 
 #[cfg(test)]

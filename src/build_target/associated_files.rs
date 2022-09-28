@@ -51,7 +51,7 @@ pub enum AssociatedFileError {
     FileNotExisting(std::path::PathBuf),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, serde::Serialize, serde::Deserialize)]
 pub struct SourceFile {
     file_type: FileType,
     file: std::path::PathBuf,
@@ -88,7 +88,7 @@ impl SourceFile {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, serde::Serialize, serde::Deserialize)]
 pub enum FileType {
     Source,
     Header,

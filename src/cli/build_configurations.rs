@@ -1,5 +1,4 @@
 use regex::Regex;
-use structopt::StructOpt;
 
 use crate::errors::CommandLineError;
 
@@ -50,7 +49,7 @@ fn canonicalize_path(path: &std::path::Path) -> std::io::Result<std::path::PathB
     Ok(path.to_path_buf())
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Configuration {
     Debug,
     Release,
@@ -93,7 +92,7 @@ impl std::string::ToString for Configuration {
     }
 }
 
-#[derive(StructOpt, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BuildConfigurations {
     configurations: Vec<Configuration>,
 }

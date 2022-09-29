@@ -47,9 +47,8 @@ impl Make {
     ) -> Result<std::process::Output, FsError> {
         std::env::set_current_dir(makefile_directory).map_err(FsError::AccessDirectory)?;
         let spawn = Command::new("/usr/bin/make")
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
             .args(&self.configs)
+            .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|_| FsError::Spawn(Command::new("/usr/bin/make")))?;
         let process_output = spawn.wait_with_output().unwrap();

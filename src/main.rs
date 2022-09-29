@@ -6,7 +6,7 @@ use regex::Regex;
 use structopt::StructOpt;
 
 use yambs::build_state_machine::BuildManager;
-use yambs::build_target::{target_registry::TargetRegistry, TargetNode, TargetState};
+use yambs::build_target::target_registry::TargetRegistry;
 use yambs::cache::Cache;
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
 use yambs::compiler;
@@ -14,7 +14,6 @@ use yambs::external;
 use yambs::generator::MakefileGenerator;
 use yambs::logger;
 use yambs::output::Output;
-use yambs::utility;
 use yambs::{YAMBS_FILE_NAME, YAMBS_MANIFEST_DIR_ENV};
 
 fn main() -> anyhow::Result<()> {
@@ -190,8 +189,8 @@ fn parse_and_register_dependencies(
     dep_registry: &mut TargetRegistry,
 ) -> anyhow::Result<()> {
     build_manager.parse_and_register_dependencies(dep_registry, top_path)?;
-    let number_of_yambs_files = dep_registry.number_of_targets();
-    output.status(&format!("Read {} Yambs files", number_of_yambs_files));
+    let number_of_targets = dep_registry.number_of_targets();
+    output.status(&format!("Registered {} build targets", number_of_targets));
     Ok(())
 }
 
@@ -214,97 +213,29 @@ fn build_project(
     opts: &BuildOpts,
     logger: &logger::Logger,
 ) -> anyhow::Result<()> {
-    for target in build_manager.targets() {
-        let process_output = build_dependency(
-            build_manager,
-            target,
-            opts.build_directory.as_path(),
-            output,
-            opts,
-        );
-        let build_status_message = {
-            if process_output.is_ok() && process_output.unwrap().status.success() {
-                format!("{}", "Build SUCCESS".green())
-            } else {
-                format!("{}", "Build FAILED".red())
-            }
-        };
-        output.status(&build_status_message);
+    let build_directory = build_manager.resolve_build_directory(opts.build_directory.as_path());
+    let make_process = build_manager.make().spawn(&build_directory, output)?;
+    let process_code: Option<i32> = make_process.status.code();
+    if process_code != Some(0) {
+        output.status(&format!("{}", "Build FAILED".red()));
+    }
+
+    if process_code == Some(0) {
+        output.status(&format!("{}", "Build SUCCESS".green()));
     }
     let log_path = logger.path();
     output.status(&format!("Build log available at {:?}", log_path.display()));
     Ok(())
 }
 
-pub fn build_dependency(
-    build_manager: &BuildManager,
-    dependency: &TargetNode,
-    build_path: &std::path::Path,
-    output: &Output,
-    opts: &BuildOpts,
-) -> anyhow::Result<std::process::Output> {
-    let build_directory = build_manager.resolve_build_directory(build_path);
-    for required_dependency in &dependency.borrow().dependencies {
-        let borrowed_required_dependency = required_dependency.borrow();
-        let project_name = borrowed_required_dependency.project_name();
-        let build_path_dep = &build_directory.join("libs").join(project_name);
-
-        if required_dependency.borrow().state == TargetState::BuildComplete {
-            let top_build_directory_resolved =
-                build_manager.resolve_build_directory(opts.build_directory.as_path());
-            let directory_to_link = top_build_directory_resolved.join("libs").join(project_name);
-
-            if !build_path_dep.is_dir() {
-                utility::create_symlink(directory_to_link, build_path_dep)?;
-            }
-
-            // Se eventuelt etter annen løsning.
-            continue;
-        }
-
-        required_dependency.borrow_mut().state = TargetState::Building;
-        let dep_output = build_dependency(
-            build_manager,
-            &required_dependency,
-            build_path_dep,
-            output,
-            opts,
-        )?;
-        if !dep_output.status.success() {
-            return Ok(dep_output);
-        }
-
-        required_dependency.borrow_mut().state = TargetState::BuildComplete;
-    }
-
-    dependency.borrow_mut().state = TargetState::Building;
-
-    let change_directory_message = format!("Entering directory {}", build_directory.display());
-    if opts.verbose {
-        output.status(&change_directory_message);
-    }
-    std::env::set_current_dir(&build_directory).with_context(|| {
-        format!(
-            "Failed to change directory to {}",
-            build_directory.display()
-        )
-    })?;
-    output.status(&construct_build_message(dependency));
-
-    let process_output = build_manager.make().spawn(output)?;
-    dependency.borrow_mut().state = TargetState::BuildComplete;
-
-    Ok(process_output)
-}
-
-fn construct_build_message(dependency: &TargetNode) -> String {
-    let dep_type = if dependency.borrow().is_executable() {
-        "executable"
-    } else {
-        "library"
-    };
-    let dep_type_name = dependency.borrow().name();
-
-    let target = format!("{} {}", dep_type, dep_type_name);
-    format!("Building {}", target)
-}
+// fn construct_build_message(dependency: &TargetNode) -> String {
+//     let dep_type = if dependency.borrow().is_executable() {
+//         "executable"
+//     } else {
+//         "library"
+//     };
+//     let dep_type_name = dependency.borrow().name();
+//
+//     let target = format!("{} {}", dep_type, dep_type_name);
+//     format!("Building {}", target)
+// }

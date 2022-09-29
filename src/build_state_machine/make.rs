@@ -40,7 +40,12 @@ impl Make {
         Ok(())
     }
 
-    pub fn spawn(&self, output: &output::Output) -> Result<std::process::Output, FsError> {
+    pub fn spawn(
+        &self,
+        makefile_directory: &std::path::Path,
+        output: &output::Output,
+    ) -> Result<std::process::Output, FsError> {
+        std::env::set_current_dir(makefile_directory).map_err(FsError::AccessDirectory)?;
         let spawn = Command::new("/usr/bin/make")
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

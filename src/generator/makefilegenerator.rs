@@ -155,7 +155,7 @@ impl MakefileGenerator {
         let mut formatted_string = String::new();
         let borrowed_target = target.borrow();
         let sources = borrowed_target
-            .associated_files
+            .source_files
             .iter()
             .filter(|file| file.is_source());
         let dependency_root_path = &borrowed_target.manifest_dir_path;
@@ -293,7 +293,7 @@ impl MakefileGenerator {
         let mut formatted_string = String::new();
         let borrowed_target = target.borrow();
         let sources = borrowed_target
-            .associated_files
+            .source_files
             .iter()
             .filter(|file| file.is_source());
         let dependency_root_path = &borrowed_target.manifest_dir_path;

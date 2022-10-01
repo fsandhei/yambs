@@ -1,8 +1,8 @@
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
-pub struct AssociatedFiles(std::vec::Vec<SourceFile>);
+pub struct SourceFiles(std::vec::Vec<SourceFile>);
 
-impl AssociatedFiles {
+impl SourceFiles {
     pub fn new() -> Self {
         Self { 0: Vec::new() }
     }
@@ -25,7 +25,7 @@ impl AssociatedFiles {
     }
 }
 
-impl std::iter::IntoIterator for AssociatedFiles {
+impl std::iter::IntoIterator for SourceFiles {
     type Item = <std::vec::Vec<SourceFile> as IntoIterator>::Item;
     type IntoIter = <std::vec::Vec<SourceFile> as IntoIterator>::IntoIter;
 
@@ -34,7 +34,7 @@ impl std::iter::IntoIterator for AssociatedFiles {
     }
 }
 
-impl<'a> std::iter::IntoIterator for &'a AssociatedFiles {
+impl<'a> std::iter::IntoIterator for &'a SourceFiles {
     type Item = <&'a std::vec::Vec<SourceFile> as IntoIterator>::Item;
     type IntoIter = <&'a std::vec::Vec<SourceFile> as IntoIterator>::IntoIter;
 

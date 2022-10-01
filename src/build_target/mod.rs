@@ -11,7 +11,7 @@ use crate::YAMBS_FILE_NAME;
 pub mod associated_files;
 pub mod include_directories;
 pub mod target_registry;
-use associated_files::AssociatedFiles;
+use associated_files::SourceFiles;
 use include_directories::IncludeDirectories;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -21,7 +21,7 @@ pub struct BuildTarget {
     pub modification_time: std::time::SystemTime,
     pub dependencies: Vec<TargetNode>,
     pub state: TargetState,
-    pub associated_files: AssociatedFiles,
+    pub source_files: SourceFiles,
     pub target_type: TargetType,
     pub include_directories: Option<IncludeDirectories>,
     pub compiler_flags: CompilerFlags,
@@ -107,7 +107,7 @@ impl BuildTarget {
                 .expect("Could not fetch last modified time."),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
-            associated_files: AssociatedFiles::from_paths(&source_files)
+            source_files: SourceFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
             target_type: TargetType::Executable(executable.name.to_string()),
             include_directories: IncludeDirectories::from_dependencies(&executable.dependencies),
@@ -136,7 +136,7 @@ impl BuildTarget {
                 .expect("Could not fetch last modified time."),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
-            associated_files: AssociatedFiles::from_paths(&source_files)
+            source_files: SourceFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
             target_type: TargetType::Library(library.name.to_string()),
             include_directories: IncludeDirectories::from_dependencies(&library.dependencies),

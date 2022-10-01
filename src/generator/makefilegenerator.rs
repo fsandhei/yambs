@@ -71,7 +71,7 @@ impl MakefileGenerator {
             let mut targets_as_string = String::new();
             for target in targets {
                 targets_as_string.push_str("\\\n");
-                targets_as_string.push_str(&format!("{}", target.borrow().name()))
+                targets_as_string.push_str(&format!("   {}", target.borrow().name()))
             }
             targets_as_string
         };

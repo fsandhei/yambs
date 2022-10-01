@@ -227,15 +227,3 @@ fn build_project(
     output.status(&format!("Build log available at {:?}", log_path.display()));
     Ok(())
 }
-
-// fn construct_build_message(dependency: &TargetNode) -> String {
-//     let dep_type = if dependency.borrow().is_executable() {
-//         "executable"
-//     } else {
-//         "library"
-//     };
-//     let dep_type_name = dependency.borrow().name();
-//
-//     let target = format!("{} {}", dep_type, dep_type_name);
-//     format!("Building {}", target)
-// }

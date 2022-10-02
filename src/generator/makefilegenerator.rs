@@ -146,6 +146,26 @@ impl MakefileGenerator {
         })
     }
 
+    fn generate_makefile(
+        &mut self,
+        generate: &mut Generate,
+        targets: &[TargetNode],
+    ) -> Result<(), GeneratorError> {
+        self.generate_header(generate, targets)?;
+
+        for target in targets {
+            log::debug!(
+                "Generating makefiles for target {:?} (manifest location: {})",
+                target.borrow().name(),
+                target.borrow().manifest_dir_path.display()
+            );
+            self.generate_rule_declaration_for_target(generate, target);
+        }
+        self.generate_object_rules(generate, targets);
+        self.generate_depends_rules(generate);
+        Ok(())
+    }
+
     fn build_configurations_file(&self) -> &str {
         if self.build_configurations.is_debug_build() {
             "debug.mk"
@@ -347,18 +367,7 @@ impl Generator for MakefileGenerator {
             &self.build_configurations,
         ))?;
         let mut generate = Generate::new(&self.output_directory.join("Makefile"))?;
-        self.generate_header(&mut generate, targets)?;
-
-        for target in targets {
-            log::debug!(
-                "Generating makefiles for target {:?} (manifest location: {})",
-                target.borrow().name(),
-                target.borrow().manifest_dir_path.display()
-            );
-            self.generate_rule_declaration_for_target(&mut generate, target);
-        }
-        self.generate_object_rules(&mut generate, targets);
-        self.generate_depends_rules(&mut generate);
+        self.generate_makefile(&mut generate, targets)?;
         generate.write()?;
         Ok(())
     }

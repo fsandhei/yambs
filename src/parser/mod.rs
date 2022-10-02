@@ -128,11 +128,14 @@ pub enum ParseTomlError {
 #[cfg(test)]
 mod tests {
 
-    use super::targets::{Dependency, DependencyData, DependencySource, Executable, Library};
     use super::*;
+    use crate::targets::{Dependency, DependencyData, DependencySource, Executable, Library};
+    use crate::tests::EnvLock;
 
     #[test]
     fn parse_produces_manifest_with_executables() {
+        let mut lock = EnvLock::new();
+        lock.lock(YAMBS_MANIFEST_DIR_ENV, "");
         const TOML_RECIPE: &str = r#"
     [executable.x]
     main = "main.cpp"
@@ -201,6 +204,8 @@ mod tests {
 
     #[test]
     fn parse_produces_manifest_with_multiple_executables() {
+        let mut lock = EnvLock::new();
+        lock.lock(YAMBS_MANIFEST_DIR_ENV, "");
         let input = r#"
     [executable.x]
     main = "main.cpp"
@@ -265,6 +270,8 @@ mod tests {
 
     #[test]
     fn parse_produces_manifest_with_libraries() {
+        let mut lock = EnvLock::new();
+        lock.lock(YAMBS_MANIFEST_DIR_ENV, "");
         const TOML_RECIPE: &str = r#"
     [library.MyLibraryData]
     main = "generator.cpp"

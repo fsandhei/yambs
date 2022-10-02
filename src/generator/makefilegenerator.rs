@@ -409,7 +409,6 @@ fn evaluate_compiler(
     };
 }
 
-#[allow(dead_code)]
 pub struct IncludeFileGenerator<'generator> {
     file: Option<File>,
     output_directory: std::path::PathBuf,
@@ -417,7 +416,6 @@ pub struct IncludeFileGenerator<'generator> {
     compiler_constants: HashMap<&'generator str, &'generator str>,
 }
 
-#[allow(dead_code)]
 impl<'generator> IncludeFileGenerator<'generator> {
     pub fn new(output_directory: &std::path::Path, compiler: Compiler) -> Self {
         utility::create_dir(&output_directory).unwrap();
@@ -453,11 +451,6 @@ impl<'generator> IncludeFileGenerator<'generator> {
 
     pub fn print_build_directory(&self) -> &str {
         self.output_directory.to_str().unwrap()
-    }
-
-    pub fn change_directory(&mut self, directory: std::path::PathBuf) {
-        self.output_directory = directory;
-        utility::create_dir(&self.output_directory).unwrap()
     }
 
     fn generate_strict_mk(&mut self) -> Result<(), GeneratorError> {

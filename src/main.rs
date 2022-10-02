@@ -14,7 +14,7 @@ use yambs::external;
 use yambs::generator::MakefileGenerator;
 use yambs::logger;
 use yambs::output::Output;
-use yambs::{YAMBS_FILE_NAME, YAMBS_MANIFEST_DIR_ENV};
+use yambs::{YAMBS_MANIFEST_NAME, YAMBS_MANIFEST_DIR_ENV};
 
 fn main() -> anyhow::Result<()> {
     let command_line = CommandLine::from_args();
@@ -102,7 +102,7 @@ fn evaluate_compiler(
 }
 
 fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path::PathBuf> {
-    let manifest_file = manifest_dir.as_path().join(YAMBS_FILE_NAME);
+    let manifest_file = manifest_dir.as_path().join(YAMBS_MANIFEST_NAME);
 
     if !manifest_file.is_file() {
         anyhow::bail!(

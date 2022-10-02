@@ -6,7 +6,7 @@ use crate::flags::CompilerFlags;
 use crate::parser;
 use crate::targets;
 use crate::utility;
-use crate::YAMBS_FILE_NAME;
+use crate::YAMBS_MANIFEST_NAME;
 
 pub mod associated_files;
 pub mod include_directories;
@@ -171,7 +171,7 @@ impl BuildTarget {
                 target_vec.push(registered_dep);
             } else {
                 log::debug!("No registered dependency found. Creating dependency build target.");
-                let manifest_path = dependency.data.path.join(YAMBS_FILE_NAME);
+                let manifest_path = dependency.data.path.join(YAMBS_MANIFEST_NAME);
                 let manifest = parser::parse(&manifest_path).map_err(TargetError::Parse)?;
                 let dep_target = manifest
                     .data

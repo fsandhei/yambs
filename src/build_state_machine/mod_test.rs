@@ -8,7 +8,7 @@ use tempdir::TempDir;
 use super::*;
 use crate::build_target::{target_registry::TargetRegistry, TargetNode};
 use crate::generator::{Generator, GeneratorError, Sanitizer};
-use crate::{YAMBS_FILE_NAME, YAMBS_MANIFEST_DIR_ENV};
+use crate::{YAMBS_MANIFEST_NAME, YAMBS_MANIFEST_DIR_ENV};
 
 pub struct GeneratorMock {
     _dep: Option<TargetNode>,
@@ -63,7 +63,7 @@ impl Drop for EnvLock {
 
 fn dummy_manifest(dir_name: &str) -> (TempDir, std::path::PathBuf) {
     let dir: TempDir = TempDir::new(dir_name).unwrap();
-    let test_file_path = dir.path().join(YAMBS_FILE_NAME);
+    let test_file_path = dir.path().join(YAMBS_MANIFEST_NAME);
     let mut file = File::create(&test_file_path)
         .expect("dummy_manifest(): Something went wrong writing to file.");
     write!(

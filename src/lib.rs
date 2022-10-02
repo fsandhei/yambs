@@ -13,7 +13,7 @@ pub mod parser;
 pub mod targets;
 pub mod utility;
 
-pub const YAMBS_FILE_NAME: &str = "yambs.toml";
+pub const YAMBS_MANIFEST_NAME: &str = "yambs.toml";
 pub const YAMBS_MANIFEST_DIR_ENV: &str = "YAMBS_MANIFEST_DIR";
 pub const YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV: &str = "YAMBS_BUILD_SYSTEM_EXECUTABLE";
 

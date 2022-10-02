@@ -64,7 +64,7 @@ impl BuildTarget {
     pub fn is_executable(&self) -> bool {
         match self.target_type {
             TargetType::Executable(_) => true,
-            TargetType::Library(_) => false,
+            TargetType::Library(_, _) => false,
         }
     }
 
@@ -74,7 +74,14 @@ impl BuildTarget {
 
     pub fn library_file_name(&self) -> String {
         match &self.target_type {
-            TargetType::Library(library_name) => library_name.to_owned(),
+            TargetType::Library(_, library_name) => library_name.to_owned(),
+            _ => panic!("Dependency is not a library"),
+        }
+    }
+
+    pub fn library_type(&self) -> LibraryType {
+        match &self.target_type {
+            TargetType::Library(library_type, _) => library_type.to_owned(),
             _ => panic!("Dependency is not a library"),
         }
     }
@@ -85,8 +92,8 @@ impl BuildTarget {
 
     pub fn name(&self) -> String {
         match self.target_type {
-            TargetType::Executable(ref executable) => executable.to_owned(),
-            TargetType::Library(ref library) => library.to_owned(),
+            TargetType::Executable(ref name) => name.to_owned(),
+            TargetType::Library(_, ref name) => name.to_owned(),
         }
     }
 
@@ -138,7 +145,7 @@ impl BuildTarget {
             state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
-            target_type: TargetType::Library(library.name.to_string()),
+            target_type: TargetType::from_library(library),
             include_directories: IncludeDirectories::from_dependencies(&library.dependencies),
             compiler_flags: library
                 .compiler_flags
@@ -223,7 +230,39 @@ impl std::ops::Deref for TargetNode {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum TargetType {
     Executable(String),
-    Library(String),
+    Library(LibraryType, String),
+}
+
+impl TargetType {
+    pub fn from_library(library: &targets::Library) -> TargetType {
+        let lib_type = &library.lib_type;
+        let library_name = match lib_type {
+            targets::LibraryType::Dynamic => format!("lib{}.so", library.name),
+            targets::LibraryType::Static => format!("lib{}.a", library.name),
+        };
+        TargetType::Library(LibraryType::from(&lib_type), library_name)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum LibraryType {
+    Static,
+    Dynamic,
+}
+
+impl LibraryType {
+    pub fn from(lib_type: &targets::LibraryType) -> Self {
+        match lib_type {
+            &targets::LibraryType::Dynamic => LibraryType::Dynamic,
+            &targets::LibraryType::Static => LibraryType::Static,
+        }
+    }
+}
+
+impl Default for LibraryType {
+    fn default() -> Self {
+        LibraryType::Static
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]

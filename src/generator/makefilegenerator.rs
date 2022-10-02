@@ -5,13 +5,104 @@ use std::io::Write;
 use indoc;
 
 use crate::build_target::{
-    associated_files::SourceFile, include_directories::IncludeType, TargetNode,
+    associated_files::SourceFile, include_directories::IncludeType, LibraryType, TargetNode,
 };
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::compiler::{Compiler, Type};
 use crate::errors::FsError;
 use crate::generator::{Generator, GeneratorError, Sanitizer, UtilityGenerator};
 use crate::utility;
+
+struct ExecutableTargetFactory;
+
+impl ExecutableTargetFactory {
+    pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
+        format!("\
+                {target_name} : \
+                    {prerequisites}\n\
+                    \t@echo \"Linking executable {target_name}\"\n\
+                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
+                    target_name = target.borrow().name(),
+                    prerequisites = generate_prerequisites(target, output_directory),
+                    dependencies = generate_search_directories(target),
+            )
+    }
+}
+
+struct LibraryTargetFactory;
+
+impl LibraryTargetFactory {
+    pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
+        match target.borrow().library_type() {
+            LibraryType::Static => format!(
+                "\
+                {target_name} : \
+                    {prerequisites}\n\
+                    \t@echo \"Linking static library {target_name}\"\n\
+                    \t@$(strip $(AR) $(ARFLAGS) $@ $?)",
+                target_name = target.borrow().name(),
+                prerequisites = generate_prerequisites(target, output_directory)
+            ),
+            LibraryType::Dynamic => panic!("Dynamic libraries are currently not supported."),
+        }
+    }
+}
+
+struct TargetRuleFactory;
+
+impl TargetRuleFactory {
+    pub fn create_rule(target: &TargetNode, output_dir: &std::path::Path) -> String {
+        if target.borrow().is_executable() {
+            ExecutableTargetFactory::create_rule(target, output_dir)
+        } else {
+            LibraryTargetFactory::create_rule(target, output_dir)
+        }
+    }
+}
+
+fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Path) -> String {
+    let mut formatted_string = String::new();
+    let borrowed_target = target.borrow();
+    let sources = borrowed_target
+        .source_files
+        .iter()
+        .filter(|file| file.is_source());
+    let dependency_root_path = &borrowed_target.manifest_dir_path;
+
+    for source in sources {
+        let source_file = source.file();
+        let source_dir = source_file
+            .parent()
+            .and_then(|p| p.strip_prefix(dependency_root_path).ok())
+            .unwrap();
+        let object = output_directory
+            .join(source_dir)
+            .join(source_file.file_name().unwrap())
+            .with_extension("o");
+        formatted_string.push_str("\\\n");
+        formatted_string.push_str(&format!("   {}", object.display().to_string()));
+    }
+    // formatted_string.push_str(&self.print_required_dependencies_libraries()?); // TODO: Need to think this one out.
+    formatted_string
+}
+
+fn generate_search_directories(target: &TargetNode) -> String {
+    let borrowed_target = target.borrow();
+    let mut formatted_string = String::new();
+    formatted_string.push_str(&search_directory_from_target(target));
+    if let Some(include_directories) = &borrowed_target.include_directories {
+        for include in include_directories {
+            if include.include_type == IncludeType::System {
+                formatted_string
+                    .push_str(&format!("-isystem {}", include.path.display().to_string()))
+            } else {
+                formatted_string.push_str(&format!("-I{}", include.path.display().to_string()))
+            }
+            formatted_string.push(' ');
+        }
+    }
+    formatted_string.trim_end().to_string()
+}
 
 fn directory_from_build_configurations(
     build_configurations: &BuildConfigurations,
@@ -24,6 +115,13 @@ fn directory_from_build_configurations(
         }
     }
     std::path::PathBuf::from("debug")
+}
+
+fn search_directory_from_target(target: &TargetNode) -> String {
+    let borrowed_target = target.borrow();
+    let project_base = &borrowed_target.manifest_dir_path;
+    let include_line = format!("-I{} ", project_base.join("include").display().to_string());
+    include_line
 }
 
 pub struct MakefileGenerator {
@@ -86,7 +184,7 @@ impl MakefileGenerator {
 
     fn generate_phony(&self, generate: &mut Generate, target: &TargetNode) -> () {
         let data = indoc::formatdoc!(
-            "\
+            "\n
             # Phony for target \"{target_name}\"
             .PHONY: {target_name}
         ",
@@ -193,7 +291,7 @@ impl MakefileGenerator {
                 formatted_string.push_str(&format!(
                     "\t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) \
          $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
-                    dependencies = self.generate_search_directories(target)
+                    dependencies = generate_search_directories(target)
                 ));
                 if !generate.object_files_cached.contains(&object) {
                     generate.object_files_cached.insert(object);
@@ -227,93 +325,18 @@ impl MakefileGenerator {
         }
     }
 
-    fn search_directory_from_target(&self, target: &TargetNode) -> String {
-        let borrowed_target = target.borrow();
-        let project_base = &borrowed_target.manifest_dir_path;
-        let include_line = format!("-I{} ", project_base.join("include").display().to_string());
-        include_line
-    }
-
-    fn generate_search_directories(&self, target: &TargetNode) -> String {
-        let borrowed_target = target.borrow();
-        let mut formatted_string = String::new();
-        formatted_string.push_str(&self.search_directory_from_target(target));
-        if let Some(include_directories) = &borrowed_target.include_directories {
-            for include in include_directories {
-                if include.include_type == IncludeType::System {
-                    formatted_string
-                        .push_str(&format!("-isystem {}", include.path.display().to_string()))
-                } else {
-                    formatted_string.push_str(&format!("-I{}", include.path.display().to_string()))
-                }
-                formatted_string.push(' ');
-            }
-        }
-        formatted_string.trim_end().to_string()
-    }
-
     fn generate_rule_declaration_for_target(&self, generate: &mut Generate, target: &TargetNode) {
         self.generate_phony(generate, target);
-        let target_rule_declaration = self.determine_rule_for_target(target);
+        let target_rule_declaration =
+            TargetRuleFactory::create_rule(target, &self.output_directory);
         generate.data.push('\n');
-        generate
-            .data
-            .push_str(&format!("# Rule for target {}\n", target.borrow().name()));
+        generate.data.push_str(&format!(
+            "# Rule for target \"{}\"\n",
+            target.borrow().name()
+        ));
         generate.data.push_str(&target_rule_declaration);
         generate.data.push('\n');
         generate.data.push('\n');
-    }
-
-    fn determine_rule_for_target(&self, target: &TargetNode) -> String {
-        let borrowed_target = target.borrow();
-        if borrowed_target.is_executable() {
-            return format!("\
-                {target_name} : \
-                    {prerequisites}\n\
-                    \t@echo \"Linking executable {target_name}\"\n\
-                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
-                    target_name = borrowed_target.name(),
-                    prerequisites = self.generate_prerequisites(target),
-                    dependencies = self.generate_search_directories(target),
-            );
-        } else {
-            return format!(
-                "\
-                {target_name} : \
-                    {prerequisites}\n\
-                    \t@echo \"Linking static library {target_name}\"\n\
-                    \t@$(strip $(AR) $(ARFLAGS) $@ $?)",
-                target_name = borrowed_target.name(),
-                prerequisites = self.generate_prerequisites(target)
-            );
-        }
-    }
-
-    fn generate_prerequisites(&self, target: &TargetNode) -> String {
-        let mut formatted_string = String::new();
-        let borrowed_target = target.borrow();
-        let sources = borrowed_target
-            .source_files
-            .iter()
-            .filter(|file| file.is_source());
-        let dependency_root_path = &borrowed_target.manifest_dir_path;
-
-        for source in sources {
-            let source_file = source.file();
-            let source_dir = source_file
-                .parent()
-                .and_then(|p| p.strip_prefix(dependency_root_path).ok())
-                .unwrap();
-            let object = self
-                .output_directory
-                .join(source_dir)
-                .join(source_file.file_name().unwrap())
-                .with_extension("o");
-            formatted_string.push_str("\\\n");
-            formatted_string.push_str(&format!("   {}", object.display().to_string()));
-        }
-        // formatted_string.push_str(&self.print_required_dependencies_libraries()?); // TODO: Need to think this one out.
-        formatted_string
     }
 }
 

@@ -46,6 +46,7 @@ impl Make {
         output: &output::Output,
     ) -> Result<std::process::Output, FsError> {
         std::env::set_current_dir(makefile_directory).map_err(FsError::AccessDirectory)?;
+        log::debug!("Running make in directory {}", makefile_directory.display());
         let spawn = Command::new("/usr/bin/make")
             .args(&self.configs)
             .stderr(std::process::Stdio::piped())

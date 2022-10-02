@@ -90,14 +90,13 @@ fn evaluate_compiler(
     compiler: &compiler::Compiler,
     opts: &BuildOpts,
     cache: &Cache,
-    output: &Output,
 ) -> anyhow::Result<()> {
     if !cache.detect_change(compiler) {
         let test_dir = opts.build_directory.as_path().join("sample");
-        output.status("Evaluating compiler by doing a sample build...");
+        log::debug!("Evaluating compiler by doing a sample build...");
         compiler.evaluate(&test_dir)?;
         cache.cache(compiler)?;
-        output.status("Evaluating compiler by doing a sample build... done");
+        log::debug!("Evaluating compiler by doing a sample build... done");
     }
     Ok(())
 }
@@ -122,7 +121,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let mut dependency_registry = TargetRegistry::new();
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
 
-    evaluate_compiler(&compiler, &opts, &cache, &output)?;
+    evaluate_compiler(&compiler, &opts, &cache)?;
 
     let mut generator =
         MakefileGenerator::new(&opts.configuration, &opts.build_directory, compiler)?;
@@ -143,7 +142,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
         return create_dottie_graph(&build_manager, &output);
     }
 
-    generate_makefiles(&mut build_manager, &output, opts)?;
+    generate_makefiles(&mut build_manager, opts)?;
 
     build_project(&mut build_manager, &output, opts, &logger)?;
     cache.cache(&dependency_registry)?;
@@ -169,16 +168,12 @@ fn do_remake(opts: &RemakeOpts) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn generate_makefiles(
-    build_manager: &mut BuildManager,
-    output: &Output,
-    opts: &BuildOpts,
-) -> anyhow::Result<()> {
+fn generate_makefiles(build_manager: &mut BuildManager, opts: &BuildOpts) -> anyhow::Result<()> {
     build_manager.generate_makefiles()?;
-    output.status(&format!(
+    log::debug!(
         "Build files generated in {}",
         opts.build_directory.as_path().display()
-    ));
+    );
     Ok(())
 }
 

@@ -14,12 +14,12 @@ use yambs::external;
 use yambs::generator::MakefileGenerator;
 use yambs::logger;
 use yambs::output::Output;
-use yambs::{YAMBS_MANIFEST_NAME, YAMBS_MANIFEST_DIR_ENV};
+use yambs::{YambsEnvironmentVariables, YAMBS_MANIFEST_NAME};
 
 fn main() -> anyhow::Result<()> {
     let command_line = CommandLine::from_args();
     let output = Output::new();
-    let _environment_variables = EnvironmentVariables::from_command_line(&command_line);
+    let _environment_variables = YambsEnvironmentVariables::from_command_line(&command_line);
 
     if let Some(subcommand) = command_line.subcommand {
         match subcommand {
@@ -32,46 +32,6 @@ fn main() -> anyhow::Result<()> {
         std::process::exit(0);
     }
     Ok(())
-}
-
-struct EnvironmentVariable {
-    pub key: String,
-}
-
-impl EnvironmentVariable {
-    pub fn new(key: &str, value: &str) -> Self
-where {
-        std::env::set_var(key, value);
-        Self {
-            key: key.to_string(),
-        }
-    }
-}
-
-impl Drop for EnvironmentVariable {
-    fn drop(&mut self) {
-        std::env::remove_var(&self.key)
-    }
-}
-
-struct EnvironmentVariables(std::vec::Vec<EnvironmentVariable>);
-
-impl EnvironmentVariables {
-    pub fn from_command_line(command_line: &CommandLine) -> Self {
-        let mut env_vars = vec![];
-        if let Some(ref subcommand) = command_line.subcommand {
-            match subcommand {
-                Subcommand::Build(ref build_opts) => {
-                    env_vars.push(EnvironmentVariable::new(
-                        YAMBS_MANIFEST_DIR_ENV,
-                        &build_opts.manifest_dir.as_path().display().to_string(),
-                    ));
-                }
-                _ => (),
-            }
-        }
-        Self(env_vars)
-    }
 }
 
 fn log_invoked_command() {

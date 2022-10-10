@@ -8,7 +8,7 @@ use tempdir::TempDir;
 use super::*;
 use crate::build_target::{target_registry::TargetRegistry, TargetNode};
 use crate::generator::{Generator, GeneratorError, Sanitizer};
-use crate::{YAMBS_MANIFEST_NAME, YAMBS_MANIFEST_DIR_ENV};
+use crate::{YAMBS_MANIFEST_DIR_ENV, YAMBS_MANIFEST_NAME};
 
 pub struct GeneratorMock {
     _dep: Option<TargetNode>,

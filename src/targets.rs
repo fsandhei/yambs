@@ -109,13 +109,10 @@ impl Dependency {
 }
 
 fn canonicalize_source(path: &std::path::Path) -> std::path::PathBuf {
-    std::fs::canonicalize(
-        std::env::var_os(YAMBS_MANIFEST_DIR_ENV)
-            .map(std::path::PathBuf::from)
-            .unwrap()
-            .join(path),
-    )
-    .unwrap()
+    std::env::var_os(YAMBS_MANIFEST_DIR_ENV)
+        .map(std::path::PathBuf::from)
+        .unwrap()
+        .join(path)
 }
 
 #[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]

@@ -143,7 +143,10 @@ mod tests {
     fn from_mmk_registers_include_directories_third_party() {
         let stub_one = DependencyStub::create_include_dir("base_one", "DependencyOne");
         let mut stub_two = DependencyStub::create_include_dir("base_two", "DependencyTwo");
-        stub_two.dependency.data.origin = targets::DependencySource::System;
+        stub_two.dependency.data = targets::DependencyData::FromFilesystem {
+            path: stub_two.dependency.data.from_filesystem().unwrap().0,
+            origin: targets::DependencySource::System,
+        };
         let stub_three = DependencyStub::create_include_dir("base_three", "DependencyThree");
         let expected = IncludeDirectories(vec![
             IncludeDirectory {

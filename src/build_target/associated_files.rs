@@ -100,10 +100,12 @@ mod tests {
 
     #[test]
     fn source_file_is_source_file_type() {
-        let file = "file.cpp";
+        let tempdir = tempdir::TempDir::new("test").unwrap();
+        let file = tempdir.path().join("file.cpp");
+        std::fs::File::create(&file).unwrap();
         let expected = SourceFile {
             file_type: FileType::Source,
-            file: std::path::PathBuf::from(file),
+            file: file.clone(),
         };
         let actual = SourceFile::new(&std::path::PathBuf::from(file)).unwrap();
         assert_eq!(actual, expected);
@@ -111,10 +113,12 @@ mod tests {
 
     #[test]
     fn header_file_is_header_file_type() {
-        let file = "file.h";
+        let tempdir = tempdir::TempDir::new("test").unwrap();
+        let file = tempdir.path().join("file.h");
+        std::fs::File::create(&file).unwrap();
         let expected = SourceFile {
             file_type: FileType::Header,
-            file: std::path::PathBuf::from(file),
+            file: file.clone(),
         };
         let actual = SourceFile::new(&std::path::PathBuf::from(file)).unwrap();
         assert_eq!(actual, expected);
@@ -122,7 +126,9 @@ mod tests {
 
     #[test]
     fn fails_to_recognize_file_type() {
-        let file = "file.py";
+        let tempdir = tempdir::TempDir::new("test").unwrap();
+        let file = tempdir.path().join("file.py");
+        std::fs::File::create(&file).unwrap();
         let actual = SourceFile::new(&std::path::PathBuf::from(file));
         assert!(matches!(
             actual.unwrap_err(),

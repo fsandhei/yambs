@@ -206,7 +206,7 @@ mod tests {
             assert!(matches!(compiler.compiler_type(), &Type::Clang));
         }
         {
-            lock.lock("clang-13");
+            lock.lock("clang-14");
             let compiler = Compiler::new().unwrap();
             assert!(matches!(compiler.compiler_type(), &Type::Clang));
         }
@@ -222,17 +222,17 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 try_get_version(&compiler_exe).unwrap(),
-                semver::Version::parse("13.0.1").unwrap()
+                semver::Version::parse("14.0.6").unwrap()
             );
         }
         {
-            lock.lock("clang-13");
+            lock.lock("clang-14");
             let compiler_exe = std::env::var_os("CXX")
                 .map(std::path::PathBuf::from)
                 .unwrap();
             assert_eq!(
                 try_get_version(&compiler_exe).unwrap(),
-                semver::Version::parse("13.0.1").unwrap()
+                semver::Version::parse("14.0.6").unwrap()
             );
         }
     }
@@ -247,7 +247,7 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 try_get_version(&compiler_exe).unwrap(),
-                semver::Version::parse("11.2.0").unwrap()
+                semver::Version::parse("12.1.1").unwrap()
             );
         }
     }

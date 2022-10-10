@@ -30,9 +30,9 @@ impl IncludeDirectories {
         let include_directories = dependencies
             .iter()
             .filter_map(|dependency| {
-                let path = &dependency.data.path;
-                let include_path = IncludeDirectory::find(path)?;
-                let origin = &dependency.data.origin;
+                let (path, origin) = dependency.data.from_filesystem()?;
+                let include_path = IncludeDirectory::find(&path)?;
+
                 Some(match origin {
                     targets::DependencySource::Include => IncludeDirectory {
                         include_type: IncludeType::Include,
@@ -97,7 +97,7 @@ mod tests {
 
             let dependency = targets::Dependency {
                 name: dependency_name.to_string(),
-                data: targets::DependencyData {
+                data: targets::DependencyData::FromFilesystem {
                     path: dep_dir.path().to_path_buf(),
                     origin: targets::DependencySource::Include,
                 },

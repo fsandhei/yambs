@@ -107,7 +107,7 @@ impl BuildTarget {
         source_files.push(executable.main.clone());
 
         Ok(Self {
-            manifest_dir_path: manifest_dir_path.parent().unwrap().to_path_buf(),
+            manifest_dir_path: manifest_dir_path.to_path_buf(),
             main: executable.main.to_path_buf(),
             modification_time: metadata
                 .modified()
@@ -136,7 +136,7 @@ impl BuildTarget {
         source_files.push(library.main.clone());
 
         Ok(Self {
-            manifest_dir_path: manifest_dir_path.parent().unwrap().to_path_buf(),
+            manifest_dir_path: manifest_dir_path.to_path_buf(),
             main: library.main.to_path_buf(),
             modification_time: metadata
                 .modified()
@@ -165,28 +165,35 @@ impl BuildTarget {
         );
         let mut target_vec = Vec::new();
         for dependency in target.dependencies() {
-            if let Some(registered_dep) = registry.get_target(&dependency.data.path) {
-                log::debug!("Found registered dependency. Checking for cyclic dependencies");
-                self.detect_cycle_from_target(&registered_dep)?;
-                target_vec.push(registered_dep);
-            } else {
-                log::debug!("No registered dependency found. Creating dependency build target.");
-                let manifest_path = dependency.data.path.join(YAMBS_MANIFEST_NAME);
-                let manifest = parser::parse(&manifest_path).map_err(TargetError::Parse)?;
-                let dep_target = manifest
-                    .data
-                    .targets
-                    .iter()
-                    .find(|dep| {
-                        if let Some(lib) = dep.library() {
-                            return lib.name == dependency.name;
-                        } else {
-                            false
-                        }
-                    })
-                    .unwrap();
-                let target = BuildTarget::create(&dependency.data.path, dep_target, registry)?;
-                target_vec.push(target)
+            if let Some((path, _)) = dependency.data.from_filesystem() {
+                if let Some(registered_dep) = registry.get_target(
+                    &path,
+                    TargetType::Library(LibraryType::Static, dependency.name.clone()),
+                ) {
+                    log::debug!("Found registered dependency. Checking for cyclic dependencies");
+                    self.detect_cycle_from_target(&registered_dep)?;
+                    target_vec.push(registered_dep);
+                } else {
+                    log::debug!(
+                        "No registered dependency found. Creating dependency build target."
+                    );
+                    let manifest_path = path.join(YAMBS_MANIFEST_NAME);
+                    let manifest = parser::parse(&manifest_path).map_err(TargetError::Parse)?;
+                    let dep_target = manifest
+                        .data
+                        .targets
+                        .iter()
+                        .find(|dep| {
+                            if let Some(lib) = dep.library() {
+                                return lib.name == dependency.name;
+                            } else {
+                                false
+                            }
+                        })
+                        .unwrap();
+                    let target = BuildTarget::create(&path, dep_target, registry)?;
+                    target_vec.push(target)
+                }
             }
         }
 
@@ -194,7 +201,9 @@ impl BuildTarget {
     }
 
     fn detect_cycle_from_target(&self, target_node: &TargetNode) -> Result<(), TargetError> {
-        if target_node.borrow().state == TargetState::InProcess {
+        if target_node.borrow().state == TargetState::InProcess
+            && target_node.borrow().name() == self.name()
+        {
             return Err(TargetError::Circulation(
                 target_node.borrow().manifest_dir_path.to_path_buf(),
                 self.manifest_dir_path.to_path_buf(),

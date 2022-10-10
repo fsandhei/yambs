@@ -87,8 +87,9 @@ impl<'gen> BuildManager<'gen> {
                     manifest_path.display()
                 );
             }
-            let target = BuildTarget::create(manifest_path, &build_target, dep_registry)
-                .map_err(BuildManagerError::Target)?;
+            let target =
+                BuildTarget::create(manifest_path.parent().unwrap(), &build_target, dep_registry)
+                    .map_err(BuildManagerError::Target)?;
             self.targets.push(target);
         }
         Ok(())

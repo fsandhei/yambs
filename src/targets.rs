@@ -1,4 +1,5 @@
 use crate::flags::CompilerFlags;
+use crate::YAMBS_MANIFEST_DIR_ENV;
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
@@ -89,23 +90,52 @@ impl Default for LibraryType {
 #[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Dependency {
     pub name: String,
+    #[serde(flatten)]
     pub data: DependencyData,
 }
 
 impl Dependency {
     pub fn new(name: &str, data: &DependencyData) -> Self {
+        let (path, origin) = data.from_filesystem().unwrap();
+        let canonicalized_data = DependencyData::FromFilesystem {
+            path: canonicalize_source(&path),
+            origin,
+        };
         Self {
             name: name.to_string(),
-            data: data.to_owned(),
+            data: canonicalized_data,
         }
     }
 }
 
+fn canonicalize_source(path: &std::path::Path) -> std::path::PathBuf {
+    std::fs::canonicalize(
+        std::env::var_os(YAMBS_MANIFEST_DIR_ENV)
+            .map(std::path::PathBuf::from)
+            .unwrap()
+            .join(path),
+    )
+    .unwrap()
+}
+
 #[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
-pub struct DependencyData {
-    pub path: std::path::PathBuf,
-    #[serde(default)]
-    pub origin: DependencySource,
+#[serde(untagged)]
+pub enum DependencyData {
+    FromFilesystem {
+        path: std::path::PathBuf,
+        #[serde(default)]
+        origin: DependencySource,
+    },
+}
+
+impl DependencyData {
+    pub fn from_filesystem(&self) -> Option<(std::path::PathBuf, DependencySource)> {
+        match self {
+            DependencyData::FromFilesystem { path, origin } => {
+                Some((path.to_owned(), origin.to_owned()))
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]

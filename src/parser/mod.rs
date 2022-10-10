@@ -51,7 +51,23 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .common_raw
                             .dependencies
                             .iter()
-                            .map(|(name, data)| targets::Dependency::new(&name, data))
+                            .map(|(name, data)| {
+                                let dependency = targets::Dependency::new(&name, data);
+                                match dependency.data {
+                                    targets::DependencyData::FromFilesystem {
+                                        ref path,
+                                        ref origin,
+                                    } => {
+                                        log::debug!(
+                                            "Found dependency {} in path {} with origin {:?}",
+                                            dependency.name,
+                                            path.display(),
+                                            origin
+                                        );
+                                    }
+                                }
+                                dependency
+                            })
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Executable(targets::Executable {
                             name,
@@ -80,7 +96,23 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .common_raw
                             .dependencies
                             .iter()
-                            .map(|(name, data)| targets::Dependency::new(&name, data))
+                            .map(|(name, data)| {
+                                let dependency = targets::Dependency::new(&name, data);
+                                match dependency.data {
+                                    targets::DependencyData::FromFilesystem {
+                                        ref path,
+                                        ref origin,
+                                    } => {
+                                        log::debug!(
+                                            "Found dependency {} in path {} with origin {:?}",
+                                            dependency.name,
+                                            path.display(),
+                                            origin
+                                        );
+                                    }
+                                }
+                                dependency
+                            })
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Library(targets::Library {
                             name,
@@ -180,14 +212,14 @@ mod tests {
                 dependencies: vec![
                     Dependency {
                         name: "SomeProject".to_string(),
-                        data: DependencyData {
+                        data: DependencyData::FromFilesystem {
                             path: std::path::PathBuf::from("/some/path/SomeProject"),
                             origin: DependencySource::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
-                        data: DependencyData {
+                        data: DependencyData::FromFilesystem {
                             path: std::path::PathBuf::from("/some/path/SomeSecondProject"),
                             origin: DependencySource::Include,
                         },
@@ -243,14 +275,14 @@ mod tests {
                 dependencies: vec![
                     Dependency {
                         name: "SomeProject".to_string(),
-                        data: DependencyData {
+                        data: DependencyData::FromFilesystem {
                             path: std::path::PathBuf::from("/some/path/to/SomeProject"),
                             origin: DependencySource::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
-                        data: DependencyData {
+                        data: DependencyData::FromFilesystem {
                             path: std::path::PathBuf::from("/some/path/to/SomeSecondProject"),
                             origin: DependencySource::Include,
                         },
@@ -318,14 +350,14 @@ mod tests {
                 dependencies: vec![
                     Dependency {
                         name: "SomeProject".to_string(),
-                        data: DependencyData {
+                        data: DependencyData::FromFilesystem {
                             path: std::path::PathBuf::from("/some/path/to/SomeProject"),
                             origin: DependencySource::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
-                        data: DependencyData {
+                        data: DependencyData::FromFilesystem {
                             path: std::path::PathBuf::from("/some/path/to/SomeSecondProject"),
                             origin: DependencySource::Include,
                         },

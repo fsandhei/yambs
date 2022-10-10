@@ -82,6 +82,10 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
         formatted_string.push_str("\\\n");
         formatted_string.push_str(&format!("   {}", object.display().to_string()));
     }
+    for dependency in &borrowed_target.dependencies {
+        formatted_string.push_str("\\\n");
+        formatted_string.push_str(&format!("   {}", dependency.borrow().name()));
+    }
     formatted_string
 }
 
@@ -154,21 +158,12 @@ impl MakefileGenerator {
 
         for target in targets {
             log::debug!(
-                "Generating makefiles for target {:?} (manifest location: {})",
+                "Generating makefiles for target {:?} (manifest path: {})",
                 target.borrow().name(),
                 target.borrow().manifest_dir_path.display()
             );
-            if !target.borrow().dependencies.is_empty() {
-                self.push_and_create_directory(&std::path::Path::new("lib"))?;
-                let dependencies = &target.borrow().dependencies;
-                for dependency in dependencies {
-                    self.generate_rule_declaration_for_target(generate, dependency);
-                }
-                self.generate_object_rules(generate, &dependencies);
-                self.generate_depends_rules(generate);
-                self.output_directory.pop();
-            }
             self.generate_rule_declaration_for_target(generate, target);
+            self.generate_rules_for_dependencies(generate, target)?;
         }
         self.generate_object_rules(generate, targets);
         self.generate_depends_rules(generate);
@@ -191,6 +186,31 @@ impl MakefileGenerator {
 
     fn create_subdir(&self, dir: &std::path::Path) -> Result<(), GeneratorError> {
         utility::create_dir(&self.output_directory.join(dir)).map_err(GeneratorError::Fs)
+    }
+
+    fn generate_rules_for_dependencies(
+        &mut self,
+        generate: &mut Generate,
+        target: &TargetNode,
+    ) -> Result<(), GeneratorError> {
+        if !target.borrow().dependencies.is_empty() {
+            self.push_and_create_directory(&std::path::Path::new("lib"))?;
+            let dependencies = &target.borrow().dependencies;
+            for dependency in dependencies {
+                if dependency.borrow().manifest_dir_path != target.borrow().manifest_dir_path {
+                    log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
+                            dependency.borrow().name(),
+                            dependency.borrow().manifest_dir_path.display(),
+                            target.borrow().name(),
+                            target.borrow().manifest_dir_path.display());
+                    let rule =
+                        LibraryTargetFactory::create_rule(dependency, &self.output_directory);
+                    generate.data.push_str(&rule);
+                }
+            }
+            self.output_directory.pop();
+        }
+        Ok(())
     }
 
     fn generate_default_all_target(&self, generate: &mut Generate, targets: &[TargetNode]) {

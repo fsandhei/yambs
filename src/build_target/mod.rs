@@ -15,10 +15,30 @@ use associated_files::SourceFiles;
 use include_directories::IncludeDirectories;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct BuildTarget {
-    pub manifest_dir_path: std::path::PathBuf,
-    pub main: std::path::PathBuf,
+pub struct Manifest {
+    pub directory: std::path::PathBuf,
     pub modification_time: std::time::SystemTime,
+}
+
+impl Manifest {
+    pub fn new(directory: &std::path::Path) -> Self {
+        let metadata = std::fs::metadata(directory.join(YAMBS_MANIFEST_NAME)).expect(&format!(
+            "Could not fetch metadata from {}",
+            YAMBS_MANIFEST_NAME
+        ));
+        Self {
+            directory: directory.to_path_buf(),
+            modification_time: metadata
+                .modified()
+                .expect("Could not fetch last modified time of manifest"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct BuildTarget {
+    pub manifest: Manifest,
+    pub main: std::path::PathBuf,
     pub dependencies: Vec<TargetNode>,
     pub state: TargetState,
     pub source_files: SourceFiles,
@@ -53,7 +73,7 @@ impl BuildTarget {
             log::debug!(
                 "Registering target \"{}\" (manifest directory {})",
                 target.borrow().name(),
-                target.borrow().manifest_dir_path.display()
+                target.borrow().manifest.directory.display()
             );
             target_node.borrow_mut().add_target(target);
         }
@@ -87,7 +107,7 @@ impl BuildTarget {
     }
 
     pub fn project_name(&self) -> &std::path::Path {
-        utility::get_head_directory(&self.manifest_dir_path)
+        utility::get_head_directory(&self.manifest.directory)
     }
 
     pub fn name(&self) -> String {
@@ -101,17 +121,12 @@ impl BuildTarget {
         manifest_dir_path: &std::path::Path,
         executable: &targets::Executable,
     ) -> Result<Self, TargetError> {
-        let metadata =
-            std::fs::metadata(manifest_dir_path).expect("Could not fetch metadata from yambs.json");
         let mut source_files = executable.sources.clone();
         source_files.push(executable.main.clone());
 
         Ok(Self {
-            manifest_dir_path: manifest_dir_path.to_path_buf(),
+            manifest: Manifest::new(&manifest_dir_path),
             main: executable.main.to_path_buf(),
-            modification_time: metadata
-                .modified()
-                .expect("Could not fetch last modified time."),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&source_files)
@@ -129,18 +144,12 @@ impl BuildTarget {
         manifest_dir_path: &std::path::Path,
         library: &targets::Library,
     ) -> Result<Self, TargetError> {
-        let metadata =
-            std::fs::metadata(manifest_dir_path).expect("Could not fetch metadata from yambs.json");
-
         let mut source_files = library.sources.clone();
         source_files.push(library.main.clone());
 
         Ok(Self {
-            manifest_dir_path: manifest_dir_path.to_path_buf(),
+            manifest: Manifest::new(&manifest_dir_path),
             main: library.main.to_path_buf(),
-            modification_time: metadata
-                .modified()
-                .expect("Could not fetch last modified time."),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&source_files)
@@ -205,8 +214,8 @@ impl BuildTarget {
             && target_node.borrow().name() == self.name()
         {
             return Err(TargetError::Circulation(
-                target_node.borrow().manifest_dir_path.to_path_buf(),
-                self.manifest_dir_path.to_path_buf(),
+                target_node.borrow().manifest.directory.to_path_buf(),
+                self.manifest.directory.to_path_buf(),
             ));
         }
         Ok(())

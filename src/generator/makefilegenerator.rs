@@ -67,7 +67,7 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
         .source_files
         .iter()
         .filter(|file| file.is_source());
-    let dependency_root_path = &borrowed_target.manifest_dir_path;
+    let dependency_root_path = &borrowed_target.manifest.directory;
 
     for source in sources {
         let source_file = source.file();
@@ -122,7 +122,7 @@ fn directory_from_build_configurations(
 
 fn search_directory_from_target(target: &TargetNode) -> String {
     let borrowed_target = target.borrow();
-    let project_base = &borrowed_target.manifest_dir_path;
+    let project_base = &borrowed_target.manifest.directory;
     let include_line = format!("-I{} ", project_base.join("include").display().to_string());
     include_line
 }
@@ -160,7 +160,7 @@ impl MakefileGenerator {
             log::debug!(
                 "Generating makefiles for target {:?} (manifest path: {})",
                 target.borrow().name(),
-                target.borrow().manifest_dir_path.display()
+                target.borrow().manifest.directory.display()
             );
             self.generate_rule_declaration_for_target(generate, target);
             self.generate_rules_for_dependencies(generate, target)?;
@@ -197,12 +197,12 @@ impl MakefileGenerator {
             self.push_and_create_directory(&std::path::Path::new("lib"))?;
             let dependencies = &target.borrow().dependencies;
             for dependency in dependencies {
-                if dependency.borrow().manifest_dir_path != target.borrow().manifest_dir_path {
+                if dependency.borrow().manifest.directory != target.borrow().manifest.directory {
                     log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
                             dependency.borrow().name(),
-                            dependency.borrow().manifest_dir_path.display(),
+                            dependency.borrow().manifest.directory.display(),
                             target.borrow().name(),
-                            target.borrow().manifest_dir_path.display());
+                            target.borrow().manifest.directory.display());
                     let rule =
                         LibraryTargetFactory::create_rule(dependency, &self.output_directory);
                     generate.data.push_str(&rule);
@@ -305,7 +305,7 @@ impl MakefileGenerator {
             .source_files
             .iter()
             .filter(|file| file.is_source());
-        let dependency_root_path = &borrowed_target.manifest_dir_path;
+        let dependency_root_path = &borrowed_target.manifest.directory;
 
         for source in sources {
             if !generate.source_files_generated_cache.contains(&source) {

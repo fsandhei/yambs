@@ -125,6 +125,8 @@ pub enum FsError {
              Hint: Recipe files are called yambs.toml"
     )]
     InvalidRecipeFilename(std::path::PathBuf),
+    #[error("Failed to read JSON object from reader.")]
+    FailedToReadBufReader(#[source] serde_json::Error),
 }
 
 #[derive(Debug, thiserror::Error)]

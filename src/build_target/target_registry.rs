@@ -6,7 +6,7 @@ use crate::utility;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 pub struct TargetRegistry {
-    registry: Vec<TargetNode>,
+    pub registry: Vec<TargetNode>,
 }
 
 impl TargetRegistry {
@@ -43,7 +43,7 @@ impl TargetRegistry {
         for target in &self.registry {
             let borrowed_target = target.try_borrow();
             if let Ok(borrowed_target) = borrowed_target {
-                if borrowed_target.manifest_dir_path == *path
+                if borrowed_target.manifest.directory == *path
                     && borrowed_target.target_type == target_type
                 {
                     return Some(target.clone());

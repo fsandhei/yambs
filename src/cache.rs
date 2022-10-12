@@ -2,9 +2,8 @@
 // TODO: Use serde maybe?
 
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use crate::cli::build_configurations::BuildDirectory;
 use crate::errors::CacheError;
 use crate::utility;
 
@@ -13,8 +12,8 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new(build_directory: &BuildDirectory) -> std::io::Result<Self> {
-        let cache_directory = build_directory.as_path().join("cache");
+    pub fn new(base_directory: &std::path::Path) -> std::io::Result<Self> {
+        let cache_directory = base_directory.join("cache");
         std::fs::create_dir_all(&cache_directory)?;
         Ok(Self { cache_directory })
     }
@@ -40,6 +39,16 @@ impl Cache {
             return existing_cache == *cached;
         }
         false
+    }
+
+    pub fn from_cache<T>(&self) -> Option<T>
+    where
+        T: DeserializeOwned + Cacher,
+        T: for<'de> Deserialize<'de>,
+    {
+        let file = std::fs::File::open(self.cache_directory.join(T::CACHE_FILE_NAME)).ok()?;
+        let reader = std::io::BufReader::new(file);
+        serde_json::from_reader(reader).ok()
     }
 }
 

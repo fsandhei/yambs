@@ -76,7 +76,7 @@ fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path
 fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
-    let cache = Cache::new(&opts.build_directory)?;
+    let cache = Cache::new(opts.build_directory.as_path())?;
     let compiler = compiler::Compiler::new()?;
     let mut dependency_registry = TargetRegistry::new();
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
@@ -93,6 +93,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     parse_and_register_dependencies(
         &mut build_manager,
+        &cache,
         &manifest_path,
         &output,
         &mut dependency_registry,
@@ -139,11 +140,12 @@ fn generate_makefiles(build_manager: &mut BuildManager, opts: &BuildOpts) -> any
 
 fn parse_and_register_dependencies(
     build_manager: &mut BuildManager,
+    cache: &Cache,
     top_path: &std::path::Path,
     output: &Output,
     dep_registry: &mut TargetRegistry,
 ) -> anyhow::Result<()> {
-    build_manager.parse_and_register_dependencies(dep_registry, top_path)?;
+    build_manager.parse_and_register_dependencies(cache, dep_registry, top_path)?;
     let number_of_targets = dep_registry.number_of_targets();
     output.status(&format!("Registered {} build targets", number_of_targets));
     Ok(())

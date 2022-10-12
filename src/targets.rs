@@ -1,7 +1,7 @@
 use crate::flags::CompilerFlags;
 use crate::YAMBS_MANIFEST_DIR_ENV;
 
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Target {
     Executable(Executable),
@@ -31,7 +31,7 @@ impl Target {
     }
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Executable {
     pub name: String,
     pub main: std::path::PathBuf,
@@ -40,7 +40,7 @@ pub struct Executable {
     pub compiler_flags: Option<CompilerFlags>,
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Library {
     pub name: String,
     pub main: std::path::PathBuf,
@@ -75,7 +75,7 @@ pub struct RawCommonData {
     pub compiler_flags: Option<CompilerFlags>,
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub enum LibraryType {
     Static,
     Dynamic,
@@ -87,7 +87,7 @@ impl Default for LibraryType {
     }
 }
 
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Dependency {
     pub name: String,
     #[serde(flatten)]
@@ -115,7 +115,7 @@ fn canonicalize_source(path: &std::path::Path) -> std::path::PathBuf {
         .join(path)
 }
 
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum DependencyData {
     FromFilesystem {
@@ -135,7 +135,7 @@ impl DependencyData {
     }
 }
 
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub enum DependencySource {
     System,
     Include,

@@ -7,6 +7,7 @@ use tempdir::TempDir;
 
 use super::*;
 use crate::build_target::{target_registry::TargetRegistry, TargetNode};
+use crate::cache;
 use crate::generator::{Generator, GeneratorError, Sanitizer};
 use crate::{YAMBS_MANIFEST_DIR_ENV, YAMBS_MANIFEST_NAME};
 
@@ -89,11 +90,12 @@ fn parse_and_register_one_target() {
     let mut builder = BuildManager::new(&mut generator);
     let mut dep_registry = TargetRegistry::new();
     let (dir, test_file_path) = dummy_manifest("example");
+    let cache = cache::Cache::new(dir.path()).unwrap();
     let mut lock = EnvLock::new();
     lock.lock(YAMBS_MANIFEST_DIR_ENV, &dir.path().display().to_string());
 
     builder
-        .parse_and_register_dependencies(&mut dep_registry, &test_file_path)
+        .parse_and_register_dependencies(&cache, &mut dep_registry, &test_file_path)
         .unwrap();
 }
 

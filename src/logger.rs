@@ -15,7 +15,7 @@ impl Logger {
         let path = log_directory.join(YAMBS_LOG_FILE);
         let logfile = log4rs::append::file::FileAppender::builder()
             .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-                r"[{d(%Y-%m-%d %H:%M:%S)} {l} \({t}\)]  - {m}{n}",
+                r"[{d(%Y-%m-%d %H:%M:%S)}] [{l}] [\({t}\)]  - {m}{n}",
             )))
             .append(false)
             .build(&path)

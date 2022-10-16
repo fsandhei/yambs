@@ -18,6 +18,7 @@ use include_directories::IncludeDirectories;
 pub struct Dependency {
     pub name: String,
     pub manifest_dir_path: std::path::PathBuf,
+    pub library_type: LibraryType,
 }
 
 impl Dependency {
@@ -25,10 +26,10 @@ impl Dependency {
         &self,
         registry: &target_registry::TargetRegistry,
     ) -> Option<TargetNode> {
-        registry.get_target(
-            &self.manifest_dir_path,
-            TargetType::Library(LibraryType::Static, self.name.clone()),
-        )
+        registry.get_target_from_predicate(|build_target| {
+            build_target.manifest.directory == self.manifest_dir_path
+                && build_target.library_type() == self.library_type
+        })
     }
 }
 
@@ -200,15 +201,16 @@ impl BuildTarget {
         let mut target_vec = Vec::new();
         for dependency in target.dependencies() {
             if let Some((path, _)) = dependency.data.source() {
-                if let Some(registered_dep) = registry.get_target(
-                    &path,
-                    TargetType::Library(LibraryType::Static, dependency.name.clone()),
-                ) {
+                if let Some(registered_dep) = registry.get_target_from_predicate(|build_target| {
+                    build_target.manifest.directory == path
+                        && build_target.name() == dependency.name
+                }) {
                     log::debug!("Found registered dependency. Checking for cyclic dependencies");
                     self.detect_cycle_from_target(&registered_dep)?;
                     target_vec.push(Dependency {
                         name: registered_dep.borrow().name(),
                         manifest_dir_path: registered_dep.borrow().manifest.directory.clone(),
+                        library_type: registered_dep.borrow().library_type(),
                     });
                 } else {
                     log::debug!(
@@ -232,6 +234,7 @@ impl BuildTarget {
                     target_vec.push(Dependency {
                         name: target.borrow().name(),
                         manifest_dir_path: target.borrow().manifest.directory.clone(),
+                        library_type: target.borrow().library_type(),
                     });
                 }
             }

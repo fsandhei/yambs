@@ -60,11 +60,12 @@ pub struct RawExecutableData {
 pub struct RawLibraryData {
     #[serde(flatten)]
     pub common_raw: RawCommonData,
-    #[serde(default)]
+    #[serde(default, rename = "type")]
     pub lib_type: LibraryType,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct RawCommonData {
     pub main: std::path::PathBuf,
     pub sources: Vec<std::path::PathBuf>,
@@ -77,6 +78,7 @@ pub struct RawCommonData {
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub enum LibraryType {
     Static,
+    #[serde(rename = "shared")]
     Dynamic,
 }
 

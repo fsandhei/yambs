@@ -1,4 +1,4 @@
-use crate::build_target::{TargetNode, TargetType};
+use crate::build_target::{BuildTarget, TargetNode, TargetType};
 use crate::cache;
 use crate::utility;
 // LEGG TIL TESTER
@@ -46,6 +46,21 @@ impl TargetRegistry {
                 if borrowed_target.manifest.directory == *path
                     && borrowed_target.target_type == target_type
                 {
+                    return Some(target.clone());
+                }
+            }
+        }
+        None
+    }
+
+    pub fn get_target_from_predicate<P>(&self, predicate: P) -> Option<TargetNode>
+    where
+        P: Fn(&BuildTarget) -> bool,
+    {
+        for target in &self.registry {
+            let borrowed_target = target.try_borrow();
+            if let Ok(borrowed_target) = borrowed_target {
+                if predicate(&*borrowed_target) {
                     return Some(target.clone());
                 }
             }

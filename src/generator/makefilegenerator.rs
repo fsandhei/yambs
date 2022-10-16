@@ -44,7 +44,16 @@ impl LibraryTargetFactory {
                 target_name = target.borrow().name(),
                 prerequisites = generate_prerequisites(target, output_directory)
             ),
-            LibraryType::Dynamic => panic!("Dynamic libraries are currently not supported."),
+            LibraryType::Dynamic => format!(
+                "\
+                {target_name} : \
+                    {prerequisites}\n\
+                    \t@echo \"Linking shared library {target_name}\"\n\
+                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)",
+                    target_name = target.borrow().name(),
+                    prerequisites = generate_prerequisites(target, output_directory),
+                    dependencies = generate_search_directories(target),
+            )
         }
     }
 }
@@ -104,6 +113,9 @@ fn generate_search_directories(target: &TargetNode) -> String {
             }
             formatted_string.push(' ');
         }
+    }
+    if !borrowed_target.dependencies.is_empty() {
+        formatted_string.push_str("-L.");
     }
     formatted_string.trim_end().to_string()
 }
@@ -599,7 +611,8 @@ impl<'generator> IncludeFileGenerator<'generator> {
                    -MP
 
         # Additional CXX flags to be passed to the compiler
-        CXXFLAGS += -pthread
+        CXXFLAGS += -pthread\\
+                    -fPIC # Generate Position Independent code suitable for use in a shared library.
 
         # Additional AR flags being passed to the static library linker
         ARFLAGS = rs

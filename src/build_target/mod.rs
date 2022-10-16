@@ -199,7 +199,7 @@ impl BuildTarget {
         );
         let mut target_vec = Vec::new();
         for dependency in target.dependencies() {
-            if let Some((path, _)) = dependency.data.from_filesystem() {
+            if let Some((path, _)) = dependency.data.source() {
                 if let Some(registered_dep) = registry.get_target(
                     &path,
                     TargetType::Library(LibraryType::Static, dependency.name.clone()),

@@ -95,8 +95,8 @@ pub struct Dependency {
 
 impl Dependency {
     pub fn new(name: &str, data: &DependencyData) -> Self {
-        let (path, origin) = data.from_filesystem().unwrap();
-        let canonicalized_data = DependencyData::FromFilesystem {
+        let (path, origin) = data.source().unwrap();
+        let canonicalized_data = DependencyData::Source {
             path: crate::canonicalize_source(&path),
             origin,
         };
@@ -110,7 +110,7 @@ impl Dependency {
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum DependencyData {
-    FromFilesystem {
+    Source {
         path: std::path::PathBuf,
         #[serde(default)]
         origin: DependencySource,
@@ -118,11 +118,9 @@ pub enum DependencyData {
 }
 
 impl DependencyData {
-    pub fn from_filesystem(&self) -> Option<(std::path::PathBuf, DependencySource)> {
+    pub fn source(&self) -> Option<(std::path::PathBuf, DependencySource)> {
         match self {
-            DependencyData::FromFilesystem { path, origin } => {
-                Some((path.to_owned(), origin.to_owned()))
-            }
+            DependencyData::Source { path, origin } => Some((path.to_owned(), origin.to_owned())),
         }
     }
 }

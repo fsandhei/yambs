@@ -30,7 +30,7 @@ impl IncludeDirectories {
         let include_directories = dependencies
             .iter()
             .filter_map(|dependency| {
-                let (path, origin) = dependency.data.from_filesystem()?;
+                let (path, origin) = dependency.data.source()?;
                 let include_path = IncludeDirectory::find(&path)?;
 
                 Some(match origin {
@@ -97,7 +97,7 @@ mod tests {
 
             let dependency = targets::Dependency {
                 name: dependency_name.to_string(),
-                data: targets::DependencyData::FromFilesystem {
+                data: targets::DependencyData::Source {
                     path: dep_dir.path().to_path_buf(),
                     origin: targets::DependencySource::Include,
                 },
@@ -143,8 +143,8 @@ mod tests {
     fn from_mmk_registers_include_directories_third_party() {
         let stub_one = DependencyStub::create_include_dir("base_one", "DependencyOne");
         let mut stub_two = DependencyStub::create_include_dir("base_two", "DependencyTwo");
-        stub_two.dependency.data = targets::DependencyData::FromFilesystem {
-            path: stub_two.dependency.data.from_filesystem().unwrap().0,
+        stub_two.dependency.data = targets::DependencyData::Source {
+            path: stub_two.dependency.data.source().unwrap().0,
             origin: targets::DependencySource::System,
         };
         let stub_three = DependencyStub::create_include_dir("base_three", "DependencyThree");

@@ -57,7 +57,7 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .map(|(name, data)| {
                                 let dependency = targets::Dependency::new(&name, data);
                                 match dependency.data {
-                                    targets::DependencyData::FromFilesystem {
+                                    targets::DependencyData::Source {
                                         ref path,
                                         ref origin,
                                     } => {
@@ -102,7 +102,7 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .map(|(name, data)| {
                                 let dependency = targets::Dependency::new(&name, data);
                                 match dependency.data {
-                                    targets::DependencyData::FromFilesystem {
+                                    targets::DependencyData::Source {
                                         ref path,
                                         ref origin,
                                     } => {
@@ -217,14 +217,14 @@ mod tests {
                 dependencies: vec![
                     Dependency {
                         name: "SomeProject".to_string(),
-                        data: DependencyData::FromFilesystem {
+                        data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/SomeProject"),
                             origin: DependencySource::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
-                        data: DependencyData::FromFilesystem {
+                        data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/SomeSecondProject"),
                             origin: DependencySource::Include,
                         },
@@ -281,14 +281,14 @@ mod tests {
                 dependencies: vec![
                     Dependency {
                         name: "SomeProject".to_string(),
-                        data: DependencyData::FromFilesystem {
+                        data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/to/SomeProject"),
                             origin: DependencySource::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
-                        data: DependencyData::FromFilesystem {
+                        data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/to/SomeSecondProject"),
                             origin: DependencySource::Include,
                         },
@@ -356,14 +356,14 @@ mod tests {
                 dependencies: vec![
                     Dependency {
                         name: "SomeProject".to_string(),
-                        data: DependencyData::FromFilesystem {
+                        data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/to/SomeProject"),
                             origin: DependencySource::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
-                        data: DependencyData::FromFilesystem {
+                        data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/to/SomeSecondProject"),
                             origin: DependencySource::Include,
                         },

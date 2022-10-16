@@ -15,6 +15,24 @@ use associated_files::SourceFiles;
 use include_directories::IncludeDirectories;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Dependency {
+    pub name: String,
+    pub manifest_dir_path: std::path::PathBuf,
+}
+
+impl Dependency {
+    pub fn to_build_target(
+        &self,
+        registry: &target_registry::TargetRegistry,
+    ) -> Option<TargetNode> {
+        registry.get_target(
+            &self.manifest_dir_path,
+            TargetType::Library(LibraryType::Static, self.name.clone()),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Manifest {
     pub directory: std::path::PathBuf,
     pub modification_time: std::time::SystemTime,
@@ -39,7 +57,7 @@ impl Manifest {
 pub struct BuildTarget {
     pub manifest: Manifest,
     pub main: std::path::PathBuf,
-    pub dependencies: Vec<TargetNode>,
+    pub dependencies: Vec<Dependency>,
     pub state: TargetState,
     pub source_files: SourceFiles,
     pub target_type: TargetType,
@@ -61,6 +79,13 @@ impl BuildTarget {
                 TargetNode::new(BuildTarget::library(manifest_dir_path, &library)?)
             }
         };
+        if let Some(existing_node) = registry.get_target(
+            &target_node.borrow().manifest.directory,
+            target_node.borrow().target_type.clone(),
+        ) {
+            return Ok(existing_node);
+        }
+
         log::debug!(
             "Creating build target \"{}\"...",
             target_node.borrow().name()
@@ -72,8 +97,8 @@ impl BuildTarget {
         for target in target_vec {
             log::debug!(
                 "Registering target \"{}\" (manifest directory {})",
-                target.borrow().name(),
-                target.borrow().manifest.directory.display()
+                target.name,
+                target.manifest_dir_path.display()
             );
             target_node.borrow_mut().add_target(target);
         }
@@ -167,7 +192,7 @@ impl BuildTarget {
         &self,
         registry: &mut target_registry::TargetRegistry,
         target: &targets::Target,
-    ) -> Result<Vec<TargetNode>, TargetError> {
+    ) -> Result<Vec<Dependency>, TargetError> {
         log::debug!(
             "Checking if target \"{}\" has registered dependencies",
             self.name()
@@ -181,7 +206,10 @@ impl BuildTarget {
                 ) {
                     log::debug!("Found registered dependency. Checking for cyclic dependencies");
                     self.detect_cycle_from_target(&registered_dep)?;
-                    target_vec.push(registered_dep);
+                    target_vec.push(Dependency {
+                        name: registered_dep.borrow().name(),
+                        manifest_dir_path: registered_dep.borrow().manifest.directory.clone(),
+                    });
                 } else {
                     log::debug!(
                         "No registered dependency found. Creating dependency build target."
@@ -201,7 +229,10 @@ impl BuildTarget {
                         })
                         .unwrap();
                     let target = BuildTarget::create(&path, dep_target, registry)?;
-                    target_vec.push(target)
+                    target_vec.push(Dependency {
+                        name: target.borrow().name(),
+                        manifest_dir_path: target.borrow().manifest.directory.clone(),
+                    });
                 }
             }
         }
@@ -221,8 +252,8 @@ impl BuildTarget {
         Ok(())
     }
 
-    fn add_target(&mut self, target: TargetNode) {
-        self.dependencies.push(target);
+    fn add_target(&mut self, dependency: Dependency) {
+        self.dependencies.push(dependency);
     }
 }
 

@@ -20,6 +20,19 @@ pub const YAMBS_MANIFEST_NAME: &str = "yambs.toml";
 pub const YAMBS_MANIFEST_DIR_ENV: &str = "YAMBS_MANIFEST_DIR";
 pub const YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV: &str = "YAMBS_BUILD_SYSTEM_EXECUTABLE";
 
+pub fn canonicalize_source(path: &std::path::Path) -> std::path::PathBuf {
+    if path == std::path::Path::new(".") {
+        std::env::var_os(YAMBS_MANIFEST_DIR_ENV)
+            .map(std::path::PathBuf::from)
+            .unwrap()
+    } else {
+        std::env::var_os(YAMBS_MANIFEST_DIR_ENV)
+            .map(std::path::PathBuf::from)
+            .unwrap()
+            .join(path)
+    }
+}
+
 pub struct YambsEnvironmentVariable(EnvironmentVariable);
 
 impl YambsEnvironmentVariable {

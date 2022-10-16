@@ -100,10 +100,10 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     )?;
 
     if opts.create_dottie_graph {
-        return create_dottie_graph(&build_manager, &output);
+        return create_dottie_graph(&dependency_registry, &output);
     }
 
-    generate_makefiles(&mut build_manager, opts)?;
+    generate_makefiles(&mut build_manager, &dependency_registry, opts)?;
 
     build_project(&mut build_manager, &output, opts, &logger)?;
     cache.cache(&dependency_registry)?;
@@ -129,8 +129,12 @@ fn do_remake(opts: &RemakeOpts) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn generate_makefiles(build_manager: &mut BuildManager, opts: &BuildOpts) -> anyhow::Result<()> {
-    build_manager.generate_makefiles()?;
+fn generate_makefiles(
+    build_manager: &mut BuildManager,
+    registry: &TargetRegistry,
+    opts: &BuildOpts,
+) -> anyhow::Result<()> {
+    build_manager.generate_makefiles(registry)?;
     log::debug!(
         "Build files generated in {}",
         opts.build_directory.as_path().display()
@@ -151,10 +155,10 @@ fn parse_and_register_dependencies(
     Ok(())
 }
 
-fn create_dottie_graph(build_manager: &BuildManager, output: &Output) -> anyhow::Result<()> {
+fn create_dottie_graph(registry: &TargetRegistry, output: &Output) -> anyhow::Result<()> {
     let mut dottie_buffer = String::new();
-    for target in build_manager.targets() {
-        if external::dottie(target, false, &mut dottie_buffer).is_ok() {
+    for target in &registry.registry {
+        if external::dottie(target, registry, false, &mut dottie_buffer).is_ok() {
             output.status(&format!(
                 "Created dottie file dependency-{}.gv",
                 target.borrow().name()

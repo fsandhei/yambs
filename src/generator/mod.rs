@@ -1,4 +1,4 @@
-use crate::build_target::{TargetError, TargetNode};
+use crate::build_target::{target_registry::TargetRegistry, TargetError};
 use crate::errors::FsError;
 
 mod makefilegenerator;
@@ -17,7 +17,7 @@ pub enum GeneratorError {
 }
 
 pub trait Generator {
-    fn generate(&mut self, targets: &[TargetNode]) -> Result<(), GeneratorError>;
+    fn generate(&mut self, registry: &TargetRegistry) -> Result<(), GeneratorError>;
 }
 
 pub trait Sanitizer {

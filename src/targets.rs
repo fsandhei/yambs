@@ -1,5 +1,4 @@
 use crate::flags::CompilerFlags;
-use crate::YAMBS_MANIFEST_DIR_ENV;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(untagged)]
@@ -98,7 +97,7 @@ impl Dependency {
     pub fn new(name: &str, data: &DependencyData) -> Self {
         let (path, origin) = data.from_filesystem().unwrap();
         let canonicalized_data = DependencyData::FromFilesystem {
-            path: canonicalize_source(&path),
+            path: crate::canonicalize_source(&path),
             origin,
         };
         Self {
@@ -106,13 +105,6 @@ impl Dependency {
             data: canonicalized_data,
         }
     }
-}
-
-fn canonicalize_source(path: &std::path::Path) -> std::path::PathBuf {
-    std::env::var_os(YAMBS_MANIFEST_DIR_ENV)
-        .map(std::path::PathBuf::from)
-        .unwrap()
-        .join(path)
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]

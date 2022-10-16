@@ -1,4 +1,4 @@
-use crate::build_target::{target_registry::TargetRegistry, BuildTarget, TargetError, TargetNode};
+use crate::build_target::{target_registry::TargetRegistry, BuildTarget, TargetError};
 use crate::cache;
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::cli::command_line::BuildOpts;
@@ -36,7 +36,6 @@ pub enum BuildManagerError {
 }
 
 pub struct BuildManager<'a> {
-    targets: Vec<TargetNode>,
     generator: &'a mut dyn Generator,
     configuration: BuildConfiguration,
     make: Make,
@@ -46,16 +45,11 @@ pub struct BuildManager<'a> {
 impl<'gen> BuildManager<'gen> {
     pub fn new(generator: &'gen mut dyn Generator) -> BuildManager {
         BuildManager {
-            targets: Vec::new(),
             generator,
             configuration: BuildConfiguration::Release,
             make: Make::default(),
             top_build_directory: BuildDirectory::default(),
         }
-    }
-
-    pub fn targets(&self) -> &Vec<TargetNode> {
-        self.targets.as_ref()
     }
 
     pub fn configure(&mut self, opts: &BuildOpts) -> Result<(), BuildManagerError> {
@@ -105,13 +99,8 @@ impl<'gen> BuildManager<'gen> {
                         manifest_path.display()
                     );
                 }
-                let target = BuildTarget::create(
-                    manifest_path.parent().unwrap(),
-                    &build_target,
-                    dep_registry,
-                )
-                .map_err(BuildManagerError::Target)?;
-                self.targets.push(target);
+                BuildTarget::create(manifest_path.parent().unwrap(), &build_target, dep_registry)
+                    .map_err(BuildManagerError::Target)?;
             }
             cache
                 .cache(&manifest)
@@ -120,8 +109,11 @@ impl<'gen> BuildManager<'gen> {
         Ok(())
     }
 
-    pub fn generate_makefiles(&mut self) -> Result<(), BuildManagerError> {
-        self.generator.generate(&self.targets)?;
+    pub fn generate_makefiles(
+        &mut self,
+        registry: &TargetRegistry,
+    ) -> Result<(), BuildManagerError> {
+        self.generator.generate(registry)?;
         Ok(())
     }
 
@@ -144,10 +136,6 @@ impl<'gen> BuildManager<'gen> {
                 let cached_registry = TargetRegistry::from_cache(cache)
                     .ok_or_else(|| BuildManagerError::CannotFindCachedManifestOrRegistry)?;
                 *dep_registry = cached_registry;
-                dep_registry
-                    .registry
-                    .iter()
-                    .for_each(|target| self.targets.push(target.clone()));
                 return Ok(());
             }
             log::debug!("Cached manifest is older than latest manifest. Discarding cached.");

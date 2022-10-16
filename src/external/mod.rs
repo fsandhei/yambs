@@ -3,9 +3,15 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 
+use crate::build_target::target_registry::TargetRegistry;
 use crate::build_target::TargetNode;
 
-pub fn dottie(top: &TargetNode, recursive: bool, data: &mut String) -> std::io::Result<()> {
+pub fn dottie(
+    top: &TargetNode,
+    registry: &TargetRegistry,
+    recursive: bool,
+    data: &mut String,
+) -> std::io::Result<()> {
     let mut dottie_file = create_dottie_file(recursive)?;
     let borrowed_top = top.borrow();
     let top_pretty_name = &borrowed_top.name();
@@ -16,7 +22,7 @@ pub fn dottie(top: &TargetNode, recursive: bool, data: &mut String) -> std::io::
         digraph G {\n\
         ",
         );
-        dottie(top, true, data)?;
+        dottie(top, registry, true, data)?;
         data.push('}');
         dottie_file.write_all(data.as_bytes())?;
     }
@@ -26,10 +32,14 @@ pub fn dottie(top: &TargetNode, recursive: bool, data: &mut String) -> std::io::
             "\
         {:?} -> {:?}\n\
         ",
-            requirement.borrow().name(),
-            top_pretty_name
+            requirement.name, top_pretty_name
         ));
-        dottie(requirement, true, data)?;
+        dottie(
+            &requirement.to_build_target(&registry).unwrap(),
+            registry,
+            true,
+            data,
+        )?;
     }
     Ok(())
 }

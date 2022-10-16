@@ -5,7 +5,8 @@ use std::io::Write;
 use indoc;
 
 use crate::build_target::{
-    associated_files::SourceFile, include_directories::IncludeType, LibraryType, TargetNode,
+    associated_files::SourceFile, include_directories::IncludeType,
+    target_registry::TargetRegistry, LibraryType, TargetNode,
 };
 use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
 use crate::compiler::{Compiler, Type};
@@ -84,7 +85,7 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
     }
     for dependency in &borrowed_target.dependencies {
         formatted_string.push_str("\\\n");
-        formatted_string.push_str(&format!("   {}", dependency.borrow().name()));
+        formatted_string.push_str(&format!("   {}", dependency.name));
     }
     formatted_string
 }
@@ -152,20 +153,39 @@ impl MakefileGenerator {
     fn generate_makefile(
         &mut self,
         generate: &mut Generate,
-        targets: &[TargetNode],
+        registry: &TargetRegistry,
     ) -> Result<(), GeneratorError> {
-        self.generate_header(generate, targets)?;
+        self.generate_header(generate, &registry.registry)?;
 
-        for target in targets {
+        for target in &registry.registry {
             log::debug!(
                 "Generating makefiles for target {:?} (manifest path: {})",
                 target.borrow().name(),
                 target.borrow().manifest.directory.display()
             );
             self.generate_rule_declaration_for_target(generate, target);
-            self.generate_rules_for_dependencies(generate, target)?;
+            if !target.borrow().dependencies.is_empty() {
+                self.push_and_create_directory(&std::path::Path::new("lib"))?;
+                let dependencies = &target.borrow().dependencies;
+                for dependency in dependencies {
+                    if dependency.manifest_dir_path != target.borrow().manifest.directory {
+                        log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
+                            dependency.name,
+                            dependency.manifest_dir_path.display(),
+                            target.borrow().name(),
+                            target.borrow().manifest.directory.display());
+                        let dependency_target = dependency.to_build_target(registry).unwrap();
+                        let rule = LibraryTargetFactory::create_rule(
+                            &dependency_target,
+                            &self.output_directory,
+                        );
+                        generate.data.push_str(&rule);
+                    }
+                }
+                self.output_directory.pop();
+            }
         }
-        self.generate_object_rules(generate, targets);
+        self.generate_object_rules(generate, &registry.registry);
         self.generate_depends_rules(generate);
         Ok(())
     }
@@ -186,31 +206,6 @@ impl MakefileGenerator {
 
     fn create_subdir(&self, dir: &std::path::Path) -> Result<(), GeneratorError> {
         utility::create_dir(&self.output_directory.join(dir)).map_err(GeneratorError::Fs)
-    }
-
-    fn generate_rules_for_dependencies(
-        &mut self,
-        generate: &mut Generate,
-        target: &TargetNode,
-    ) -> Result<(), GeneratorError> {
-        if !target.borrow().dependencies.is_empty() {
-            self.push_and_create_directory(&std::path::Path::new("lib"))?;
-            let dependencies = &target.borrow().dependencies;
-            for dependency in dependencies {
-                if dependency.borrow().manifest.directory != target.borrow().manifest.directory {
-                    log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
-                            dependency.borrow().name(),
-                            dependency.borrow().manifest.directory.display(),
-                            target.borrow().name(),
-                            target.borrow().manifest.directory.display());
-                    let rule =
-                        LibraryTargetFactory::create_rule(dependency, &self.output_directory);
-                    generate.data.push_str(&rule);
-                }
-            }
-            self.output_directory.pop();
-        }
-        Ok(())
     }
 
     fn generate_default_all_target(&self, generate: &mut Generate, targets: &[TargetNode]) {
@@ -390,13 +385,13 @@ impl MakefileGenerator {
 }
 
 impl Generator for MakefileGenerator {
-    fn generate(&mut self, targets: &[TargetNode]) -> Result<(), GeneratorError> {
+    fn generate(&mut self, registry: &TargetRegistry) -> Result<(), GeneratorError> {
         self.generate_include_files()?;
         self.push_and_create_directory(&directory_from_build_configurations(
             &self.build_configurations,
         ))?;
         let mut generate = Generate::new(&self.output_directory.join("Makefile"))?;
-        self.generate_makefile(&mut generate, targets)?;
+        self.generate_makefile(&mut generate, registry)?;
         generate.write()?;
         Ok(())
     }

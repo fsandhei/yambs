@@ -47,8 +47,6 @@ impl TargetRegistry {
                     && borrowed_target.target_type == target_type
                 {
                     return Some(target.clone());
-                } else {
-                    return None;
                 }
             }
         }

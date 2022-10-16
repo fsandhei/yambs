@@ -34,11 +34,11 @@ impl IncludeDirectories {
                 let include_path = IncludeDirectory::find(&path)?;
 
                 Some(match origin {
-                    targets::DependencySource::Include => IncludeDirectory {
+                    targets::IncludeSearchType::Include => IncludeDirectory {
                         include_type: IncludeType::Include,
                         path: include_path,
                     },
-                    targets::DependencySource::System => IncludeDirectory {
+                    targets::IncludeSearchType::System => IncludeDirectory {
                         include_type: IncludeType::System,
                         path: include_path,
                     },
@@ -99,7 +99,7 @@ mod tests {
                 name: dependency_name.to_string(),
                 data: targets::DependencyData::Source {
                     path: dep_dir.path().to_path_buf(),
-                    origin: targets::DependencySource::Include,
+                    origin: targets::IncludeSearchType::Include,
                 },
             };
             Self {
@@ -145,7 +145,7 @@ mod tests {
         let mut stub_two = DependencyStub::create_include_dir("base_two", "DependencyTwo");
         stub_two.dependency.data = targets::DependencyData::Source {
             path: stub_two.dependency.data.source().unwrap().0,
-            origin: targets::DependencySource::System,
+            origin: targets::IncludeSearchType::System,
         };
         let stub_three = DependencyStub::create_include_dir("base_three", "DependencyThree");
         let expected = IncludeDirectories(vec![

@@ -113,12 +113,12 @@ pub enum DependencyData {
     Source {
         path: std::path::PathBuf,
         #[serde(default)]
-        origin: DependencySource,
+        origin: IncludeSearchType,
     },
 }
 
 impl DependencyData {
-    pub fn source(&self) -> Option<(std::path::PathBuf, DependencySource)> {
+    pub fn source(&self) -> Option<(std::path::PathBuf, IncludeSearchType)> {
         match self {
             DependencyData::Source { path, origin } => Some((path.to_owned(), origin.to_owned())),
         }
@@ -126,13 +126,13 @@ impl DependencyData {
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
-pub enum DependencySource {
+pub enum IncludeSearchType {
     System,
     Include,
 }
 
-impl Default for DependencySource {
+impl Default for IncludeSearchType {
     fn default() -> Self {
-        DependencySource::Include
+        IncludeSearchType::Include
     }
 }

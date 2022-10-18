@@ -76,6 +76,7 @@ pub struct RawCommonData {
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum LibraryType {
     Static,
     #[serde(rename = "shared")]

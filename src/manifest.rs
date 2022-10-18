@@ -47,8 +47,8 @@ pub struct RawManifestData {
     pub libraries: Option<std::collections::HashMap<String, targets::RawLibraryData>>,
 }
 
-impl std::convert::From<RawManifestData> for ManifestData {
-    fn from(contents: RawManifestData) -> Self {
+impl ManifestData {
+    pub fn from_raw(contents: RawManifestData, manifest_dir: &std::path::Path) -> Self {
         let mut targets = Vec::<targets::Target>::new();
         let mut executables = {
             if let Some(executables) = contents.executables {
@@ -60,7 +60,8 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .dependencies
                             .iter()
                             .map(|(name, data)| {
-                                let dependency = targets::Dependency::new(&name, data);
+                                let dependency =
+                                    targets::Dependency::new(&name, data, manifest_dir);
                                 match dependency.data {
                                     targets::DependencyData::Source {
                                         ref path,
@@ -79,12 +80,12 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Executable(targets::Executable {
                             name,
-                            main: crate::canonicalize_source(&data.common_raw.main),
+                            main: crate::canonicalize_source(manifest_dir, &data.common_raw.main),
                             sources: data
                                 .common_raw
                                 .sources
                                 .iter()
-                                .map(|source| crate::canonicalize_source(&source))
+                                .map(|source| crate::canonicalize_source(manifest_dir, &source))
                                 .collect::<Vec<std::path::PathBuf>>(),
                             dependencies,
                             compiler_flags: data.common_raw.compiler_flags,
@@ -105,7 +106,8 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .dependencies
                             .iter()
                             .map(|(name, data)| {
-                                let dependency = targets::Dependency::new(&name, data);
+                                let dependency =
+                                    targets::Dependency::new(&name, data, manifest_dir);
                                 match dependency.data {
                                     targets::DependencyData::Source {
                                         ref path,
@@ -124,12 +126,12 @@ impl std::convert::From<RawManifestData> for ManifestData {
                             .collect::<Vec<targets::Dependency>>();
                         targets::Target::Library(targets::Library {
                             name,
-                            main: crate::canonicalize_source(&data.common_raw.main),
+                            main: crate::canonicalize_source(manifest_dir, &data.common_raw.main),
                             sources: data
                                 .common_raw
                                 .sources
                                 .iter()
-                                .map(|source| crate::canonicalize_source(&source))
+                                .map(|source| crate::canonicalize_source(manifest_dir, &source))
                                 .collect::<Vec<std::path::PathBuf>>(),
                             dependencies,
                             compiler_flags: data.common_raw.compiler_flags,

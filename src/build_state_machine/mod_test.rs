@@ -7,8 +7,8 @@ use tempdir::TempDir;
 
 use super::*;
 use crate::build_target::{target_registry::TargetRegistry, TargetNode};
-use crate::cache;
 use crate::generator::{Generator, GeneratorError, Sanitizer};
+use crate::parser;
 use crate::{YAMBS_MANIFEST_DIR_ENV, YAMBS_MANIFEST_NAME};
 
 pub struct GeneratorMock {
@@ -26,7 +26,7 @@ impl Sanitizer for GeneratorMock {
 }
 
 impl Generator for GeneratorMock {
-    fn generate(&mut self, _targets: &[TargetNode]) -> Result<(), GeneratorError> {
+    fn generate(&mut self, _registry: &TargetRegistry) -> Result<(), GeneratorError> {
         Ok(())
     }
 }
@@ -90,12 +90,12 @@ fn parse_and_register_one_target() {
     let mut builder = BuildManager::new(&mut generator);
     let mut dep_registry = TargetRegistry::new();
     let (dir, test_file_path) = dummy_manifest("example");
-    let cache = cache::Cache::new(dir.path()).unwrap();
     let mut lock = EnvLock::new();
+    let manifest = parser::parse(&test_file_path).unwrap();
     lock.lock(YAMBS_MANIFEST_DIR_ENV, &dir.path().display().to_string());
 
     builder
-        .parse_and_register_dependencies(&cache, &mut dep_registry, &test_file_path)
+        .parse_and_register_dependencies(&mut dep_registry, &manifest)
         .unwrap();
 }
 

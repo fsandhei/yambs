@@ -19,14 +19,20 @@ pub fn parse(manifest_path: &std::path::Path) -> Result<manifest::ParsedManifest
                 .modified()
                 .expect("Could not fetch last modified time of manifest"),
         },
-        data: parse_toml(&toml_content)?,
+        data: parse_toml(&toml_content, manifest_directory)?,
     })
 }
 
-fn parse_toml(toml: &str) -> Result<manifest::ManifestData, ParseTomlError> {
+fn parse_toml(
+    toml: &str,
+    manifest_dir: &std::path::Path,
+) -> Result<manifest::ManifestData, ParseTomlError> {
     let manifest_contents =
         toml::from_str::<manifest::RawManifestData>(toml).map_err(ParseTomlError::FailedToParse)?;
-    Ok(manifest::ManifestData::from(manifest_contents))
+    Ok(manifest::ManifestData::from_raw(
+        manifest_contents,
+        manifest_dir,
+    ))
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -43,13 +49,17 @@ pub enum ParseTomlError {
 mod tests {
 
     use super::*;
-    use crate::targets::{Dependency, DependencyData, DependencySource, Executable, Library};
+    use crate::manifest::ManifestData;
+    use crate::targets::{
+        Dependency, DependencyData, Executable, IncludeSearchType, Library, LibraryType, Target,
+    };
     use crate::tests::EnvLock;
     use crate::YAMBS_MANIFEST_DIR_ENV;
 
     #[test]
     #[ignore]
     fn parse_produces_manifest_with_executables() {
+        let manifest_dir = std::path::PathBuf::from("");
         let mut lock = EnvLock::new();
         lock.lock(YAMBS_MANIFEST_DIR_ENV, "");
         const TOML_RECIPE: &str = r#"
@@ -58,7 +68,7 @@ mod tests {
     sources = ['x.cpp', 'y.cpp', 'z.cpp']
     "#;
         {
-            let manifest = parse_toml(TOML_RECIPE).unwrap();
+            let manifest = parse_toml(TOML_RECIPE, &manifest_dir).unwrap();
             let executable = Executable {
                 name: "x".to_string(),
                 main: std::path::PathBuf::from("main.cpp"),
@@ -71,7 +81,7 @@ mod tests {
                 compiler_flags: None,
             };
             let expected = ManifestData {
-                targets: vec![targets::Target::Executable(executable)],
+                targets: vec![Target::Executable(executable)],
             };
             assert_eq!(manifest, expected);
         }
@@ -84,7 +94,7 @@ mod tests {
     SomeSecondProject = { path = "/some/path/SomeSecondProject" }
     "#;
         {
-            let manifest = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
+            let manifest = parse_toml(TOML_WITH_REQUIRE_RECIPE, &manifest_dir).unwrap();
             let executable = Executable {
                 name: "x".to_string(),
                 main: std::path::PathBuf::from("main.cpp"),
@@ -98,21 +108,21 @@ mod tests {
                         name: "SomeProject".to_string(),
                         data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/SomeProject"),
-                            origin: DependencySource::Include,
+                            origin: IncludeSearchType::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
                         data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/SomeSecondProject"),
-                            origin: DependencySource::Include,
+                            origin: IncludeSearchType::Include,
                         },
                     },
                 ],
                 compiler_flags: None,
             };
             let expected = ManifestData {
-                targets: vec![targets::Target::Executable(executable)],
+                targets: vec![Target::Executable(executable)],
             };
             assert_eq!(manifest, expected);
         }
@@ -121,6 +131,7 @@ mod tests {
     #[test]
     #[ignore]
     fn parse_produces_manifest_with_multiple_executables() {
+        let manifest_directory = std::path::PathBuf::new();
         let mut lock = EnvLock::new();
         lock.lock(YAMBS_MANIFEST_DIR_ENV, "");
         let input = r#"
@@ -137,7 +148,7 @@ mod tests {
     SomeSecondProject = { path = "/some/path/to/SomeSecondProject" }
     "#;
         {
-            let manifest = parse_toml(input).unwrap();
+            let manifest = parse_toml(input, &manifest_directory).unwrap();
             let executable_x = Executable {
                 name: "x".to_string(),
                 main: std::path::PathBuf::from("main.cpp"),
@@ -162,14 +173,14 @@ mod tests {
                         name: "SomeProject".to_string(),
                         data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/to/SomeProject"),
-                            origin: DependencySource::Include,
+                            origin: IncludeSearchType::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
                         data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/to/SomeSecondProject"),
-                            origin: DependencySource::Include,
+                            origin: IncludeSearchType::Include,
                         },
                     },
                 ],
@@ -177,8 +188,8 @@ mod tests {
             };
             let expected = ManifestData {
                 targets: vec![
-                    targets::Target::Executable(executable_x),
-                    targets::Target::Executable(executable_y),
+                    Target::Executable(executable_x),
+                    Target::Executable(executable_y),
                 ],
             };
             assert_eq!(manifest, expected);
@@ -187,6 +198,7 @@ mod tests {
 
     #[test]
     fn parse_produces_manifest_with_libraries() {
+        let manifest_directory = std::path::PathBuf::new();
         let mut lock = EnvLock::new();
         lock.lock(YAMBS_MANIFEST_DIR_ENV, "");
         const TOML_RECIPE: &str = r#"
@@ -195,7 +207,7 @@ mod tests {
     sources = ['x.cpp', 'y.cpp', 'z.cpp']
     "#;
         {
-            let manifest = parse_toml(TOML_RECIPE).unwrap();
+            let manifest = parse_toml(TOML_RECIPE, &manifest_directory).unwrap();
             let library = Library {
                 name: "MyLibraryData".to_string(),
                 main: std::path::PathBuf::from("generator.cpp"),
@@ -206,10 +218,10 @@ mod tests {
                 ],
                 dependencies: Vec::new(),
                 compiler_flags: None,
-                lib_type: targets::LibraryType::default(),
+                lib_type: LibraryType::default(),
             };
             let expected = ManifestData {
-                targets: vec![targets::Target::Library(library)],
+                targets: vec![Target::Library(library)],
             };
             assert_eq!(manifest, expected);
         }
@@ -223,7 +235,7 @@ mod tests {
     SomeSecondProject = { path = "/some/path/to/SomeSecondProject" }
     "#;
         {
-            let manifest = parse_toml(TOML_WITH_REQUIRE_RECIPE).unwrap();
+            let manifest = parse_toml(TOML_WITH_REQUIRE_RECIPE, &manifest_directory).unwrap();
             let library = Library {
                 name: "MyLibraryData".to_string(),
                 main: std::path::PathBuf::from("generator.cpp"),
@@ -237,22 +249,22 @@ mod tests {
                         name: "SomeProject".to_string(),
                         data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/to/SomeProject"),
-                            origin: DependencySource::Include,
+                            origin: IncludeSearchType::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
                         data: DependencyData::Source {
                             path: std::path::PathBuf::from("/some/path/to/SomeSecondProject"),
-                            origin: DependencySource::Include,
+                            origin: IncludeSearchType::Include,
                         },
                     },
                 ],
                 compiler_flags: None,
-                lib_type: targets::LibraryType::default(),
+                lib_type: LibraryType::default(),
             };
             let expected = ManifestData {
-                targets: vec![targets::Target::Library(library)],
+                targets: vec![Target::Library(library)],
             };
             assert_eq!(manifest, expected);
         }

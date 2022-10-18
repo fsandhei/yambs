@@ -1018,7 +1018,8 @@ mod tests {
                    -MP
        
         # Additional CXX flags to be passed to the compiler
-        CXXFLAGS += -pthread
+        CXXFLAGS += -pthread\\
+                    -fPIC # Generate Position Independent code suitable for use in a shared library.
 
         # Additional AR flags being passed to the static library linker
         ARFLAGS = rs\n"

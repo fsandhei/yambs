@@ -96,10 +96,10 @@ pub struct Dependency {
 }
 
 impl Dependency {
-    pub fn new(name: &str, data: &DependencyData) -> Self {
+    pub fn new(name: &str, data: &DependencyData, manifest_dir: &std::path::Path) -> Self {
         let (path, origin) = data.source().unwrap();
         let canonicalized_data = DependencyData::Source {
-            path: crate::canonicalize_source(&path),
+            path: crate::canonicalize_source(manifest_dir, &path),
             origin,
         };
         Self {

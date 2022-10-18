@@ -40,6 +40,7 @@ pub struct ManifestData {
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct RawManifestData {
     #[serde(rename = "executable")]
     pub executables: Option<std::collections::HashMap<String, targets::RawExecutableData>>,

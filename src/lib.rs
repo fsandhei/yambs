@@ -8,6 +8,7 @@ pub mod external;
 pub mod flags;
 pub mod generator;
 pub mod logger;
+pub mod manifest;
 pub mod output;
 pub mod parser;
 pub mod targets;

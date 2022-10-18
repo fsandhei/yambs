@@ -13,7 +13,9 @@ use yambs::compiler;
 use yambs::external;
 use yambs::generator::MakefileGenerator;
 use yambs::logger;
+use yambs::manifest;
 use yambs::output::Output;
+use yambs::parser;
 use yambs::{YambsEnvironmentVariables, YAMBS_MANIFEST_NAME};
 
 fn main() -> anyhow::Result<()> {
@@ -73,6 +75,38 @@ fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path
     Ok(manifest_file)
 }
 
+fn try_cached_manifest(
+    cache: &Cache,
+    dep_registry: &mut TargetRegistry,
+    manifest: &manifest::ParsedManifest,
+) -> anyhow::Result<manifest::ParsedManifest> {
+    log::debug!("Checking for cache of manifest.");
+    if let Some(cached_manifest) = cache.from_cache::<manifest::ParsedManifest>() {
+        log::debug!("Found cached manifest. Checking if it is up to date.");
+        if manifest.manifest.modification_time <= cached_manifest.manifest.modification_time {
+            log::debug!("Cached manifest is up to date! Using it for this build.");
+            let cached_registry = TargetRegistry::from_cache(cache).ok_or_else(|| {
+                anyhow::anyhow!("Failed to read contents from cached target registry")
+            })?;
+            *dep_registry = cached_registry;
+            return Ok(cached_manifest);
+        }
+        log::debug!("Cached manifest is older than latest manifest. Discarding cached.");
+    }
+    Err(anyhow::anyhow!(
+        "Could not locate a cache of manifest or target registry."
+    ))
+}
+
+fn manifest_from_cache_or_parsed(
+    cache: &Cache,
+    registry: &mut TargetRegistry,
+    manifest_path: &std::path::Path,
+) -> anyhow::Result<manifest::ParsedManifest> {
+    let manifest = parser::parse(manifest_path).with_context(|| "Failed to parse manifest")?;
+    try_cached_manifest(cache, registry, &manifest).or(Ok(manifest))
+}
+
 fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
@@ -80,6 +114,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let compiler = compiler::Compiler::new()?;
     let mut dependency_registry = TargetRegistry::new();
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
+    let manifest = manifest_from_cache_or_parsed(&cache, &mut dependency_registry, &manifest_path)?;
 
     evaluate_compiler(&compiler, &opts, &cache)?;
 
@@ -94,7 +129,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     parse_and_register_dependencies(
         &mut build_manager,
         &cache,
-        &manifest_path,
+        &manifest,
         &output,
         &mut dependency_registry,
     )?;
@@ -145,11 +180,14 @@ fn generate_makefiles(
 fn parse_and_register_dependencies(
     build_manager: &mut BuildManager,
     cache: &Cache,
-    top_path: &std::path::Path,
+    manifest: &manifest::ParsedManifest,
     output: &Output,
     dep_registry: &mut TargetRegistry,
 ) -> anyhow::Result<()> {
-    build_manager.parse_and_register_dependencies(cache, dep_registry, top_path)?;
+    build_manager.parse_and_register_dependencies(dep_registry, manifest)?;
+    cache
+        .cache(manifest)
+        .with_context(|| "Failed to cache manifest file")?;
     let number_of_targets = dep_registry.number_of_targets();
     output.status(&format!("Registered {} build targets", number_of_targets));
     Ok(())

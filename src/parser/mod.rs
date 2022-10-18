@@ -1,153 +1,32 @@
-use crate::cache;
-use crate::targets;
+use crate::manifest;
 
 mod constants;
-
-#[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-pub struct ParsedManifest {
-    pub path: std::path::PathBuf,
-    pub data: ManifestData,
-    pub modification_time: std::time::SystemTime,
-}
-
-impl cache::Cacher for ParsedManifest {
-    const CACHE_FILE_NAME: &'static str = "manifest";
-}
 
 // FIXME: Write tests!
 // FIXME: Vurdere variabel for filstier som settes av yambs for å hjelpe forkortelse av paths.
 // Bruke relativ path, kanskje?
-pub fn parse(toml_path: &std::path::Path) -> Result<ParsedManifest, ParseTomlError> {
+pub fn parse(manifest_path: &std::path::Path) -> Result<manifest::ParsedManifest, ParseTomlError> {
     let toml_content =
-        String::from_utf8(std::fs::read(toml_path).map_err(ParseTomlError::FailedToRead)?)
+        String::from_utf8(std::fs::read(&manifest_path).map_err(ParseTomlError::FailedToRead)?)
             .map_err(ParseTomlError::FailedToConvertUtf8)?;
-    let metadata = std::fs::metadata(toml_path).expect("Could not fetch metadata from yambs.json");
-    Ok(ParsedManifest {
-        path: toml_path.to_path_buf(),
+    let metadata =
+        std::fs::metadata(&manifest_path).expect("Could not fetch metadata from yambs.json");
+    let manifest_directory = manifest_path.parent().unwrap();
+    Ok(manifest::ParsedManifest {
+        manifest: manifest::Manifest {
+            directory: manifest_directory.to_path_buf(),
+            modification_time: metadata
+                .modified()
+                .expect("Could not fetch last modified time of manifest"),
+        },
         data: parse_toml(&toml_content)?,
-        modification_time: metadata
-            .modified()
-            .expect("Could not fetch last modified time of manifest"),
     })
 }
 
-fn parse_toml(toml: &str) -> Result<ManifestData, ParseTomlError> {
+fn parse_toml(toml: &str) -> Result<manifest::ManifestData, ParseTomlError> {
     let manifest_contents =
-        toml::from_str::<RawManifestData>(toml).map_err(ParseTomlError::FailedToParse)?;
-    Ok(ManifestData::from(manifest_contents))
-}
-
-#[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-pub struct ManifestData {
-    pub targets: Vec<targets::Target>,
-}
-
-impl std::convert::From<RawManifestData> for ManifestData {
-    fn from(contents: RawManifestData) -> Self {
-        let mut targets = Vec::<targets::Target>::new();
-        let mut executables = {
-            if let Some(executables) = contents.executables {
-                executables
-                    .into_iter()
-                    .map(|(name, data)| {
-                        let dependencies = data
-                            .common_raw
-                            .dependencies
-                            .iter()
-                            .map(|(name, data)| {
-                                let dependency = targets::Dependency::new(&name, data);
-                                match dependency.data {
-                                    targets::DependencyData::Source {
-                                        ref path,
-                                        ref origin,
-                                    } => {
-                                        log::debug!(
-                                            "Found dependency {} in path {} with origin {:?}",
-                                            dependency.name,
-                                            path.display(),
-                                            origin
-                                        );
-                                    }
-                                }
-                                dependency
-                            })
-                            .collect::<Vec<targets::Dependency>>();
-                        targets::Target::Executable(targets::Executable {
-                            name,
-                            main: crate::canonicalize_source(&data.common_raw.main),
-                            sources: data
-                                .common_raw
-                                .sources
-                                .iter()
-                                .map(|source| crate::canonicalize_source(&source))
-                                .collect::<Vec<std::path::PathBuf>>(),
-                            dependencies,
-                            compiler_flags: data.common_raw.compiler_flags,
-                        })
-                    })
-                    .collect::<Vec<targets::Target>>()
-            } else {
-                Vec::new()
-            }
-        };
-        let mut libraries = {
-            if let Some(libraries) = contents.libraries {
-                libraries
-                    .into_iter()
-                    .map(|(name, data)| {
-                        let dependencies = data
-                            .common_raw
-                            .dependencies
-                            .iter()
-                            .map(|(name, data)| {
-                                let dependency = targets::Dependency::new(&name, data);
-                                match dependency.data {
-                                    targets::DependencyData::Source {
-                                        ref path,
-                                        ref origin,
-                                    } => {
-                                        log::debug!(
-                                            "Found dependency {} in path {} with origin {:?}",
-                                            dependency.name,
-                                            path.display(),
-                                            origin
-                                        );
-                                    }
-                                }
-                                dependency
-                            })
-                            .collect::<Vec<targets::Dependency>>();
-                        targets::Target::Library(targets::Library {
-                            name,
-                            main: crate::canonicalize_source(&data.common_raw.main),
-                            sources: data
-                                .common_raw
-                                .sources
-                                .iter()
-                                .map(|source| crate::canonicalize_source(&source))
-                                .collect::<Vec<std::path::PathBuf>>(),
-                            dependencies,
-                            compiler_flags: data.common_raw.compiler_flags,
-                            lib_type: data.lib_type,
-                        })
-                    })
-                    .collect::<Vec<targets::Target>>()
-            } else {
-                Vec::new()
-            }
-        };
-        targets.append(&mut executables);
-        targets.append(&mut libraries);
-        Self { targets }
-    }
-}
-
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-pub struct RawManifestData {
-    #[serde(rename = "executable")]
-    pub executables: Option<std::collections::HashMap<String, targets::RawExecutableData>>,
-    #[serde(rename = "library")]
-    pub libraries: Option<std::collections::HashMap<String, targets::RawLibraryData>>,
+        toml::from_str::<manifest::RawManifestData>(toml).map_err(ParseTomlError::FailedToParse)?;
+    Ok(manifest::ManifestData::from(manifest_contents))
 }
 
 #[derive(thiserror::Error, Debug)]

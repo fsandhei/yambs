@@ -79,32 +79,19 @@ fn try_cached_manifest(
     cache: &Cache,
     dep_registry: &mut TargetRegistry,
     manifest: &manifest::ParsedManifest,
-) -> anyhow::Result<manifest::ParsedManifest> {
+) -> Option<manifest::ParsedManifest> {
     log::debug!("Checking for cache of manifest.");
     if let Some(cached_manifest) = cache.from_cache::<manifest::ParsedManifest>() {
         log::debug!("Found cached manifest. Checking if it is up to date.");
         if manifest.manifest.modification_time <= cached_manifest.manifest.modification_time {
             log::debug!("Cached manifest is up to date! Using it for this build.");
-            let cached_registry = TargetRegistry::from_cache(cache).ok_or_else(|| {
-                anyhow::anyhow!("Failed to read contents from cached target registry")
-            })?;
+            let cached_registry = TargetRegistry::from_cache(cache)?;
             *dep_registry = cached_registry;
-            return Ok(cached_manifest);
+            return Some(cached_manifest);
         }
         log::debug!("Cached manifest is older than latest manifest. Discarding cached.");
     }
-    Err(anyhow::anyhow!(
-        "Could not locate a cache of manifest or target registry."
-    ))
-}
-
-fn manifest_from_cache_or_parsed(
-    cache: &Cache,
-    registry: &mut TargetRegistry,
-    manifest_path: &std::path::Path,
-) -> anyhow::Result<manifest::ParsedManifest> {
-    let manifest = parser::parse(manifest_path).with_context(|| "Failed to parse manifest")?;
-    try_cached_manifest(cache, registry, &manifest).or(Ok(manifest))
+    None
 }
 
 fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
@@ -114,7 +101,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let compiler = compiler::Compiler::new()?;
     let mut dependency_registry = TargetRegistry::new();
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
-    let manifest = manifest_from_cache_or_parsed(&cache, &mut dependency_registry, &manifest_path)?;
+    let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
 
     evaluate_compiler(&compiler, &opts, &cache)?;
 
@@ -126,13 +113,15 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
         .configure(&opts)
         .context("An error occured when configuring the project.")?;
 
-    parse_and_register_dependencies(
-        &mut build_manager,
-        &cache,
-        &manifest,
-        &output,
-        &mut dependency_registry,
-    )?;
+    if try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none() {
+        parse_and_register_dependencies(
+            &mut build_manager,
+            &cache,
+            &manifest,
+            &output,
+            &mut dependency_registry,
+        )?;
+    }
 
     if opts.create_dottie_graph {
         return create_dottie_graph(&dependency_registry, &output);

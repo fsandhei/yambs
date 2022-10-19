@@ -1,8 +1,7 @@
-use std::str::FromStr;
-
 use structopt::StructOpt;
 
-use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory};
+use crate::cli::build_configurations::BuildDirectory;
+use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
 
 // TODO: Need to add tests for C++ validation and sanitizer validation
@@ -80,13 +79,8 @@ pub struct BuildOpts {
     #[structopt(default_value, hide_default_value(true), long = "manifest-directory")]
     pub manifest_dir: ManifestDirectory,
     /// Set runtime configurations (build configurations, C++ standard, sanitizers, etc)
-    #[structopt(
-        short = "c",
-        long = "configuration",
-        default_value,
-        parse(try_from_str = BuildConfigurations::from_str),
-    )]
-    pub configuration: BuildConfigurations,
+    #[structopt(flatten)]
+    pub configuration: ConfigurationOpts,
     /// Set parallelization of builds for Make.
     #[structopt(short = "j", long = "jobs", default_value = "10")]
     pub jobs: u8,
@@ -105,6 +99,21 @@ pub struct BuildOpts {
     /// Toggles verbose output.
     #[structopt(short = "v", long = "verbose")]
     pub verbose: bool,
+}
+
+#[derive(StructOpt, Debug, Clone)]
+pub struct ConfigurationOpts {
+    /// Build configuration to use
+    #[structopt(default_value, long = "build-type")]
+    pub build_type: configurations::BuildConfiguration,
+    /// C++ standard to be passed to compiler
+    #[structopt(default_value,
+                long = "std",
+                parse(try_from_str = configurations::CXXStandard::parse))]
+    pub cxx_standard: configurations::CXXStandard,
+    /// Enable sanitizers
+    #[structopt(long = "sanitizer")]
+    pub sanitizer: Option<configurations::Sanitizer>,
 }
 
 #[derive(StructOpt, Debug)]

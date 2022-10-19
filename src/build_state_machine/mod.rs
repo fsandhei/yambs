@@ -1,6 +1,8 @@
 use crate::build_target::{target_registry::TargetRegistry, BuildTarget, TargetError};
-use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
+use crate::cli::build_configurations::BuildDirectory;
 use crate::cli::command_line::BuildOpts;
+use crate::cli::command_line::ConfigurationOpts;
+use crate::cli::configurations;
 use crate::errors::{CacheError, FsError};
 use crate::generator::{Generator, GeneratorError};
 use crate::manifest;
@@ -10,11 +12,6 @@ use crate::YAMBS_MANIFEST_NAME;
 mod filter;
 mod make;
 use make::Make;
-
-enum BuildConfiguration {
-    Debug,
-    Release,
-}
 
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
@@ -37,7 +34,7 @@ pub enum BuildManagerError {
 
 pub struct BuildManager<'a> {
     generator: &'a mut dyn Generator,
-    configuration: BuildConfiguration,
+    configuration: configurations::BuildConfiguration,
     make: Make,
     top_build_directory: BuildDirectory,
 }
@@ -46,7 +43,7 @@ impl<'gen> BuildManager<'gen> {
     pub fn new(generator: &'gen mut dyn Generator) -> BuildManager {
         BuildManager {
             generator,
-            configuration: BuildConfiguration::Release,
+            configuration: configurations::BuildConfiguration::Debug,
             make: Make::default(),
             top_build_directory: BuildDirectory::default(),
         }
@@ -102,8 +99,8 @@ impl<'gen> BuildManager<'gen> {
 
     pub fn resolve_build_directory(&self, path: &std::path::Path) -> std::path::PathBuf {
         match self.configuration {
-            BuildConfiguration::Debug => path.join("debug"),
-            BuildConfiguration::Release => path.join("release"),
+            configurations::BuildConfiguration::Debug => path.join("debug"),
+            configurations::BuildConfiguration::Release => path.join("release"),
         }
     }
 
@@ -113,22 +110,9 @@ impl<'gen> BuildManager<'gen> {
 
     fn use_configuration(
         &mut self,
-        configurations: &BuildConfigurations,
+        configurations: &ConfigurationOpts,
     ) -> Result<(), BuildManagerError> {
-        for configuration in configurations {
-            match configuration {
-                Configuration::Debug => {
-                    self.configuration = BuildConfiguration::Debug;
-                    Ok::<(), BuildManagerError>(())
-                }
-                Configuration::Release => {
-                    self.configuration = BuildConfiguration::Release;
-                    Ok(())
-                }
-                Configuration::Sanitizer(_) => Ok(()),
-                Configuration::CppVersion(_) => Ok(()),
-            }?;
-        }
+        self.configuration = configurations.build_type.clone();
         Ok(())
     }
 }

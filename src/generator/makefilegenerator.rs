@@ -8,7 +8,9 @@ use crate::build_target::{
     associated_files::SourceFile, include_directories::IncludeType,
     target_registry::TargetRegistry, LibraryType, TargetNode,
 };
-use crate::cli::build_configurations::{BuildConfigurations, BuildDirectory, Configuration};
+use crate::cli::build_configurations::BuildDirectory;
+use crate::cli::command_line;
+use crate::cli::configurations;
 use crate::compiler::{Compiler, Type};
 use crate::errors::FsError;
 use crate::generator::{Generator, GeneratorError, Sanitizer, UtilityGenerator};
@@ -120,17 +122,10 @@ fn generate_search_directories(target: &TargetNode) -> String {
     formatted_string.trim_end().to_string()
 }
 
-fn directory_from_build_configurations(
-    build_configurations: &BuildConfigurations,
+fn directory_from_build_configuration(
+    configuration: &configurations::BuildConfiguration,
 ) -> std::path::PathBuf {
-    for build_configuration in build_configurations {
-        if *build_configuration == Configuration::Debug {
-            return std::path::PathBuf::from("debug");
-        } else if *build_configuration == Configuration::Release {
-            return std::path::PathBuf::from("release");
-        }
-    }
-    std::path::PathBuf::from("debug")
+    std::path::PathBuf::from(configuration.to_string())
 }
 
 fn search_directory_from_target(target: &TargetNode) -> String {
@@ -142,21 +137,21 @@ fn search_directory_from_target(target: &TargetNode) -> String {
 
 pub struct MakefileGenerator {
     pub compiler: Compiler,
-    pub build_configurations: BuildConfigurations,
+    pub configurations: command_line::ConfigurationOpts,
     pub build_directory: BuildDirectory,
     pub output_directory: std::path::PathBuf,
 }
 
 impl MakefileGenerator {
     pub fn new(
-        build_configurations: &BuildConfigurations,
+        configurations: &command_line::ConfigurationOpts,
         build_directory: &BuildDirectory,
         compiler: Compiler,
     ) -> Result<Self, GeneratorError> {
         utility::create_dir(&build_directory.as_path())?;
         Ok(Self {
             compiler,
-            build_configurations: build_configurations.to_owned(),
+            configurations: configurations.to_owned(),
             build_directory: build_directory.clone(),
             output_directory: build_directory.as_path().to_path_buf(),
         })
@@ -203,7 +198,7 @@ impl MakefileGenerator {
     }
 
     fn build_configurations_file(&self) -> &str {
-        if self.build_configurations.is_debug_build() {
+        if self.configurations.build_type == configurations::BuildConfiguration::Debug {
             "debug.mk"
         } else {
             "release.mk"
@@ -283,18 +278,11 @@ impl MakefileGenerator {
         let mut include_file_generator =
             IncludeFileGenerator::new(&include_output_directory, self.compiler.clone());
 
-        for build_configuration in &self.build_configurations {
-            match build_configuration {
-                Configuration::Sanitizer(sanitizer) => {
-                    include_file_generator.set_sanitizer(sanitizer)
-                }
-                Configuration::CppVersion(version) => {
-                    include_file_generator.add_cpp_version(version);
-                }
-                _ => (),
-            };
+        let cxx_standard = &self.configurations.cxx_standard.to_string();
+        include_file_generator.add_cpp_version(&cxx_standard);
+        if let Some(sanitizer) = &self.configurations.sanitizer {
+            include_file_generator.set_sanitizer(&sanitizer.to_string());
         }
-
         include_file_generator.generate_makefiles()
     }
 
@@ -399,8 +387,8 @@ impl MakefileGenerator {
 impl Generator for MakefileGenerator {
     fn generate(&mut self, registry: &TargetRegistry) -> Result<(), GeneratorError> {
         self.generate_include_files()?;
-        self.push_and_create_directory(&directory_from_build_configurations(
-            &self.build_configurations,
+        self.push_and_create_directory(&directory_from_build_configuration(
+            &self.configurations.build_type,
         ))?;
         let mut generate = Generate::new(&self.output_directory.join("Makefile"))?;
         self.generate_makefile(&mut generate, registry)?;

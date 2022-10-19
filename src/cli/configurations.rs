@@ -35,6 +35,15 @@ impl std::str::FromStr for BuildConfiguration {
     }
 }
 
+impl std::string::ToString for BuildConfiguration {
+    fn to_string(&self) -> String {
+        match self {
+            BuildConfiguration::Release => "release".to_string(),
+            BuildConfiguration::Debug => "debug".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum CXXStandard {
     CXX98,
@@ -47,7 +56,7 @@ pub enum CXXStandard {
 
 impl CXXStandard {
     pub fn parse(standard: &str) -> Result<Self, ConfigurationError> {
-        let converted_standard = match standard {
+        let converted_standard = match standard.to_lowercase().as_str() {
             "c++98" => Ok(CXXStandard::CXX98),
             "c++03" => Ok(CXXStandard::CXX03),
             "c++11" => Ok(CXXStandard::CXX11),
@@ -66,6 +75,19 @@ impl std::default::Default for CXXStandard {
     }
 }
 
+impl std::string::ToString for CXXStandard {
+    fn to_string(&self) -> String {
+        match self {
+            CXXStandard::CXX98 => "c++98".to_string(),
+            CXXStandard::CXX03 => "c++03".to_string(),
+            CXXStandard::CXX11 => "c++11".to_string(),
+            CXXStandard::CXX14 => "c++14".to_string(),
+            CXXStandard::CXX17 => "c++17".to_string(),
+            CXXStandard::CXX20 => "c++20".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Sanitizer {
     Address,
@@ -78,12 +100,23 @@ impl std::str::FromStr for Sanitizer {
     type Err = ConfigurationError;
 
     fn from_str(sanitizer: &str) -> Result<Self, Self::Err> {
-        match sanitizer {
+        match sanitizer.to_lowercase().as_str() {
             "address" => Ok(Sanitizer::Address),
             "thread" => Ok(Sanitizer::Thread),
             "memory" => Ok(Sanitizer::Memory),
             "leak" => Ok(Sanitizer::Leak),
             _ => Err(Self::Err::InvalidSanitizerOption(sanitizer.to_string())),
+        }
+    }
+}
+
+impl std::string::ToString for Sanitizer {
+    fn to_string(&self) -> String {
+        match self {
+            Sanitizer::Address => "address".to_string(),
+            Sanitizer::Thread => "thread".to_string(),
+            Sanitizer::Memory => "memory".to_string(),
+            Sanitizer::Leak => "leak".to_string(),
         }
     }
 }

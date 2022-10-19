@@ -121,6 +121,15 @@ impl std::string::ToString for Sanitizer {
     }
 }
 
+// fn parse_sanitizer_options(sanitizer_options: &[&Configuration]) -> Result<(), CommandLineError> {
+//     if sanitizer_options.contains(&&Configuration::Sanitizer("address".to_string()))
+//         && sanitizer_options.contains(&&Configuration::Sanitizer("thread".to_string()))
+//     {
+//         return Err(CommandLineError::IllegalSanitizerCombination);
+//     }
+//     Ok(())
+// }
+
 #[derive(Debug, Clone)]
 pub struct BuildDirectory(std::path::PathBuf);
 

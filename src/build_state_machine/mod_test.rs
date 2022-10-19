@@ -7,6 +7,7 @@ use tempdir::TempDir;
 
 use super::*;
 use crate::build_target::{target_registry::TargetRegistry, TargetNode};
+use crate::cli::configurations;
 use crate::generator::{Generator, GeneratorError, Sanitizer};
 use crate::parser;
 use crate::{YAMBS_MANIFEST_DIR_ENV, YAMBS_MANIFEST_NAME};
@@ -177,7 +178,7 @@ fn parse_and_register_one_target() {
 fn resolve_build_directory_debug() {
     let mut generator = GeneratorMock::new();
     let mut builder = BuildManager::new(&mut generator);
-    builder.configuration = BuildConfiguration::Debug;
+    builder.configuration = configurations::BuildType::Debug;
     let path = std::path::PathBuf::from("some/path");
     let expected = path.join("debug");
     assert_eq!(builder.resolve_build_directory(&path), expected);
@@ -187,7 +188,7 @@ fn resolve_build_directory_debug() {
 fn resolve_build_directory_release() {
     let mut generator = GeneratorMock::new();
     let mut builder = BuildManager::new(&mut generator);
-    builder.configuration = BuildConfiguration::Release;
+    builder.configuration = configurations::BuildType::Release;
     let path = std::path::PathBuf::from("some/path");
     let expected = path.join("release");
     assert_eq!(builder.resolve_build_directory(&path), expected);

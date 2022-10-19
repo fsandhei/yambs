@@ -1,6 +1,5 @@
 use structopt::StructOpt;
 
-use crate::cli::build_configurations::BuildDirectory;
 use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
 
@@ -24,6 +23,46 @@ use crate::errors::{CommandLineError, FsError};
 pub struct CommandLine {
     #[structopt(subcommand)]
     pub subcommand: Option<Subcommand>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BuildDirectory(std::path::PathBuf);
+
+impl BuildDirectory {
+    pub fn as_path(&self) -> &std::path::Path {
+        self.0.as_path()
+    }
+}
+
+impl std::convert::From<std::path::PathBuf> for BuildDirectory {
+    fn from(f: std::path::PathBuf) -> Self {
+        Self { 0: f }
+    }
+}
+
+impl Default for BuildDirectory {
+    fn default() -> Self {
+        Self {
+            0: std::env::current_dir().expect("Could not locate current directory."),
+        }
+    }
+}
+
+impl std::string::ToString for BuildDirectory {
+    fn to_string(&self) -> String {
+        self.0.display().to_string()
+    }
+}
+
+impl std::str::FromStr for BuildDirectory {
+    type Err = CommandLineError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let canonicalized_path = canonicalize_path(&std::path::PathBuf::from(s))
+            .map_err(crate::errors::FsError::Canonicalize)?;
+        Ok(Self {
+            0: canonicalized_path,
+        })
+    }
 }
 
 #[derive(Debug)]

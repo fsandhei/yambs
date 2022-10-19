@@ -1,5 +1,5 @@
 use crate::build_target::{target_registry::TargetRegistry, BuildTarget, TargetError};
-use crate::cli::build_configurations::BuildDirectory;
+use crate::cli::command_line::BuildDirectory;
 use crate::cli::command_line::BuildOpts;
 use crate::cli::command_line::ConfigurationOpts;
 use crate::cli::configurations;

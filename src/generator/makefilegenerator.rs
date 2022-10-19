@@ -8,8 +8,8 @@ use crate::build_target::{
     associated_files::SourceFile, include_directories::IncludeType,
     target_registry::TargetRegistry, LibraryType, TargetNode,
 };
-use crate::cli::build_configurations::BuildDirectory;
 use crate::cli::command_line;
+use crate::cli::command_line::BuildDirectory;
 use crate::cli::configurations;
 use crate::compiler::{Compiler, Type};
 use crate::errors::FsError;

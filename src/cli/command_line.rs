@@ -105,7 +105,7 @@ pub struct BuildOpts {
 pub struct ConfigurationOpts {
     /// Build configuration to use
     #[structopt(default_value, long = "build-type")]
-    pub build_type: configurations::BuildConfiguration,
+    pub build_type: configurations::BuildType,
     /// C++ standard to be passed to compiler
     #[structopt(default_value,
                 long = "std",

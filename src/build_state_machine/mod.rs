@@ -34,7 +34,7 @@ pub enum BuildManagerError {
 
 pub struct BuildManager<'a> {
     generator: &'a mut dyn Generator,
-    configuration: configurations::BuildConfiguration,
+    configuration: configurations::BuildType,
     make: Make,
     top_build_directory: BuildDirectory,
 }
@@ -43,7 +43,7 @@ impl<'gen> BuildManager<'gen> {
     pub fn new(generator: &'gen mut dyn Generator) -> BuildManager {
         BuildManager {
             generator,
-            configuration: configurations::BuildConfiguration::Debug,
+            configuration: configurations::BuildType::Debug,
             make: Make::default(),
             top_build_directory: BuildDirectory::default(),
         }
@@ -99,8 +99,8 @@ impl<'gen> BuildManager<'gen> {
 
     pub fn resolve_build_directory(&self, path: &std::path::Path) -> std::path::PathBuf {
         match self.configuration {
-            configurations::BuildConfiguration::Debug => path.join("debug"),
-            configurations::BuildConfiguration::Release => path.join("release"),
+            configurations::BuildType::Debug => path.join("debug"),
+            configurations::BuildType::Release => path.join("release"),
         }
     }
 

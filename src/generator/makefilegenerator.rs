@@ -123,9 +123,9 @@ fn generate_search_directories(target: &TargetNode) -> String {
 }
 
 fn directory_from_build_configuration(
-    configuration: &configurations::BuildConfiguration,
+    build_type: &configurations::BuildType,
 ) -> std::path::PathBuf {
-    std::path::PathBuf::from(configuration.to_string())
+    std::path::PathBuf::from(build_type.to_string())
 }
 
 fn search_directory_from_target(target: &TargetNode) -> String {
@@ -198,7 +198,7 @@ impl MakefileGenerator {
     }
 
     fn build_configurations_file(&self) -> &str {
-        if self.configurations.build_type == configurations::BuildConfiguration::Debug {
+        if self.configurations.build_type == configurations::BuildType::Debug {
             "debug.mk"
         } else {
             "release.mk"

@@ -5,7 +5,7 @@ use thiserror::Error;
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ConfigurationError {
     #[error("Build configuration \"{0}\" used is not valid.")]
-    InvalidBuildConfiguration(String),
+    InvalidBuildType(String),
     #[error("C++ standard \"{0}\" used is not allowed.")]
     InvalidCXXStandard(String),
     #[error("Invalid sanitizer option set: {0}")]
@@ -13,33 +13,33 @@ pub enum ConfigurationError {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub enum BuildConfiguration {
+pub enum BuildType {
     Debug,
     Release,
 }
 
-impl std::default::Default for BuildConfiguration {
+impl std::default::Default for BuildType {
     fn default() -> Self {
-        BuildConfiguration::Debug
+        BuildType::Debug
     }
 }
 
-impl std::str::FromStr for BuildConfiguration {
+impl std::str::FromStr for BuildType {
     type Err = ConfigurationError;
     fn from_str(config: &str) -> Result<Self, Self::Err> {
         match config {
-            "release" => Ok(BuildConfiguration::Release),
-            "debug" => Ok(BuildConfiguration::Debug),
-            _ => Err(Self::Err::InvalidBuildConfiguration(config.to_string())),
+            "release" => Ok(BuildType::Release),
+            "debug" => Ok(BuildType::Debug),
+            _ => Err(Self::Err::InvalidBuildType(config.to_string())),
         }
     }
 }
 
-impl std::string::ToString for BuildConfiguration {
+impl std::string::ToString for BuildType {
     fn to_string(&self) -> String {
         match self {
-            BuildConfiguration::Release => "release".to_string(),
-            BuildConfiguration::Debug => "debug".to_string(),
+            BuildType::Release => "release".to_string(),
+            BuildType::Debug => "debug".to_string(),
         }
     }
 }
@@ -176,22 +176,22 @@ mod tests {
 
     #[test]
     fn build_configuration_is_debug_from_str() {
-        let build_configuration = BuildConfiguration::from_str("debug").unwrap();
-        assert_eq!(build_configuration, BuildConfiguration::Debug);
+        let build_configuration = BuildType::from_str("debug").unwrap();
+        assert_eq!(build_configuration, BuildType::Debug);
     }
 
     #[test]
     fn build_configuration_is_release_from_str() {
-        let build_configuration = BuildConfiguration::from_str("release").unwrap();
-        assert_eq!(build_configuration, BuildConfiguration::Release);
+        let build_configuration = BuildType::from_str("release").unwrap();
+        assert_eq!(build_configuration, BuildType::Release);
     }
 
     #[test]
     fn build_configuration_is_debug_by_default() {
-        let build_configuration = BuildConfiguration::from_str("relwithdebinfo");
+        let build_configuration = BuildType::from_str("relwithdebinfo");
         assert_eq!(
             build_configuration.unwrap_err(),
-            ConfigurationError::InvalidBuildConfiguration("relwithdebinfo".to_string())
+            ConfigurationError::InvalidBuildType("relwithdebinfo".to_string())
         );
     }
 

@@ -1,8 +1,8 @@
 use crate::build_target::{target_registry::TargetRegistry, BuildTarget, TargetError};
-use crate::cli::command_line::BuildDirectory;
 use crate::cli::command_line::BuildOpts;
 use crate::cli::command_line::ConfigurationOpts;
 use crate::cli::configurations;
+use crate::cli::BuildDirectory;
 use crate::errors::{CacheError, FsError};
 use crate::generator::{Generator, GeneratorError};
 use crate::manifest;

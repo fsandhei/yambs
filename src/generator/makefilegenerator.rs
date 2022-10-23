@@ -9,8 +9,8 @@ use crate::build_target::{
     target_registry::TargetRegistry, LibraryType, TargetNode,
 };
 use crate::cli::command_line;
-use crate::cli::command_line::BuildDirectory;
 use crate::cli::configurations;
+use crate::cli::BuildDirectory;
 use crate::compiler::{Compiler, Type};
 use crate::errors::FsError;
 use crate::generator::{Generator, GeneratorError, Sanitizer, UtilityGenerator};

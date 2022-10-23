@@ -1,5 +1,6 @@
 use structopt::StructOpt;
 
+use crate::cli;
 use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
 
@@ -23,46 +24,6 @@ use crate::errors::{CommandLineError, FsError};
 pub struct CommandLine {
     #[structopt(subcommand)]
     pub subcommand: Option<Subcommand>,
-}
-
-#[derive(Debug, Clone)]
-pub struct BuildDirectory(std::path::PathBuf);
-
-impl BuildDirectory {
-    pub fn as_path(&self) -> &std::path::Path {
-        self.0.as_path()
-    }
-}
-
-impl std::convert::From<std::path::PathBuf> for BuildDirectory {
-    fn from(f: std::path::PathBuf) -> Self {
-        Self { 0: f }
-    }
-}
-
-impl Default for BuildDirectory {
-    fn default() -> Self {
-        Self {
-            0: std::env::current_dir().expect("Could not locate current directory."),
-        }
-    }
-}
-
-impl std::string::ToString for BuildDirectory {
-    fn to_string(&self) -> String {
-        self.0.display().to_string()
-    }
-}
-
-impl std::str::FromStr for BuildDirectory {
-    type Err = CommandLineError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let canonicalized_path = canonicalize_path(&std::path::PathBuf::from(s))
-            .map_err(crate::errors::FsError::Canonicalize)?;
-        Ok(Self {
-            0: canonicalized_path,
-        })
-    }
 }
 
 #[derive(Debug)]
@@ -90,18 +51,11 @@ impl std::str::FromStr for ManifestDirectory {
     type Err = CommandLineError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let canonicalized_path =
-            canonicalize_path(&std::path::PathBuf::from(s)).map_err(FsError::Canonicalize)?;
+            cli::canonicalize_path(&std::path::PathBuf::from(s)).map_err(FsError::Canonicalize)?;
         Ok(Self {
             0: canonicalized_path,
         })
     }
-}
-
-fn canonicalize_path(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
-    if !path.is_absolute() {
-        return Ok(std::env::current_dir()?.join(path));
-    }
-    Ok(path.to_path_buf())
 }
 
 #[derive(StructOpt, Debug)]
@@ -131,7 +85,7 @@ pub struct BuildOpts {
         hide_default_value(true),
         parse(try_from_str)
     )]
-    pub build_directory: BuildDirectory,
+    pub build_directory: cli::BuildDirectory,
     /// Create dottie graph of build tree and exit.
     #[structopt(long = "dottie-graph")]
     pub create_dottie_graph: bool,
@@ -159,7 +113,7 @@ pub struct ConfigurationOpts {
 pub struct RemakeOpts {
     /// Build directory to read invocation from.
     #[structopt(parse(try_from_str))]
-    pub build_directory: BuildDirectory,
+    pub build_directory: cli::BuildDirectory,
 }
 
 // TODO: Add tests for cli usage:

@@ -202,7 +202,11 @@ fn build_project(
     logger: &logger::Logger,
 ) -> anyhow::Result<()> {
     let build_directory = build_manager.resolve_build_directory(opts.build_directory.as_path());
-    let make_process = build_manager.make().spawn(&build_directory, output)?;
+    let make_process = build_manager.make_mut().spawn_with_args(
+        &build_directory,
+        output,
+        opts.make_args.clone(),
+    )?;
     let process_code: Option<i32> = make_process.status.code();
     if process_code != Some(0) {
         output.status(&format!("{}", "Build FAILED".red()));

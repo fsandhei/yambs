@@ -229,7 +229,7 @@ impl BuildTarget {
                                 false
                             }
                         })
-                        .unwrap();
+                        .ok_or_else(|| TargetError::NoLibraryWithName(dependency.name.clone()))?;
                     let target = BuildTarget::create(&path, dep_target, registry)?;
                     target_vec.push(Dependency {
                         name: target.borrow().name(),
@@ -346,4 +346,6 @@ pub enum TargetError {
     Circulation(std::path::PathBuf, std::path::PathBuf),
     #[error("Error occured classifying associated file")]
     AssociatedFile(#[source] associated_files::AssociatedFileError),
+    #[error("Could not find any library with name {0}")]
+    NoLibraryWithName(String),
 }

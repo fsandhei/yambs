@@ -50,7 +50,7 @@ impl<'gen> BuildManager<'gen> {
     }
 
     pub fn configure(&mut self, opts: &BuildOpts) -> Result<(), BuildManagerError> {
-        self.add_make("-j", &opts.jobs.to_string());
+        self.add_make_flag("-j", &opts.jobs.to_string());
         self.top_build_directory = opts.build_directory.to_owned();
 
         self.use_configuration(&opts.configuration)?;
@@ -60,6 +60,10 @@ impl<'gen> BuildManager<'gen> {
 
     pub fn make(&self) -> &Make {
         &self.make
+    }
+
+    pub fn make_mut(&mut self) -> &mut Make {
+        &mut self.make
     }
 
     pub fn parse_and_register_dependencies(
@@ -104,7 +108,7 @@ impl<'gen> BuildManager<'gen> {
         }
     }
 
-    fn add_make(&mut self, flag: &str, value: &str) {
+    fn add_make_flag(&mut self, flag: &str, value: &str) {
         self.make.with_flag(flag, value);
     }
 

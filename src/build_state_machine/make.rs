@@ -56,6 +56,19 @@ impl Make {
         self.log(&process_output, output)?;
         Ok(process_output)
     }
+
+    pub fn spawn_with_args<I>(
+        &mut self,
+        makefile_directory: &std::path::Path,
+        output: &output::Output,
+        args: I,
+    ) -> Result<std::process::Output, FsError>
+    where
+        I: std::iter::IntoIterator<Item = String>,
+    {
+        self.configs.extend(args);
+        self.spawn(makefile_directory, output)
+    }
 }
 
 #[cfg(test)]

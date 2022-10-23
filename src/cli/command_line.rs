@@ -14,7 +14,6 @@ use crate::errors::{CommandLineError, FsError};
 
 #[derive(StructOpt, Debug)]
 #[structopt(
-    author = "Fredrik Sandhei <fredrik.sandhei@gmail.com>",
     version = "0.1.0",
     name = "YAMBS",
     about = "\
@@ -67,6 +66,7 @@ pub enum Subcommand {
 }
 
 #[derive(StructOpt, Debug)]
+#[structopt(setting(structopt::clap::AppSettings::TrailingVarArg))]
 pub struct BuildOpts {
     /// Input manifest file for YAMBS. By default, Yambs searches for yambs.toml manifest in current directory.
     #[structopt(default_value, hide_default_value(true), long = "manifest-directory")]
@@ -92,6 +92,8 @@ pub struct BuildOpts {
     /// Toggles verbose output.
     #[structopt(short = "v", long = "verbose")]
     pub verbose: bool,
+    #[structopt(hidden = true)]
+    pub make_args: Vec<String>,
 }
 
 #[derive(StructOpt, Debug, Clone)]
@@ -116,7 +118,15 @@ pub struct RemakeOpts {
     pub build_directory: cli::BuildDirectory,
 }
 
-// TODO: Add tests for cli usage:
-// TODO: Example:
-// TODO:    configuration is given partially, resulting in defaults and user provided values.
-// TODO:    configuration is not given, which defaults to the default values.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use structopt::StructOpt;
+
+    #[test]
+    fn arguments_passed_after_double_hyphen_are_parsed_raw() {
+        let build_args = ["--build-type", "debug", "--", "-j", "10", "-DNDEBUG=1"];
+        let build_opts = BuildOpts::from_iter(std::iter::once("build").chain(build_args));
+        assert_eq!(build_opts.make_args, vec!["-j", "10", "-DNDEBUG=1"]);
+    }
+}

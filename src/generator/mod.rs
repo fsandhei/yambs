@@ -30,3 +30,13 @@ pub trait UtilityGenerator<'config> {
     fn print_cpp_version(&'config self) -> &'config str;
     fn generate_flags_sanitizer(&self) -> String;
 }
+
+pub mod targets {
+    use crate::build_target::include_directories::IncludeDirectories;
+
+    pub struct ObjectTarget {
+        pub path: std::path::PathBuf,
+        pub source: std::path::PathBuf,
+        pub include_directories: Option<IncludeDirectories>,
+    }
+}

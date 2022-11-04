@@ -322,7 +322,7 @@ pub enum TargetState {
     NotInProcess,
     InProcess,
     Registered,
-    MakefileMade,
+    BuildFileMade,
     Building,
     BuildComplete,
 }

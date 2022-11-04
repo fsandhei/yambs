@@ -28,7 +28,7 @@ pub fn canonicalize_source(
     if path == std::path::Path::new(".") {
         base_dir.to_path_buf()
     } else {
-        base_dir.join(path)
+        base_dir.join(path).canonicalize().unwrap()
     }
 }
 

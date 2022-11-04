@@ -24,7 +24,7 @@ impl ExecutableTargetFactory {
                 {target_name} : \
                     {prerequisites}\n\
                     \t@echo \"Linking executable {target_name}\"\n\
-                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
+                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)\n",
                     target_name = target.borrow().name(),
                     prerequisites = generate_prerequisites(target, output_directory),
                     dependencies = generate_search_directories(target),
@@ -51,7 +51,7 @@ impl LibraryTargetFactory {
                 {target_name} : \
                     {prerequisites}\n\
                     \t@echo \"Linking shared library {target_name}\"\n\
-                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)",
+                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n",
                     target_name = target.borrow().name(),
                     prerequisites = generate_prerequisites(target, output_directory),
                     dependencies = generate_search_directories(target),

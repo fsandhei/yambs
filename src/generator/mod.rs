@@ -34,9 +34,10 @@ pub trait UtilityGenerator<'config> {
 pub mod targets {
     use crate::build_target::include_directories::IncludeDirectories;
 
+    #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct ObjectTarget {
-        pub path: std::path::PathBuf,
+        pub object: std::path::PathBuf,
         pub source: std::path::PathBuf,
-        pub include_directories: Option<IncludeDirectories>,
+        pub include_directories: IncludeDirectories,
     }
 }

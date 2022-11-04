@@ -1,4 +1,3 @@
-// use crate::parser;
 use crate::targets;
 
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
@@ -46,6 +45,10 @@ impl IncludeDirectories {
             })
             .collect::<Vec<IncludeDirectory>>();
         Self(include_directories)
+    }
+
+    pub fn add(&mut self, include_directory: IncludeDirectory) {
+        self.0.push(include_directory)
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, IncludeDirectory> {

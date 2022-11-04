@@ -150,6 +150,13 @@ impl BuildTarget {
         let mut source_files = executable.sources.clone();
         source_files.push(executable.main.clone());
 
+        let mut include_directories =
+            IncludeDirectories::from_dependencies(&executable.dependencies);
+        include_directories.add(include_directories::IncludeDirectory {
+            include_type: include_directories::IncludeType::Include,
+            path: manifest_dir_path.to_path_buf().join("include"),
+        });
+
         Ok(Self {
             manifest: Manifest::new(&manifest_dir_path),
             main: executable.main.to_path_buf(),
@@ -158,7 +165,7 @@ impl BuildTarget {
             source_files: SourceFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
             target_type: TargetType::Executable(executable.name.to_string()),
-            include_directories: IncludeDirectories::from_dependencies(&executable.dependencies),
+            include_directories,
             compiler_flags: executable
                 .compiler_flags
                 .clone()
@@ -173,6 +180,12 @@ impl BuildTarget {
         let mut source_files = library.sources.clone();
         source_files.push(library.main.clone());
 
+        let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies);
+        include_directories.add(include_directories::IncludeDirectory {
+            include_type: include_directories::IncludeType::Include,
+            path: manifest_dir_path.to_path_buf().join("include"),
+        });
+
         Ok(Self {
             manifest: Manifest::new(&manifest_dir_path),
             main: library.main.to_path_buf(),
@@ -181,7 +194,7 @@ impl BuildTarget {
             source_files: SourceFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
             target_type: TargetType::from_library(library),
-            include_directories: IncludeDirectories::from_dependencies(&library.dependencies),
+            include_directories,
             compiler_flags: library
                 .compiler_flags
                 .clone()

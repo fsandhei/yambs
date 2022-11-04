@@ -4,16 +4,19 @@ use std::io::Write;
 
 use indoc;
 
+use crate::build_target::include_directories;
 use crate::build_target::{
-    associated_files::SourceFile, include_directories::IncludeType,
-    target_registry::TargetRegistry, LibraryType, TargetNode,
+    include_directories::IncludeType, target_registry::TargetRegistry, LibraryType, TargetNode,
+    TargetState,
 };
 use crate::cli::command_line;
 use crate::cli::configurations;
 use crate::cli::BuildDirectory;
 use crate::compiler::{Compiler, Type};
 use crate::errors::FsError;
-use crate::generator::{Generator, GeneratorError, Sanitizer, UtilityGenerator};
+use crate::generator::{
+    targets::ObjectTarget, Generator, GeneratorError, Sanitizer, UtilityGenerator,
+};
 use crate::utility;
 
 struct ExecutableTargetFactory;
@@ -24,7 +27,7 @@ impl ExecutableTargetFactory {
                 {target_name} : \
                     {prerequisites}\n\
                     \t@echo \"Linking executable {target_name}\"\n\
-                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)\n",
+                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
                     target_name = target.borrow().name(),
                     prerequisites = generate_prerequisites(target, output_directory),
                     dependencies = generate_search_directories(target),
@@ -119,6 +122,44 @@ fn generate_search_directories(target: &TargetNode) -> String {
     formatted_string.trim_end().to_string()
 }
 
+fn generate_include_directories(
+    include_directories: &include_directories::IncludeDirectories,
+) -> String {
+    let mut formatted_string = String::new();
+    for include in include_directories {
+        if include.include_type == IncludeType::System {
+            formatted_string.push_str(&format!("-isystem {}", include.path.display().to_string()))
+        } else {
+            formatted_string.push_str(&format!("-I{}", include.path.display().to_string()))
+        }
+        formatted_string.push(' ');
+    }
+    formatted_string.trim_end().to_string()
+}
+
+fn generate_object_target(object_target: &ObjectTarget) -> String {
+    let mut formatted_string = String::new();
+    formatted_string.push_str(&format!(
+        "# Build rule for {}\n",
+        object_target.object.display()
+    ));
+    formatted_string.push_str(&object_target.object.display().to_string());
+    formatted_string.push_str(": \\\n");
+    formatted_string.push('\t');
+    formatted_string.push_str(&object_target.source.display().to_string());
+    formatted_string.push('\n');
+    formatted_string.push_str(&format!(
+        "\t@echo \"Building CXX object {}\"\n",
+        object_target.object.display()
+    ));
+    formatted_string.push_str(&format!(
+        "\t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) \
+         $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
+        dependencies = generate_include_directories(&object_target.include_directories),
+    ));
+    formatted_string
+}
+
 fn directory_from_build_configuration(
     build_type: &configurations::BuildType,
 ) -> std::path::PathBuf {
@@ -154,6 +195,45 @@ impl MakefileGenerator {
         })
     }
 
+    fn create_object_targets(&self, target: &TargetNode) -> Vec<ObjectTarget> {
+        let mut object_targets = Vec::new();
+        let borrowed_target = target.borrow();
+        let sources = borrowed_target
+            .source_files
+            .iter()
+            .filter(|file| file.is_source());
+        let dependency_root_path = &borrowed_target.manifest.directory;
+
+        for source in sources {
+            let source_file = source.file();
+            let source_dir = source_file
+                .parent()
+                .and_then(|p| p.strip_prefix(dependency_root_path).ok());
+
+            if let Some(dir) = source_dir {
+                self.create_subdir(dir).unwrap();
+            }
+            let object = {
+                if let Some(dir) = source_dir {
+                    self.output_directory
+                        .join(dir)
+                        .join(source_file.file_name().unwrap())
+                } else {
+                    self.output_directory.join(source_file.file_name().unwrap())
+                }
+            }
+            .with_extension("o");
+            let object_target = ObjectTarget {
+                object,
+                source: source_file,
+                include_directories: borrowed_target.include_directories.clone(),
+            };
+
+            object_targets.push(object_target);
+        }
+        object_targets
+    }
+
     fn generate_makefile(
         &mut self,
         generate: &mut Generate,
@@ -162,34 +242,52 @@ impl MakefileGenerator {
         self.generate_header(generate, &registry.registry)?;
 
         for target in &registry.registry {
-            log::debug!(
-                "Generating makefiles for target {:?} (manifest path: {})",
-                target.borrow().name(),
-                target.borrow().manifest.directory.display()
-            );
-            self.generate_rule_declaration_for_target(generate, target);
-            if !target.borrow().dependencies.is_empty() {
-                self.push_and_create_directory(&std::path::Path::new("lib"))?;
-                let dependencies = &target.borrow().dependencies;
-                for dependency in dependencies {
-                    if dependency.manifest_dir_path != target.borrow().manifest.directory {
-                        log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
+            if target.borrow().state != TargetState::BuildFileMade {
+                log::debug!(
+                    "Generating makefiles for target {:?} (manifest path: {})",
+                    target.borrow().name(),
+                    target.borrow().manifest.directory.display()
+                );
+                self.generate_rule_declaration_for_target(generate, target);
+                if !target.borrow().dependencies.is_empty() {
+                    self.push_and_create_directory(&std::path::Path::new("lib"))?;
+                    let dependencies = &target.borrow().dependencies;
+                    for dependency in dependencies {
+                        if dependency.manifest_dir_path != target.borrow().manifest.directory {
+                            log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
                             dependency.name,
                             dependency.manifest_dir_path.display(),
                             target.borrow().name(),
                             target.borrow().manifest.directory.display());
-                        let dependency_target = dependency.to_build_target(registry).unwrap();
-                        let rule = LibraryTargetFactory::create_rule(
-                            &dependency_target,
-                            &self.output_directory,
-                        );
-                        generate.data.push_str(&rule);
+                            let dependency_target = dependency.to_build_target(registry).unwrap();
+
+                            if dependency_target.borrow().state != TargetState::BuildFileMade {
+                                let rule = LibraryTargetFactory::create_rule(
+                                    &dependency_target,
+                                    &self.output_directory,
+                                );
+                                generate.object_targets.extend_from_slice(
+                                    &self.create_object_targets(&dependency_target),
+                                );
+                                generate.data.push_str(&rule);
+                                dependency_target.borrow_mut().state = TargetState::BuildFileMade;
+                            }
+                        }
                     }
+                    self.output_directory.pop();
                 }
-                self.output_directory.pop();
+                self.create_object_targets(target)
+                    .iter()
+                    .for_each(|object_target| {
+                        if !generate.object_targets.contains(&object_target) {
+                            generate.object_targets.push(object_target.clone());
+                        }
+                    });
+
+                target.borrow_mut().state = TargetState::BuildFileMade;
             }
         }
-        self.generate_object_rules(generate, &registry.registry);
+        self.generate_object_rules(generate);
         self.generate_depends_rules(generate);
         Ok(())
     }
@@ -283,73 +381,20 @@ impl MakefileGenerator {
         include_file_generator.generate_makefiles()
     }
 
-    fn generate_object_rules(&self, generate: &mut Generate, targets: &[TargetNode]) {
-        for target in targets {
-            self.generate_object_rules_for_target(generate, target);
+    fn generate_object_rules(&self, generate: &mut Generate) {
+        for object_target in &generate.object_targets {
+            generate
+                .data
+                .push_str(&generate_object_target(object_target))
         }
-        generate.data.push('\n');
-    }
-
-    fn generate_object_rules_for_target(&self, generate: &mut Generate, target: &TargetNode) {
-        let mut formatted_string = String::new();
-        let borrowed_target = target.borrow();
-        let sources = borrowed_target
-            .source_files
-            .iter()
-            .filter(|file| file.is_source());
-        let dependency_root_path = &borrowed_target.manifest.directory;
-
-        for source in sources {
-            if !generate.source_files_generated_cache.contains(&source) {
-                let source_file = source.file();
-                let source_dir = source_file
-                    .parent()
-                    .and_then(|p| p.strip_prefix(dependency_root_path).ok());
-
-                if let Some(dir) = source_dir {
-                    self.create_subdir(dir).unwrap();
-                }
-                let object = {
-                    if let Some(dir) = source_dir {
-                        self.output_directory
-                            .join(dir)
-                            .join(source_file.file_name().unwrap())
-                    } else {
-                        self.output_directory.join(source_file.file_name().unwrap())
-                    }
-                }
-                .with_extension("o");
-                formatted_string.push_str(&format!("# Build rule for {}\n", object.display()));
-                formatted_string.push_str(&object.display().to_string());
-                formatted_string.push_str(": \\\n");
-                formatted_string.push('\t');
-                formatted_string.push_str(&source_file.display().to_string());
-                formatted_string.push('\n');
-                formatted_string.push_str(&format!(
-                    "\t@echo \"Building CXX object {}\"\n",
-                    object.display()
-                ));
-                formatted_string.push_str(&format!(
-                    "\t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) \
-         $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
-                    dependencies = generate_search_directories(target)
-                ));
-                if !generate.object_files_cached.contains(&object) {
-                    generate.object_files_cached.insert(object);
-                }
-                generate.source_files_generated_cache.insert(source.clone());
-            }
-        }
-
-        generate.data.push_str(formatted_string.trim_end());
     }
 
     fn generate_depends_rules(&self, generate: &mut Generate) {
         let depend_files = generate
-            .object_files_cached
+            .object_targets
             .iter()
-            .map(|object| {
-                let mut object_clone = object.clone();
+            .map(|object_target| {
+                let mut object_clone = object_target.object.clone();
                 object_clone.set_extension("d");
                 object_clone
             })
@@ -397,8 +442,7 @@ impl Generator for MakefileGenerator {
 struct Generate {
     file_handle: std::fs::File,
     data: String,
-    source_files_generated_cache: std::collections::HashSet<SourceFile>,
-    object_files_cached: std::collections::HashSet<std::path::PathBuf>,
+    object_targets: Vec<ObjectTarget>,
 }
 
 impl Generate {
@@ -407,8 +451,7 @@ impl Generate {
         Ok(Self {
             file_handle,
             data: String::new(),
-            source_files_generated_cache: std::collections::HashSet::new(),
-            object_files_cached: std::collections::HashSet::new(),
+            object_targets: Vec::new(),
         })
     }
 

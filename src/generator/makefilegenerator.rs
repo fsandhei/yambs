@@ -105,16 +105,13 @@ fn generate_search_directories(target: &TargetNode) -> String {
     let borrowed_target = target.borrow();
     let mut formatted_string = String::new();
     formatted_string.push_str(&search_directory_from_target(target));
-    if let Some(include_directories) = &borrowed_target.include_directories {
-        for include in include_directories {
-            if include.include_type == IncludeType::System {
-                formatted_string
-                    .push_str(&format!("-isystem {}", include.path.display().to_string()))
-            } else {
-                formatted_string.push_str(&format!("-I{}", include.path.display().to_string()))
-            }
-            formatted_string.push(' ');
+    for include in &borrowed_target.include_directories {
+        if include.include_type == IncludeType::System {
+            formatted_string.push_str(&format!("-isystem {}", include.path.display().to_string()))
+        } else {
+            formatted_string.push_str(&format!("-I{}", include.path.display().to_string()))
         }
+        formatted_string.push(' ');
     }
     if !borrowed_target.dependencies.is_empty() {
         formatted_string.push_str("-L.");

@@ -26,7 +26,7 @@ impl IncludeDirectory {
 }
 
 impl IncludeDirectories {
-    pub fn from_dependencies(dependencies: &[targets::Dependency]) -> Option<Self> {
+    pub fn from_dependencies(dependencies: &[targets::Dependency]) -> Self {
         let include_directories = dependencies
             .iter()
             .filter_map(|dependency| {
@@ -45,7 +45,7 @@ impl IncludeDirectories {
                 })
             })
             .collect::<Vec<IncludeDirectory>>();
-        Some(Self(include_directories))
+        Self(include_directories)
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, IncludeDirectory> {

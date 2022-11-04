@@ -62,7 +62,7 @@ pub struct BuildTarget {
     pub state: TargetState,
     pub source_files: SourceFiles,
     pub target_type: TargetType,
-    pub include_directories: Option<IncludeDirectories>,
+    pub include_directories: IncludeDirectories,
     pub compiler_flags: CompilerFlags,
 }
 

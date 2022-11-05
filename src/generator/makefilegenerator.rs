@@ -302,7 +302,8 @@ impl MakefileGenerator {
 
     fn push_and_create_directory(&mut self, dir: &std::path::Path) -> Result<(), GeneratorError> {
         self.output_directory.push(dir);
-        self.create_subdir(dir)?;
+        std::fs::create_dir(&self.output_directory)
+            .map_err(|err| FsError::CreateDirectory(self.output_directory.clone(), err))?;
         Ok(())
     }
 

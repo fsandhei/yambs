@@ -107,7 +107,6 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
 fn generate_search_directories(target: &TargetNode) -> String {
     let borrowed_target = target.borrow();
     let mut formatted_string = String::new();
-    formatted_string.push_str(&search_directory_from_target(target));
     for include in &borrowed_target.include_directories {
         if include.include_type == IncludeType::System {
             formatted_string.push_str(&format!("-isystem {}", include.path.display().to_string()))
@@ -164,13 +163,6 @@ fn directory_from_build_configuration(
     build_type: &configurations::BuildType,
 ) -> std::path::PathBuf {
     std::path::PathBuf::from(build_type.to_string())
-}
-
-fn search_directory_from_target(target: &TargetNode) -> String {
-    let borrowed_target = target.borrow();
-    let project_base = &borrowed_target.manifest.directory;
-    let include_line = format!("-I{} ", project_base.join("include").display().to_string());
-    include_line
 }
 
 pub struct MakefileGenerator {

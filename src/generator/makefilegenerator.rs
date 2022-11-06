@@ -107,14 +107,9 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
 fn generate_search_directories(target: &TargetNode) -> String {
     let borrowed_target = target.borrow();
     let mut formatted_string = String::new();
-    for include in &borrowed_target.include_directories {
-        if include.include_type == IncludeType::System {
-            formatted_string.push_str(&format!("-isystem {}", include.path.display().to_string()))
-        } else {
-            formatted_string.push_str(&format!("-I{}", include.path.display().to_string()))
-        }
-        formatted_string.push(' ');
-    }
+    formatted_string.push_str(&generate_include_directories(
+        &borrowed_target.include_directories,
+    ));
     if !borrowed_target.dependencies.is_empty() {
         formatted_string.push_str("-L.");
     }

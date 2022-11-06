@@ -21,6 +21,7 @@ pub const YAMBS_MANIFEST_NAME: &str = "yambs.toml";
 pub const YAMBS_MANIFEST_DIR_ENV: &str = "YAMBS_MANIFEST_DIR";
 pub const YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV: &str = "YAMBS_BUILD_SYSTEM_EXECUTABLE";
 
+// FIXME: Should have check for absolute path. Perhaps better check?
 pub fn canonicalize_source(
     base_dir: &std::path::Path,
     path: &std::path::Path,

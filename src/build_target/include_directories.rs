@@ -137,8 +137,8 @@ mod tests {
             stub_one.dependency,
             stub_two.dependency,
             stub_three.dependency,
-        ])
-        .unwrap();
+        ]);
+
         assert_eq!(actual, expected);
     }
 
@@ -170,8 +170,7 @@ mod tests {
             stub_one.dependency,
             stub_two.dependency,
             stub_three.dependency,
-        ])
-        .unwrap();
+        ]);
         assert_eq!(actual, expected);
     }
 }

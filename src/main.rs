@@ -53,6 +53,7 @@ fn evaluate_compiler(
     opts: &BuildOpts,
     cache: &Cache,
 ) -> anyhow::Result<()> {
+    log::trace!("evaluate_compiler");
     if !cache.detect_change(compiler) {
         let test_dir = opts.build_directory.as_path().join("sample");
         log::debug!("Evaluating compiler by doing a sample build...");
@@ -80,6 +81,7 @@ fn try_cached_manifest(
     dep_registry: &mut TargetRegistry,
     manifest: &manifest::ParsedManifest,
 ) -> Option<manifest::ParsedManifest> {
+    log::trace!("try_cached_manifest");
     log::debug!("Checking for cache of manifest.");
     if let Some(cached_manifest) = cache.from_cache::<manifest::ParsedManifest>() {
         log::debug!("Found cached manifest. Checking if it is up to date.");
@@ -97,8 +99,11 @@ fn try_cached_manifest(
 fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
+    log::trace!("do_build");
+
     let cache = Cache::new(opts.build_directory.as_path())?;
     let compiler = compiler::Compiler::new()?;
+
     let mut dependency_registry = TargetRegistry::new();
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
@@ -121,13 +126,13 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
             &output,
             &mut dependency_registry,
         )?;
+
+        generate_makefiles(&mut build_manager, &dependency_registry, opts)?;
     }
 
     if opts.create_dottie_graph {
         return create_dottie_graph(&dependency_registry, &output);
     }
-
-    generate_makefiles(&mut build_manager, &dependency_registry, opts)?;
 
     build_project(&mut build_manager, &output, opts, &logger)?;
     cache.cache(&dependency_registry)?;
@@ -158,6 +163,7 @@ fn generate_makefiles(
     registry: &TargetRegistry,
     opts: &BuildOpts,
 ) -> anyhow::Result<()> {
+    log::trace!("generate_makefiles");
     build_manager.generate_makefiles(registry)?;
     log::debug!(
         "Build files generated in {}",
@@ -173,6 +179,7 @@ fn parse_and_register_dependencies(
     output: &Output,
     dep_registry: &mut TargetRegistry,
 ) -> anyhow::Result<()> {
+    log::trace!("parse_and_register_dependencies");
     build_manager.parse_and_register_dependencies(dep_registry, manifest)?;
     cache
         .cache(manifest)
@@ -201,6 +208,7 @@ fn build_project(
     opts: &BuildOpts,
     logger: &logger::Logger,
 ) -> anyhow::Result<()> {
+    log::trace!("build_project");
     let build_directory = build_manager.resolve_build_directory(opts.build_directory.as_path());
     let make_process = build_manager.make_mut().spawn_with_args(
         &build_directory,

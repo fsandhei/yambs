@@ -45,7 +45,7 @@ impl LibraryTargetFactory {
                 {target_name} : \
                     {prerequisites}\n\
                     \t@echo \"Linking static library {target_name}\"\n\
-                    \t@$(strip $(AR) $(ARFLAGS) $@ $?)",
+                    \t@$(strip $(AR) $(ARFLAGS) $@ $?)\n\n",
                 target_name = target.borrow().name(),
                 prerequisites = generate_prerequisites(target, output_directory)
             ),
@@ -302,9 +302,17 @@ impl MakefileGenerator {
 
     fn push_and_create_directory(&mut self, dir: &std::path::Path) -> Result<(), GeneratorError> {
         self.output_directory.push(dir);
-        std::fs::create_dir(&self.output_directory)
-            .map_err(|err| FsError::CreateDirectory(self.output_directory.clone(), err))?;
-        Ok(())
+        Ok(match std::fs::create_dir(&self.output_directory) {
+            s @ Ok(()) => s,
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::AlreadyExists {
+                    Ok(())
+                } else {
+                    Err(err)
+                }
+            }
+        }
+        .map_err(|err| FsError::CreateDirectory(self.output_directory.clone(), err))?)
     }
 
     fn create_subdir(&self, dir: &std::path::Path) -> Result<(), GeneratorError> {

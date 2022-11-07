@@ -86,6 +86,7 @@ fn try_cached_manifest(
     if let Some(cached_manifest) = cache.from_cache::<manifest::ParsedManifest>() {
         log::debug!("Found cached manifest. Checking if it is up to date.");
         if manifest.manifest.modification_time <= cached_manifest.manifest.modification_time {
+            check_dependencies_for_up_to_date(cache)?;
             log::debug!("Cached manifest is up to date! Using it for this build.");
             let cached_registry = TargetRegistry::from_cache(cache)?;
             *dep_registry = cached_registry;
@@ -94,6 +95,18 @@ fn try_cached_manifest(
         log::debug!("Cached manifest is older than latest manifest. Discarding cached.");
     }
     None
+}
+
+fn check_dependencies_for_up_to_date(cache: &Cache) -> Option<()> {
+    let test_target_registry = TargetRegistry::from_cache(cache)?;
+    for target in test_target_registry.registry {
+        let manifest_compare = manifest::Manifest::new(&target.borrow().manifest.directory);
+        if target.borrow().manifest.modification_time < manifest_compare.modification_time {
+            return None;
+        }
+        log::debug!("{} is up to date", target.borrow().name());
+    }
+    Some(())
 }
 
 fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
@@ -119,6 +132,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
         .context("An error occured when configuring the project.")?;
 
     if try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none() {
+        log::debug!("Did not find a cached manifest that suited. Making a new one.");
         parse_and_register_dependencies(
             &mut build_manager,
             &cache,

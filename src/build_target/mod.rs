@@ -17,7 +17,8 @@ use include_directories::IncludeDirectories;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Dependency {
     pub name: String,
-    pub manifest_dir_path: std::path::PathBuf,
+    // FIXME: Use Manifest that exists in manifest.rs instead!
+    pub manifest: Manifest,
     pub library_type: LibraryType,
 }
 
@@ -27,7 +28,7 @@ impl Dependency {
         registry: &target_registry::TargetRegistry,
     ) -> Option<TargetNode> {
         registry.get_target_from_predicate(|build_target| {
-            build_target.manifest.directory == self.manifest_dir_path
+            build_target.manifest.directory == self.manifest.directory
                 && build_target.library_type() == self.library_type
         })
     }
@@ -99,7 +100,7 @@ impl BuildTarget {
             log::debug!(
                 "Registering target \"{}\" (manifest directory {})",
                 target.name,
-                target.manifest_dir_path.display()
+                target.manifest.directory.display()
             );
             target_node.borrow_mut().add_target(target);
         }
@@ -222,7 +223,7 @@ impl BuildTarget {
                     self.detect_cycle_from_target(&registered_dep)?;
                     target_vec.push(Dependency {
                         name: registered_dep.borrow().name(),
-                        manifest_dir_path: registered_dep.borrow().manifest.directory.clone(),
+                        manifest: registered_dep.borrow().manifest.clone(),
                         library_type: registered_dep.borrow().library_type(),
                     });
                 } else {
@@ -246,7 +247,7 @@ impl BuildTarget {
                     let target = BuildTarget::create(&path, dep_target, registry)?;
                     target_vec.push(Dependency {
                         name: target.borrow().name(),
-                        manifest_dir_path: target.borrow().manifest.directory.clone(),
+                        manifest: target.borrow().manifest.clone(),
                         library_type: target.borrow().library_type(),
                     });
                 }

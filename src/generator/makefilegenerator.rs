@@ -240,10 +240,10 @@ impl MakefileGenerator {
                     self.push_and_create_directory(&std::path::Path::new("lib"))?;
                     let dependencies = &target.borrow().dependencies;
                     for dependency in dependencies {
-                        if dependency.manifest_dir_path != target.borrow().manifest.directory {
+                        if dependency.manifest.directory != target.borrow().manifest.directory {
                             log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
                             dependency.name,
-                            dependency.manifest_dir_path.display(),
+                            dependency.manifest.directory.display(),
                             target.borrow().name(),
                             target.borrow().manifest.directory.display());
                             let dependency_target = dependency.to_build_target(registry).unwrap();

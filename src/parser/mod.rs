@@ -220,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_produces_manifest_with_libraries() {
+    fn parse_produces_manifest_with_one_library() {
         let fixture = TestFixture::new();
         let manifest_dir = fixture.tempdir.path().to_path_buf();
 
@@ -229,29 +229,40 @@ mod tests {
         fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
         fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
 
-        const TOML_RECIPE: &str = r#"
+        let input = r#"
     [library.MyLibraryData]
     sources = ['x.cpp', 'y.cpp', 'z.cpp', 'generator.cpp']
     "#;
-        {
-            let manifest = parse_toml(TOML_RECIPE, &manifest_dir).unwrap();
-            let library = Library {
-                name: "MyLibraryData".to_string(),
-                sources: vec![
-                    manifest_dir.join(std::path::PathBuf::from("x.cpp")),
-                    manifest_dir.join(std::path::PathBuf::from("y.cpp")),
-                    manifest_dir.join(std::path::PathBuf::from("z.cpp")),
-                    manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
-                ],
-                dependencies: Vec::new(),
-                compiler_flags: None,
-                lib_type: LibraryType::default(),
-            };
-            let expected = ManifestData {
-                targets: vec![Target::Library(library)],
-            };
-            assert_eq!(manifest, expected);
-        }
+
+        let manifest = parse_toml(input, &manifest_dir).unwrap();
+        let library = Library {
+            name: "MyLibraryData".to_string(),
+            sources: vec![
+                manifest_dir.join(std::path::PathBuf::from("x.cpp")),
+                manifest_dir.join(std::path::PathBuf::from("y.cpp")),
+                manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
+            ],
+            dependencies: Vec::new(),
+            compiler_flags: None,
+            lib_type: LibraryType::default(),
+        };
+        let expected = ManifestData {
+            targets: vec![Target::Library(library)],
+        };
+        assert_eq!(manifest, expected);
+    }
+
+    #[test]
+    fn parse_produces_manifest_with_library_with_dependency() {
+        let fixture = TestFixture::new();
+        let manifest_dir = fixture.tempdir.path().to_path_buf();
+
+        fixture.create_dummy_file(&std::path::PathBuf::from("generator.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("x.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
+
         let dep_project_path = fixture.create_dummy_file(&std::path::PathBuf::from("SomeProject"));
         let second_dep_project_path =
             fixture.create_dummy_file(&std::path::PathBuf::from("SomeSecondProject"));

@@ -144,6 +144,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
         generate_makefiles(&mut build_manager, &dependency_registry, opts)?;
     }
 
+    // FIXME: This most likely does not work anymore...
     if opts.create_dottie_graph {
         return create_dottie_graph(&dependency_registry, output);
     }

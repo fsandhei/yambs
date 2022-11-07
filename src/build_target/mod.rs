@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use crate::errors;
 use crate::flags::CompilerFlags;
+use crate::manifest;
 use crate::parser;
 use crate::targets;
 use crate::utility;
@@ -18,7 +19,7 @@ use include_directories::IncludeDirectories;
 pub struct Dependency {
     pub name: String,
     // FIXME: Use Manifest that exists in manifest.rs instead!
-    pub manifest: Manifest,
+    pub manifest: manifest::Manifest,
     pub library_type: LibraryType,
 }
 
@@ -35,29 +36,8 @@ impl Dependency {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Manifest {
-    pub directory: std::path::PathBuf,
-    pub modification_time: std::time::SystemTime,
-}
-
-impl Manifest {
-    pub fn new(directory: &std::path::Path) -> Self {
-        let metadata = std::fs::metadata(directory.join(YAMBS_MANIFEST_NAME)).expect(&format!(
-            "Could not fetch metadata from {}",
-            YAMBS_MANIFEST_NAME
-        ));
-        Self {
-            directory: directory.to_path_buf(),
-            modification_time: metadata
-                .modified()
-                .expect("Could not fetch last modified time of manifest"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BuildTarget {
-    pub manifest: Manifest,
+    pub manifest: manifest::Manifest,
     pub main: std::path::PathBuf,
     pub dependencies: Vec<Dependency>,
     pub state: TargetState,
@@ -159,7 +139,7 @@ impl BuildTarget {
         });
 
         Ok(Self {
-            manifest: Manifest::new(&manifest_dir_path),
+            manifest: manifest::Manifest::new(&manifest_dir_path),
             main: executable.main.to_path_buf(),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
@@ -188,7 +168,7 @@ impl BuildTarget {
         });
 
         Ok(Self {
-            manifest: Manifest::new(&manifest_dir_path),
+            manifest: manifest::Manifest::new(&manifest_dir_path),
             main: library.main.to_path_buf(),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,

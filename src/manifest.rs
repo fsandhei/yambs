@@ -10,10 +10,8 @@ pub struct Manifest {
 
 impl Manifest {
     pub fn new(directory: &std::path::Path) -> Self {
-        let metadata = std::fs::metadata(directory.join(YAMBS_MANIFEST_NAME)).expect(&format!(
-            "Could not fetch metadata from {}",
-            YAMBS_MANIFEST_NAME
-        ));
+        let metadata = std::fs::metadata(directory.join(YAMBS_MANIFEST_NAME)).unwrap_or_else(|_| panic!("Could not fetch metadata from {}",
+            YAMBS_MANIFEST_NAME));
         Self {
             directory: directory.to_path_buf(),
             modification_time: metadata
@@ -62,7 +60,7 @@ impl ManifestData {
                             .iter()
                             .map(|(name, data)| {
                                 let dependency =
-                                    targets::Dependency::new(&name, data, manifest_dir);
+                                    targets::Dependency::new(name, data, manifest_dir);
                                 match dependency.data {
                                     targets::DependencyData::Source {
                                         ref path,
@@ -86,7 +84,7 @@ impl ManifestData {
                                 .common_raw
                                 .sources
                                 .iter()
-                                .map(|source| crate::canonicalize_source(manifest_dir, &source))
+                                .map(|source| crate::canonicalize_source(manifest_dir, source))
                                 .collect::<Vec<std::path::PathBuf>>(),
                             dependencies,
                             compiler_flags: data.common_raw.compiler_flags,
@@ -108,7 +106,7 @@ impl ManifestData {
                             .iter()
                             .map(|(name, data)| {
                                 let dependency =
-                                    targets::Dependency::new(&name, data, manifest_dir);
+                                    targets::Dependency::new(name, data, manifest_dir);
                                 match dependency.data {
                                     targets::DependencyData::Source {
                                         ref path,
@@ -132,7 +130,7 @@ impl ManifestData {
                                 .common_raw
                                 .sources
                                 .iter()
-                                .map(|source| crate::canonicalize_source(manifest_dir, &source))
+                                .map(|source| crate::canonicalize_source(manifest_dir, source))
                                 .collect::<Vec<std::path::PathBuf>>(),
                             dependencies,
                             compiler_flags: data.common_raw.compiler_flags,

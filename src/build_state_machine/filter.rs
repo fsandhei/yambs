@@ -31,11 +31,11 @@ fn is_error_message(input: &str) -> bool {
 pub fn println_colored(input: &str, output: &output::Output) {
     input.lines().for_each(|line| {
         if is_warning_message(line) {
-            output.warning_without_prefix(&format!("{}", line));
+            output.warning_without_prefix(&line.to_string());
         } else if is_error_message(line) {
-            output.error_without_prefix(&format!("{}", line));
+            output.error_without_prefix(&line.to_string());
         } else {
-            output.status_without_prefix(&format!("{}", line));
+            output.status_without_prefix(&line.to_string());
         }
     });
 }

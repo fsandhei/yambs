@@ -237,7 +237,7 @@ impl MakefileGenerator {
                 );
                 self.generate_rule_declaration_for_target(generate, target);
                 if !target.borrow().dependencies.is_empty() {
-                    self.push_and_create_directory(&std::path::Path::new("lib"))?;
+                    self.push_and_create_directory(std::path::Path::new("lib"))?;
                     let dependencies = &target.borrow().dependencies;
                     for dependency in dependencies {
                         if dependency.manifest.directory != target.borrow().manifest.directory {
@@ -266,7 +266,7 @@ impl MakefileGenerator {
                 self.create_object_targets(target)
                     .iter()
                     .for_each(|object_target| {
-                        if !generate.object_targets.contains(&object_target) {
+                        if !generate.object_targets.contains(object_target) {
                             generate.object_targets.push(object_target.clone());
                         }
                     });
@@ -324,7 +324,7 @@ impl MakefileGenerator {
         generate.data.push_str(&text);
     }
 
-    fn generate_phony(&self, generate: &mut Generate, target: &TargetNode) -> () {
+    fn generate_phony(&self, generate: &mut Generate, target: &TargetNode) {
         let data = indoc::formatdoc!(
             "\n
             # Phony for target \"{target_name}\"
@@ -370,7 +370,7 @@ impl MakefileGenerator {
             IncludeFileGenerator::new(&include_output_directory, self.compiler.clone());
 
         let cxx_standard = &self.configurations.cxx_standard.to_string();
-        include_file_generator.add_cpp_version(&cxx_standard);
+        include_file_generator.add_cpp_version(cxx_standard);
         if let Some(sanitizer) = &self.configurations.sanitizer {
             include_file_generator.set_sanitizer(&sanitizer.to_string());
         }
@@ -768,9 +768,7 @@ mod tests {
         output_directory
     }
 
-    fn construct_generator<'generator>(
-        path: &std::path::PathBuf,
-    ) -> IncludeFileGenerator<'generator> {
+    fn construct_generator<'generator>(path: &std::path::Path) -> IncludeFileGenerator<'generator> {
         IncludeFileGenerator::new(path, crate::compiler::Compiler::new().unwrap())
     }
 

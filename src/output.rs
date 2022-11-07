@@ -86,7 +86,7 @@ impl InnerOutput {
     fn add_prefix(&self, text: &str, prefix_policy: PrefixPolicy) -> String {
         match prefix_policy {
             PrefixPolicy::WithPrefix => format!("{}: {}", self.prefix, text),
-            PrefixPolicy::NoPrefix => format!("{}", text),
+            PrefixPolicy::NoPrefix => text.to_string(),
         }
     }
 }

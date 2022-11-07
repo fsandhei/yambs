@@ -65,7 +65,7 @@ mod tests {
             }
         }
 
-        pub fn create_dummy_file(&self, path_postfix: &std::path::PathBuf) -> std::path::PathBuf {
+        pub fn create_dummy_file(&self, path_postfix: &std::path::Path) -> std::path::PathBuf {
             let path = self.tempdir.path().join(path_postfix);
             std::fs::File::create(&path).unwrap();
             path
@@ -286,14 +286,14 @@ mod tests {
                     Dependency {
                         name: "SomeProject".to_string(),
                         data: DependencyData::Source {
-                            path: dep_project_path.clone(),
+                            path: dep_project_path,
                             origin: IncludeSearchType::Include,
                         },
                     },
                     Dependency {
                         name: "SomeSecondProject".to_string(),
                         data: DependencyData::Source {
-                            path: second_dep_project_path.clone(),
+                            path: second_dep_project_path,
                             origin: IncludeSearchType::Include,
                         },
                     },

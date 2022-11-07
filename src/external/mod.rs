@@ -35,7 +35,7 @@ pub fn dottie(
             requirement.name, top_pretty_name
         ));
         dottie(
-            &requirement.to_build_target(&registry).unwrap(),
+            &requirement.to_build_target(registry).unwrap(),
             registry,
             true,
             data,

@@ -121,14 +121,14 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
 
-    evaluate_compiler(&compiler, &opts, &cache)?;
+    evaluate_compiler(&compiler, opts, &cache)?;
 
     let mut generator =
         MakefileGenerator::new(&opts.configuration, &opts.build_directory, compiler)?;
     let mut build_manager = BuildManager::new(&mut generator);
 
     build_manager
-        .configure(&opts)
+        .configure(opts)
         .context("An error occured when configuring the project.")?;
 
     if try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none() {
@@ -137,7 +137,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
             &mut build_manager,
             &cache,
             &manifest,
-            &output,
+            output,
             &mut dependency_registry,
         )?;
 
@@ -145,10 +145,10 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     }
 
     if opts.create_dottie_graph {
-        return create_dottie_graph(&dependency_registry, &output);
+        return create_dottie_graph(&dependency_registry, output);
     }
 
-    build_project(&mut build_manager, &output, opts, &logger)?;
+    build_project(&mut build_manager, output, opts, &logger)?;
     cache.cache(&dependency_registry)?;
     Ok(())
 }

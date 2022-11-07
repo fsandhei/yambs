@@ -55,10 +55,10 @@ impl BuildTarget {
     ) -> Result<TargetNode, TargetError> {
         let target_node = match target {
             targets::Target::Executable(executable) => {
-                TargetNode::new(BuildTarget::executable(manifest_dir_path, &executable)?)
+                TargetNode::new(BuildTarget::executable(manifest_dir_path, executable)?)
             }
             targets::Target::Library(library) => {
-                TargetNode::new(BuildTarget::library(manifest_dir_path, &library)?)
+                TargetNode::new(BuildTarget::library(manifest_dir_path, library)?)
             }
         };
         if let Some(existing_node) = registry.get_target(
@@ -139,7 +139,7 @@ impl BuildTarget {
         });
 
         Ok(Self {
-            manifest: manifest::Manifest::new(&manifest_dir_path),
+            manifest: manifest::Manifest::new(manifest_dir_path),
             main: executable.main.to_path_buf(),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
@@ -168,7 +168,7 @@ impl BuildTarget {
         });
 
         Ok(Self {
-            manifest: manifest::Manifest::new(&manifest_dir_path),
+            manifest: manifest::Manifest::new(manifest_dir_path),
             main: library.main.to_path_buf(),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
@@ -218,7 +218,7 @@ impl BuildTarget {
                         .iter()
                         .find(|dep| {
                             if let Some(lib) = dep.library() {
-                                return lib.name == dependency.name;
+                                lib.name == dependency.name
                             } else {
                                 false
                             }
@@ -286,7 +286,7 @@ impl TargetType {
             targets::LibraryType::Dynamic => format!("lib{}.so", library.name),
             targets::LibraryType::Static => format!("lib{}.a", library.name),
         };
-        TargetType::Library(LibraryType::from(&lib_type), library_name)
+        TargetType::Library(LibraryType::from(lib_type), library_name)
     }
 }
 

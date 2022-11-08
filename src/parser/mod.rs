@@ -83,12 +83,12 @@ mod tests {
         fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
         fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
 
-        const TOML_RECIPE: &str = r#"
+        let input = r#"
     [executable.x]
     sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
     "#;
         {
-            let manifest = parse_toml(TOML_RECIPE, &manifest_dir).unwrap();
+            let manifest = parse_toml(input, &manifest_dir).unwrap();
             let executable = Executable {
                 name: "x".to_string(),
                 sources: vec![

@@ -349,12 +349,8 @@ mod tests {
     }
 
     impl StubManifest {
-        fn new(manifest_dir: &std::path::Path, data: &str) -> Self {
-            use std::io::Write;
-            let mut manifest_file =
-                std::fs::File::create(manifest_dir.join(YAMBS_MANIFEST_NAME)).unwrap();
-
-            manifest_file.write(data.as_bytes()).unwrap();
+        fn new(manifest_dir: &std::path::Path) -> Self {
+            std::fs::File::create(manifest_dir.join(YAMBS_MANIFEST_NAME)).unwrap();
 
             Self {
                 manifest: manifest::Manifest::new(manifest_dir),
@@ -362,56 +358,30 @@ mod tests {
         }
     }
 
-    struct StubTargets {
-        library: targets::Library,
-        executable: targets::Executable,
+    struct StubTarget {
+        pub target: targets::Target,
     }
 
-    impl StubTargets {
-        fn new(base_dir: &std::path::Path) -> Self {
-            let common_sources = vec![
-                base_dir.join(std::path::PathBuf::from("x.cpp")),
-                base_dir.join(std::path::PathBuf::from("y.cpp")),
-                base_dir.join(std::path::PathBuf::from("z.cpp")),
-            ];
-            let mut library_sources =
-                vec![base_dir.join(std::path::PathBuf::from("generator.cpp"))];
-            library_sources.extend_from_slice(&common_sources);
-
-            for source in &library_sources {
+    impl StubTarget {
+        fn executable(executable: targets::Executable) -> Self {
+            for source in &executable.sources {
                 if !source.exists() {
                     std::fs::File::create(source).unwrap();
                 }
             }
-
-            let mut executable_sources = vec![base_dir.join(std::path::PathBuf::from("main.cpp"))];
-            executable_sources.extend_from_slice(&common_sources);
-
-            for source in &executable_sources {
-                if !source.exists() {
-                    std::fs::File::create(source).unwrap();
-                }
-            }
-
             Self {
-                library: targets::Library {
-                    name: "MyLibraryData".to_string(),
-                    sources: library_sources,
-                    dependencies: Vec::new(),
-                    compiler_flags: None,
-                    lib_type: targets::LibraryType::default(),
-                },
-                executable: targets::Executable {
-                    name: "x".to_string(),
-                    sources: vec![
-                        base_dir.join(std::path::PathBuf::from("x.cpp")),
-                        base_dir.join(std::path::PathBuf::from("y.cpp")),
-                        base_dir.join(std::path::PathBuf::from("z.cpp")),
-                        base_dir.join(std::path::PathBuf::from("main.cpp")),
-                    ],
-                    dependencies: Vec::new(),
-                    compiler_flags: None,
-                },
+                target: targets::Target::Executable(executable),
+            }
+        }
+
+        fn library(library: targets::Library) -> Self {
+            for source in &library.sources {
+                if !source.exists() {
+                    std::fs::File::create(source).unwrap();
+                }
+            }
+            Self {
+                target: targets::Target::Library(library),
             }
         }
     }
@@ -419,7 +389,6 @@ mod tests {
     struct TestFixture {
         pub _dir: tempdir::TempDir,
         // pub stub_registry: target_registry::TargetRegistry,
-        pub stub_targets: StubTargets,
         pub stub_manifest: StubManifest,
     }
 
@@ -427,25 +396,10 @@ mod tests {
         fn new() -> Self {
             let dir = tempdir::TempDir::new("build_target").unwrap();
             // let stub_registry = target_registry::TargetRegistry::new();
-            let stub_targets = StubTargets::new(dir.path());
-            let stub_manifest = StubManifest::new(
-                dir.path(),
-                &indoc::formatdoc! {
-                    r#"\
-                [executable.x]
-                sources = {sources:?}
-
-                [library.MyLibraryData]
-                sources = {sources:?}
-                type = "static"
-                "#,
-                    sources = stub_targets.executable.sources
-                },
-            );
+            let stub_manifest = StubManifest::new(dir.path());
             Self {
                 _dir: dir,
                 // stub_registry,
-                stub_targets,
                 stub_manifest,
             }
         }
@@ -454,9 +408,39 @@ mod tests {
     #[test]
     fn can_create_build_target_from_executable() {
         let fixture = TestFixture::new();
-        let manifest = manifest::Manifest::new(&fixture.stub_manifest.manifest.directory);
+        let stub_executable = StubTarget::executable(targets::Executable {
+            name: "x".to_string(),
+            sources: vec![
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("x.cpp")),
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("y.cpp")),
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("z.cpp")),
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("main.cpp")),
+            ],
+            dependencies: Vec::new(),
+            compiler_flags: None,
+        });
+
+        let executable = stub_executable.target.executable().unwrap();
+
+        let manifest = fixture.stub_manifest.manifest.clone();
         let mut include_directories =
-            IncludeDirectories::from_dependencies(&fixture.stub_targets.executable.dependencies);
+            IncludeDirectories::from_dependencies(&executable.dependencies);
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
             path: manifest.directory.to_path_buf().join("include"),
@@ -466,26 +450,53 @@ mod tests {
             manifest,
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
-            source_files: SourceFiles::from_paths(&fixture.stub_targets.executable.sources.clone())
-                .unwrap(),
+            source_files: SourceFiles::from_paths(&executable.sources.clone()).unwrap(),
             target_type: TargetType::Executable("x".to_string()),
             include_directories,
             compiler_flags: CompilerFlags::new(),
         };
-        let actual = BuildTarget::executable(
-            &fixture.stub_manifest.manifest.directory,
-            &fixture.stub_targets.executable,
-        )
-        .unwrap();
+        let actual =
+            BuildTarget::executable(&fixture.stub_manifest.manifest.directory, &executable)
+                .unwrap();
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn can_create_build_target_from_static_library() {
         let fixture = TestFixture::new();
-        let manifest = manifest::Manifest::new(&fixture.stub_manifest.manifest.directory);
-        let mut include_directories =
-            IncludeDirectories::from_dependencies(&fixture.stub_targets.library.dependencies);
+
+        let stub_library = StubTarget::library(targets::Library {
+            name: "MyLibraryData".to_string(),
+            sources: vec![
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("x.cpp")),
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("y.cpp")),
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("z.cpp")),
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("main.cpp")),
+            ],
+            dependencies: Vec::new(),
+            compiler_flags: None,
+            lib_type: targets::LibraryType::Static,
+        });
+        let library = &stub_library.target.library().unwrap();
+
+        let manifest = fixture.stub_manifest.manifest.clone();
+        let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies);
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
             path: manifest.directory.to_path_buf().join("include"),
@@ -495,17 +506,70 @@ mod tests {
             manifest,
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
-            source_files: SourceFiles::from_paths(&fixture.stub_targets.library.sources.clone())
-                .unwrap(),
+            source_files: SourceFiles::from_paths(&library.sources.clone()).unwrap(),
             target_type: TargetType::Library(LibraryType::Static, "libMyLibraryData.a".to_string()),
             include_directories,
             compiler_flags: CompilerFlags::new(),
         };
-        let actual = BuildTarget::library(
-            &fixture.stub_manifest.manifest.directory,
-            &fixture.stub_targets.library,
-        )
-        .unwrap();
+        let actual =
+            BuildTarget::library(&fixture.stub_manifest.manifest.directory, &library).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_create_build_target_from_shared_library() {
+        let fixture = TestFixture::new();
+        let stub_library = StubTarget::library(targets::Library {
+            name: "MyLibraryData".to_string(),
+            sources: vec![
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("x.cpp")),
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("y.cpp")),
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("z.cpp")),
+                fixture
+                    .stub_manifest
+                    .manifest
+                    .directory
+                    .join(std::path::PathBuf::from("main.cpp")),
+            ],
+            dependencies: Vec::new(),
+            compiler_flags: None,
+            lib_type: targets::LibraryType::Dynamic,
+        });
+        let library = &stub_library.target.library().unwrap();
+
+        let manifest = fixture.stub_manifest.manifest.clone();
+        let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies);
+        include_directories.add(include_directories::IncludeDirectory {
+            include_type: include_directories::IncludeType::Include,
+            path: manifest.directory.to_path_buf().join("include"),
+        });
+
+        let expected = BuildTarget {
+            manifest,
+            dependencies: Vec::new(),
+            state: TargetState::NotInProcess,
+            source_files: SourceFiles::from_paths(&library.sources.clone()).unwrap(),
+            target_type: TargetType::Library(
+                LibraryType::Dynamic,
+                "libMyLibraryData.so".to_string(),
+            ),
+            include_directories,
+            compiler_flags: CompilerFlags::new(),
+        };
+        let actual =
+            BuildTarget::library(&fixture.stub_manifest.manifest.directory, library).unwrap();
         assert_eq!(actual, expected);
     }
 }

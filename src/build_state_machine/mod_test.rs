@@ -73,8 +73,7 @@ fn dummy_manifest(dir_name: &str) -> (TempDir, std::path::PathBuf) {
         indoc::indoc!(
             "\
          [executable.x]
-            sources = [\"some_file.cpp\", \"some_other_file.cpp\"]
-            main = \"main.cpp\""
+            sources = [\"some_file.cpp\", \"some_other_file.cpp\", \"main.cpp\"]"
         )
     )
     .expect("dummy_manifest(): Something went wrong writing to file.");

@@ -33,7 +33,6 @@ impl Target {
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Executable {
     pub name: String,
-    pub main: std::path::PathBuf,
     pub sources: Vec<std::path::PathBuf>,
     pub dependencies: Vec<Dependency>,
     pub compiler_flags: Option<CompilerFlags>,
@@ -42,7 +41,6 @@ pub struct Executable {
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Library {
     pub name: String,
-    pub main: std::path::PathBuf,
     pub sources: Vec<std::path::PathBuf>,
     pub dependencies: Vec<Dependency>,
     pub compiler_flags: Option<CompilerFlags>,
@@ -67,7 +65,6 @@ pub struct RawLibraryData {
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RawCommonData {
-    pub main: std::path::PathBuf,
     pub sources: Vec<std::path::PathBuf>,
     #[serde(default)]
     pub dependencies: std::collections::HashMap<String, DependencyData>,

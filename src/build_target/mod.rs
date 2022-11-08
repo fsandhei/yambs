@@ -38,7 +38,6 @@ impl Dependency {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BuildTarget {
     pub manifest: manifest::Manifest,
-    pub main: std::path::PathBuf,
     pub dependencies: Vec<Dependency>,
     pub state: TargetState,
     pub source_files: SourceFiles,
@@ -128,8 +127,7 @@ impl BuildTarget {
         manifest_dir_path: &std::path::Path,
         executable: &targets::Executable,
     ) -> Result<Self, TargetError> {
-        let mut source_files = executable.sources.clone();
-        source_files.push(executable.main.clone());
+        let source_files = executable.sources.clone();
 
         let mut include_directories =
             IncludeDirectories::from_dependencies(&executable.dependencies);
@@ -140,7 +138,6 @@ impl BuildTarget {
 
         Ok(Self {
             manifest: manifest::Manifest::new(manifest_dir_path),
-            main: executable.main.to_path_buf(),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&source_files)
@@ -158,8 +155,7 @@ impl BuildTarget {
         manifest_dir_path: &std::path::Path,
         library: &targets::Library,
     ) -> Result<Self, TargetError> {
-        let mut source_files = library.sources.clone();
-        source_files.push(library.main.clone());
+        let source_files = library.sources.clone();
 
         let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies);
         include_directories.add(include_directories::IncludeDirectory {
@@ -169,7 +165,6 @@ impl BuildTarget {
 
         Ok(Self {
             manifest: manifest::Manifest::new(manifest_dir_path),
-            main: library.main.to_path_buf(),
             dependencies: Vec::new(),
             state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&source_files)

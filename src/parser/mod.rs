@@ -85,18 +85,17 @@ mod tests {
 
         const TOML_RECIPE: &str = r#"
     [executable.x]
-    main = "main.cpp"
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
     "#;
         {
             let manifest = parse_toml(TOML_RECIPE, &manifest_dir).unwrap();
             let executable = Executable {
                 name: "x".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 sources: vec![
                     manifest_dir.join(std::path::PathBuf::from("x.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("y.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
                 compiler_flags: None,
@@ -108,8 +107,8 @@ mod tests {
         }
         const TOML_WITH_REQUIRE_RECIPE: &str = r#"
     [executable.x]
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
-    main = "main.cpp"
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
+
     [executable.x.dependencies]
     SomeProject = { path = "/some/path/SomeProject" }
     SomeSecondProject = { path = "/some/path/SomeSecondProject" }
@@ -118,11 +117,11 @@ mod tests {
             let manifest = parse_toml(TOML_WITH_REQUIRE_RECIPE, &manifest_dir).unwrap();
             let executable = Executable {
                 name: "x".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 sources: vec![
                     manifest_dir.join(std::path::PathBuf::from("x.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("y.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: vec![
                     Dependency {
@@ -162,12 +161,10 @@ mod tests {
 
         let input = r#"
     [executable.x]
-    main = "main.cpp"
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
 
     [executable.y]
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
-    main = "main.cpp"
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
 
     [executable.y.dependencies]
     SomeProject = { path = "/some/path/to/SomeProject" }
@@ -177,22 +174,22 @@ mod tests {
             let manifest = parse_toml(input, &manifest_dir).unwrap();
             let executable_x = Executable {
                 name: "x".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 sources: vec![
                     manifest_dir.join(std::path::PathBuf::from("x.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("y.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
                 compiler_flags: None,
             };
             let executable_y = Executable {
                 name: "y".to_string(),
-                main: std::path::PathBuf::from("main.cpp"),
                 sources: vec![
                     std::path::PathBuf::from("x.cpp"),
                     std::path::PathBuf::from("y.cpp"),
                     std::path::PathBuf::from("z.cpp"),
+                    std::path::PathBuf::from("main.cpp"),
                 ],
                 dependencies: vec![
                     Dependency {
@@ -234,18 +231,17 @@ mod tests {
 
         const TOML_RECIPE: &str = r#"
     [library.MyLibraryData]
-    main = "generator.cpp"
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'generator.cpp']
     "#;
         {
             let manifest = parse_toml(TOML_RECIPE, &manifest_dir).unwrap();
             let library = Library {
                 name: "MyLibraryData".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
                 sources: vec![
                     manifest_dir.join(std::path::PathBuf::from("x.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("y.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
                 ],
                 dependencies: Vec::new(),
                 compiler_flags: None,
@@ -262,8 +258,7 @@ mod tests {
         let toml_with_require_recipe = format!(
             r#"
     [library.MyLibraryData]
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
-    main = "generator.cpp"
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'generator.cpp']
 
     [library.MyLibraryData.dependencies]
     SomeProject = {{ path = "{}" }}
@@ -276,11 +271,11 @@ mod tests {
             let manifest = parse_toml(&toml_with_require_recipe, &manifest_dir).unwrap();
             let library = Library {
                 name: "MyLibraryData".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
                 sources: vec![
                     manifest_dir.join(std::path::PathBuf::from("x.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("y.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
                 ],
                 dependencies: vec![
                     Dependency {

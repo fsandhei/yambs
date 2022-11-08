@@ -6,7 +6,6 @@ use crate::flags::CompilerFlags;
 use crate::manifest;
 use crate::parser;
 use crate::targets;
-use crate::utility;
 use crate::YAMBS_MANIFEST_NAME;
 
 pub mod associated_files;
@@ -109,10 +108,6 @@ impl BuildTarget {
             TargetType::Library(library_type, _) => library_type.to_owned(),
             _ => panic!("Dependency is not a library"),
         }
-    }
-
-    pub fn project_name(&self) -> &std::path::Path {
-        utility::get_head_directory(&self.manifest.directory)
     }
 
     pub fn name(&self) -> String {
@@ -345,14 +340,14 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     struct StubManifest {
+        fh: std::fs::File,
         manifest: manifest::Manifest,
     }
 
     impl StubManifest {
         fn new(manifest_dir: &std::path::Path) -> Self {
-            std::fs::File::create(manifest_dir.join(YAMBS_MANIFEST_NAME)).unwrap();
-
             Self {
+                fh: std::fs::File::create(manifest_dir.join(YAMBS_MANIFEST_NAME)).unwrap(),
                 manifest: manifest::Manifest::new(manifest_dir),
             }
         }
@@ -388,18 +383,18 @@ mod tests {
 
     struct TestFixture {
         pub _dir: tempdir::TempDir,
-        // pub stub_registry: target_registry::TargetRegistry,
+        pub stub_registry: target_registry::TargetRegistry,
         pub stub_manifest: StubManifest,
     }
 
     impl TestFixture {
         fn new() -> Self {
             let dir = tempdir::TempDir::new("build_target").unwrap();
-            // let stub_registry = target_registry::TargetRegistry::new();
+            let stub_registry = target_registry::TargetRegistry::new();
             let stub_manifest = StubManifest::new(dir.path());
             Self {
                 _dir: dir,
-                // stub_registry,
+                stub_registry,
                 stub_manifest,
             }
         }
@@ -570,6 +565,91 @@ mod tests {
         };
         let actual =
             BuildTarget::library(&fixture.stub_manifest.manifest.directory, library).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_create_build_target_from_executable_with_dependency() {
+        use std::io::Write;
+        let mut fixture = TestFixture::new();
+
+        let dep_manifest_dir = tempdir::TempDir::new("dependency").unwrap();
+
+        let dependency_stub_target = StubTarget::library(targets::Library {
+            name: "DependencyLibrary".to_string(),
+            sources: vec![
+                dep_manifest_dir
+                    .path()
+                    .join(std::path::PathBuf::from("x.cpp")),
+                dep_manifest_dir
+                    .path()
+                    .join(std::path::PathBuf::from("y.cpp")),
+                dep_manifest_dir
+                    .path()
+                    .join(std::path::PathBuf::from("z.cpp")),
+                dep_manifest_dir
+                    .path()
+                    .join(std::path::PathBuf::from("a.cpp")),
+            ],
+            compiler_flags: None,
+            lib_type: targets::LibraryType::Static,
+            dependencies: vec![],
+        });
+
+        let dependency_library = dependency_stub_target.target.library().unwrap();
+
+        let mut dependency_manifest = StubManifest::new(dep_manifest_dir.path());
+        dependency_manifest
+            .fh
+            .write(
+                &format!(
+                    r#"
+            [library.{}]
+            sources = {:?}
+            type = "static"
+            "#,
+                    dependency_library.name, dependency_library.sources,
+                )
+                .as_bytes(),
+            )
+            .unwrap();
+        let stub_manifest_dir = fixture.stub_manifest.manifest.directory.clone();
+
+        let stub_executable = StubTarget::executable(targets::Executable {
+            name: "x".to_string(),
+            sources: vec![
+                stub_manifest_dir.join(std::path::PathBuf::from("x.cpp")),
+                stub_manifest_dir.join(std::path::PathBuf::from("y.cpp")),
+                stub_manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                stub_manifest_dir.join(std::path::PathBuf::from("main.cpp")),
+            ],
+            compiler_flags: None,
+            dependencies: vec![targets::Dependency::new(
+                &dependency_library.name,
+                &targets::DependencyData::Source {
+                    path: dep_manifest_dir.path().to_path_buf(),
+                    origin: targets::IncludeSearchType::Include,
+                },
+                dep_manifest_dir.path(),
+            )],
+        });
+        let executable = stub_executable.target.executable().unwrap();
+
+        let dependency_build_target =
+            BuildTarget::library(&dependency_manifest.manifest.directory, dependency_library)
+                .unwrap();
+
+        let expected = vec![Dependency {
+            name: dependency_build_target.name(),
+            manifest: dependency_manifest.manifest,
+            library_type: LibraryType::Static,
+        }];
+        let build_target =
+            BuildTarget::executable(&fixture.stub_manifest.manifest.directory, &executable)
+                .unwrap();
+        let actual = build_target
+            .detect_target(&mut fixture.stub_registry, &stub_executable.target)
+            .unwrap();
         assert_eq!(actual, expected);
     }
 }

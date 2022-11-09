@@ -30,7 +30,7 @@ impl Target {
     }
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Executable {
     pub name: String,
     pub sources: Vec<std::path::PathBuf>,
@@ -38,7 +38,7 @@ pub struct Executable {
     pub compiler_flags: Option<CompilerFlags>,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Library {
     pub name: String,
     pub sources: Vec<std::path::PathBuf>,

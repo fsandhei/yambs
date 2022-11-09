@@ -205,12 +205,13 @@ impl BuildTarget {
                         .data
                         .targets
                         .iter()
-                        .find(|dep| {
+                        .find_map(|dep| {
                             if let Some(lib) = dep.library() {
-                                lib.name == dependency.name
-                            } else {
-                                false
+                                if lib.name == dependency.name {
+                                    return Some(dep);
+                                }
                             }
+                            None
                         })
                         .ok_or_else(|| TargetError::NoLibraryWithName(dependency.name.clone()))?;
                     let target = BuildTarget::create(&path, dep_target, registry)?;
@@ -450,7 +451,6 @@ mod tests {
                     .find(|target| target.name == name)
                     .map(|library| targets::Target::Library(library.to_owned())),
             }
-            // self.targets.iter().find(|target| target.
         }
     }
 
@@ -744,7 +744,7 @@ mod tests {
                 lib_type: targets::LibraryType::Static,
                 dependencies: vec![],
             }))
-            .create(dep_manifest_dir.path());
+            .create(second_dep_manifest_dir.path());
 
         let dependency_library_target = dep_stub_project
             .target_with_target_type(TargetType::Library(
@@ -774,20 +774,20 @@ mod tests {
                 compiler_flags: None,
                 dependencies: vec![
                     targets::Dependency::new(
-                        &dependency_library.name,
-                        &targets::DependencyData::Source {
-                            path: dep_manifest_dir.path().to_path_buf(),
-                            origin: targets::IncludeSearchType::Include,
-                        },
-                        dep_manifest_dir.path(),
-                    ),
-                    targets::Dependency::new(
                         &second_dependency_library.name,
                         &targets::DependencyData::Source {
                             path: second_dep_manifest_dir.path().to_path_buf(),
                             origin: targets::IncludeSearchType::Include,
                         },
                         second_dep_manifest_dir.path(),
+                    ),
+                    targets::Dependency::new(
+                        &dependency_library.name,
+                        &targets::DependencyData::Source {
+                            path: dep_manifest_dir.path().to_path_buf(),
+                            origin: targets::IncludeSearchType::Include,
+                        },
+                        dep_manifest_dir.path(),
                     ),
                 ],
             }))
@@ -813,13 +813,13 @@ mod tests {
 
         let expected = vec![
             Dependency {
-                name: dependency_build_target.name(),
-                manifest: dep_manifest.clone(),
+                name: second_dependency_build_target.name(),
+                manifest: second_dep_manifest.clone(),
                 library_type: LibraryType::Static,
             },
             Dependency {
-                name: second_dependency_build_target.name(),
-                manifest: second_dep_manifest.clone(),
+                name: dependency_build_target.name(),
+                manifest: dep_manifest.clone(),
                 library_type: LibraryType::Static,
             },
         ];

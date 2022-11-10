@@ -139,7 +139,8 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
             &manifest,
             output,
             &mut dependency_registry,
-        )?;
+        )
+        .with_context(|| "An error occured when registering project dependencies")?;
 
         generate_makefiles(&mut build_manager, &dependency_registry, opts)?;
     }

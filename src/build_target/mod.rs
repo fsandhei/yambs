@@ -28,7 +28,7 @@ impl Dependency {
     ) -> Option<TargetNode> {
         registry.get_target_from_predicate(|build_target| {
             build_target.manifest.directory == self.manifest.directory
-                && build_target.library_type() == self.library_type
+                && build_target.library_type() == Some(self.library_type.clone())
         })
     }
 }
@@ -103,10 +103,10 @@ impl BuildTarget {
         }
     }
 
-    pub fn library_type(&self) -> LibraryType {
+    pub fn library_type(&self) -> Option<LibraryType> {
         match &self.target_type {
-            TargetType::Library(library_type, _) => library_type.to_owned(),
-            _ => panic!("Dependency is not a library"),
+            TargetType::Library(library_type, _) => Some(library_type.to_owned()),
+            _ => None,
         }
     }
 
@@ -190,11 +190,14 @@ impl BuildTarget {
                 }) {
                     log::debug!("Found registered dependency. Checking for cyclic dependencies");
                     self.detect_cycle_from_target(&registered_dep)?;
-                    target_vec.push(Dependency {
+                    let dependency = Dependency {
                         name: registered_dep.borrow().name(),
                         manifest: registered_dep.borrow().manifest.clone(),
-                        library_type: registered_dep.borrow().library_type(),
-                    });
+                        library_type: registered_dep.borrow().library_type().ok_or_else(|| {
+                            TargetError::DependencyNotALibrary(registered_dep.borrow().name())
+                        })?,
+                    };
+                    target_vec.push(dependency);
                 } else {
                     log::debug!(
                         "No registered dependency found. Creating dependency build target."
@@ -218,7 +221,9 @@ impl BuildTarget {
                     target_vec.push(Dependency {
                         name: target.borrow().name(),
                         manifest: target.borrow().manifest.clone(),
-                        library_type: target.borrow().library_type(),
+                        library_type: target.borrow().library_type().ok_or_else(|| {
+                            TargetError::DependencyNotALibrary(target.borrow().name())
+                        })?,
                     });
                 }
             }
@@ -332,6 +337,8 @@ pub enum TargetError {
     AssociatedFile(#[source] associated_files::AssociatedFileError),
     #[error("Could not find any library with name {0}")]
     NoLibraryWithName(String),
+    #[error("Dependency \"{0}\" parsed is not a library, but an executable")]
+    DependencyNotALibrary(String),
 }
 
 #[cfg(test)]
@@ -897,4 +904,8 @@ mod tests {
 
         BuildTarget::create(manifest_dir, &executable_target, &mut fixture.stub_registry).unwrap();
     }
+
+    // TODO:
+    // * Test that checks if dependency is a library or executable
+    // * Test that checks if there is cyclic dependency
 }

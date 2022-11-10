@@ -39,7 +39,7 @@ struct LibraryTargetFactory;
 
 impl LibraryTargetFactory {
     pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
-        match target.borrow().library_type() {
+        match target.borrow().library_type().unwrap() {
             LibraryType::Static => format!(
                 "\
                 {target_name} : \

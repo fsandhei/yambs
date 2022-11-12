@@ -905,7 +905,79 @@ mod tests {
         BuildTarget::create(manifest_dir, &executable_target, &mut fixture.stub_registry).unwrap();
     }
 
+    #[test]
+    fn dependency_can_not_be_an_executable() {
+        let mut fixture = TestFixture::new();
+        let manifest_dir = fixture.dir.path();
+        let dep_manifest_dir = tempdir::TempDir::new("dependency").unwrap();
+
+        let dep_stub_project = StubProject::builder()
+            .with_target(StubTarget::executable(targets::Executable {
+                name: "DependencyLibraryButExecutable".to_string(),
+                sources: vec![
+                    dep_manifest_dir
+                        .path()
+                        .join(std::path::PathBuf::from("x.cpp")),
+                    dep_manifest_dir
+                        .path()
+                        .join(std::path::PathBuf::from("y.cpp")),
+                    dep_manifest_dir
+                        .path()
+                        .join(std::path::PathBuf::from("z.cpp")),
+                    dep_manifest_dir
+                        .path()
+                        .join(std::path::PathBuf::from("a.cpp")),
+                ],
+                compiler_flags: None,
+                dependencies: vec![],
+            }))
+            .create(dep_manifest_dir.path());
+
+        let stub_project = StubProject::builder()
+            .with_target(StubTarget::executable(targets::Executable {
+                name: "x".to_string(),
+                sources: vec![
+                    manifest_dir.join(std::path::PathBuf::from("x.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("y.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("main.cpp")),
+                ],
+                compiler_flags: None,
+                dependencies: vec![targets::Dependency::new(
+                    &"DependencyLibraryButExecutable",
+                    &targets::DependencyData::Source {
+                        path: dep_manifest_dir.path().to_path_buf(),
+                        origin: targets::IncludeSearchType::Include,
+                    },
+                    dep_manifest_dir.path(),
+                )],
+            }))
+            .create(manifest_dir);
+
+        let executable_target = stub_project
+            .target_with_target_type(TargetType::Executable("x".to_string()))
+            .unwrap();
+
+        let dep_executable_target = dep_stub_project
+            .target_with_target_type(TargetType::Executable(
+                "DependencyLibraryButExecutable".to_string(),
+            ))
+            .unwrap();
+
+        BuildTarget::create(
+            dep_manifest_dir.path(),
+            &dep_executable_target,
+            &mut fixture.stub_registry,
+        )
+        .unwrap();
+
+        let actual =
+            BuildTarget::create(manifest_dir, &executable_target, &mut fixture.stub_registry)
+                .unwrap_err();
+        assert_eq!(actual.to_string(), "Dependency \"DependencyLibraryButExecutable\" parsed is not a library, but an executable");
+        assert!(matches!(actual, TargetError::DependencyNotALibrary(_)));
+    }
+
     // TODO:
-    // * Test that checks if dependency is a library or executable
     // * Test that checks if there is cyclic dependency
 }

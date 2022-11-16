@@ -50,6 +50,15 @@ impl BuildTarget {
         target: &targets::Target,
         registry: &mut target_registry::TargetRegistry,
     ) -> Result<TargetNode, TargetError> {
+        let target_type = TargetType::new(target);
+
+        if let Some(existing_node) = registry.get_target_from_predicate(|build_target| {
+            build_target.manifest.directory == manifest_dir_path
+                && build_target.target_type == target_type
+        }) {
+            return Ok(existing_node);
+        }
+
         let target_node = match target {
             targets::Target::Executable(executable) => {
                 TargetNode::new(BuildTarget::executable(manifest_dir_path, executable)?)
@@ -58,12 +67,6 @@ impl BuildTarget {
                 TargetNode::new(BuildTarget::library(manifest_dir_path, library)?)
             }
         };
-        if let Some(existing_node) = registry.get_target(
-            &target_node.borrow().manifest.directory,
-            target_node.borrow().target_type.clone(),
-        ) {
-            return Ok(existing_node);
-        }
 
         log::debug!(
             "Creating build target \"{}\"...",
@@ -275,6 +278,15 @@ pub enum TargetType {
 }
 
 impl TargetType {
+    pub fn new(target: &targets::Target) -> Self {
+        if let Some(ref library) = target.library() {
+            Self::from_library(library)
+        } else {
+            let executable = target.executable().unwrap();
+            Self::Executable(executable.name.to_string())
+        }
+    }
+
     pub fn from_library(library: &targets::Library) -> TargetType {
         let lib_type = &library.lib_type;
         let library_name = match lib_type {

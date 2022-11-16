@@ -6,8 +6,8 @@ use indoc;
 
 use crate::build_target::include_directories;
 use crate::build_target::{
-    include_directories::IncludeType, target_registry::TargetRegistry, LibraryType, TargetNode,
-    TargetState,
+    include_directories::IncludeType, target_registry::TargetRegistry, Dependency, LibraryType,
+    TargetNode, TargetState,
 };
 use crate::cli::command_line;
 use crate::cli::configurations;
@@ -236,33 +236,8 @@ impl MakefileGenerator {
                     target.borrow().manifest.directory.display()
                 );
                 self.generate_rule_declaration_for_target(generate, target);
-                if !target.borrow().dependencies.is_empty() {
-                    self.push_and_create_directory(std::path::Path::new("lib"))?;
-                    let dependencies = &target.borrow().dependencies;
-                    for dependency in dependencies {
-                        if dependency.manifest.directory != target.borrow().manifest.directory {
-                            log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
-                            dependency.name,
-                            dependency.manifest.directory.display(),
-                            target.borrow().name(),
-                            target.borrow().manifest.directory.display());
-                            let dependency_target = dependency.to_build_target(registry).unwrap();
+                self.generate_rule_for_dependencies(generate, target, registry)?;
 
-                            if dependency_target.borrow().state != TargetState::BuildFileMade {
-                                let rule = LibraryTargetFactory::create_rule(
-                                    &dependency_target,
-                                    &self.output_directory,
-                                );
-                                generate.object_targets.extend_from_slice(
-                                    &self.create_object_targets(&dependency_target),
-                                );
-                                generate.data.push_str(&rule);
-                                dependency_target.borrow_mut().state = TargetState::BuildFileMade;
-                            }
-                        }
-                    }
-                    self.output_directory.pop();
-                }
                 self.create_object_targets(target)
                     .iter()
                     .for_each(|object_target| {
@@ -277,6 +252,51 @@ impl MakefileGenerator {
         self.generate_object_rules(generate);
         self.generate_depends_rules(generate);
         Ok(())
+    }
+
+    fn generate_rule_for_dependencies(
+        &mut self,
+        generate: &mut Generate,
+        base_target: &TargetNode,
+        registry: &TargetRegistry,
+    ) -> Result<(), GeneratorError> {
+        if !base_target.borrow().dependencies.is_empty() {
+            self.push_and_create_directory(std::path::Path::new("lib"))?;
+            let dependencies = &base_target.borrow().dependencies;
+            for dependency in dependencies {
+                log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
+                            dependency.name,
+                            dependency.manifest.directory.display(),
+                            base_target.borrow().name(),
+                            base_target.borrow().manifest.directory.display());
+                self.generate_rule_for_dependency(generate, dependency, registry);
+            }
+            self.output_directory.pop();
+        }
+        Ok(())
+    }
+
+    fn generate_rule_for_dependency(
+        &self,
+        generate: &mut Generate,
+        dependency: &Dependency,
+        registry: &TargetRegistry,
+    ) {
+        let dependency_target = dependency.to_build_target(registry).unwrap();
+
+        if dependency_target.borrow().state != TargetState::BuildFileMade {
+            let rule =
+                LibraryTargetFactory::create_rule(&dependency_target, &self.output_directory);
+            self.create_object_targets(&dependency_target)
+                .iter()
+                .for_each(|object_target| {
+                    if !generate.object_targets.contains(object_target) {
+                        generate.object_targets.push(object_target.clone());
+                    }
+                });
+            generate.data.push_str(&rule);
+            dependency_target.borrow_mut().state = TargetState::BuildFileMade;
+        }
     }
 
     fn build_configurations_file(&self) -> &str {

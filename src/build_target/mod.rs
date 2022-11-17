@@ -15,10 +15,29 @@ use associated_files::SourceFiles;
 use include_directories::IncludeDirectories;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Dependency {
+pub struct DependencySourceData {
     pub name: String,
     pub manifest: manifest::Manifest,
     pub library_type: LibraryType,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum DependencySource {
+    FromSource(DependencySourceData),
+}
+
+impl DependencySource {
+    pub fn from_source(&self) -> Option<&DependencySourceData> {
+        match self {
+            Self::FromSource(s) => Some(s),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Dependency {
+    pub source: DependencySource,
 }
 
 impl Dependency {
@@ -28,8 +47,10 @@ impl Dependency {
     ) -> Option<TargetNode> {
         registry.get_target_from_predicate(|build_target| match build_target.target_source {
             TargetSource::FromSource(ref source_data) => {
-                source_data.manifest.directory == self.manifest.directory
-                    && build_target.library_type() == Some(self.library_type.clone())
+                let dependency_source_data = self.source.from_source().unwrap();
+                source_data.manifest.directory == dependency_source_data.manifest.directory
+                    && build_target.library_type()
+                        == Some(dependency_source_data.library_type.clone())
             }
         })
     }
@@ -51,13 +72,13 @@ pub enum TargetSource {
 impl TargetSource {
     pub fn from_source(&self) -> Option<&SourceBuildData> {
         match self {
-            TargetSource::FromSource(s) => Some(s),
+            Self::FromSource(s) => Some(s),
         }
     }
 
     pub fn from_source_mut(&mut self) -> Option<&mut SourceBuildData> {
         match self {
-            TargetSource::FromSource(s) => Some(s),
+            Self::FromSource(s) => Some(s),
         }
     }
 }
@@ -109,11 +130,15 @@ impl BuildTarget {
         let target_vec = target_node.borrow().detect_target(registry, target)?;
 
         for target in target_vec {
-            log::debug!(
-                "Registering target \"{}\" (manifest directory {})",
-                target.name,
-                target.manifest.directory.display()
-            );
+            match target.source {
+                DependencySource::FromSource(ref s) => {
+                    log::debug!(
+                        "Registering target \"{}\" (manifest directory {})",
+                        s.name,
+                        s.manifest.directory.display()
+                    );
+                }
+            }
             target_node.borrow_mut().add_target(target);
         }
         target_node.borrow_mut().state = TargetState::Registered;
@@ -239,12 +264,15 @@ impl BuildTarget {
                     self.detect_cycle_from_target(&registered_dep)?;
                     let borrowed_dep = registered_dep.borrow();
                     let source_data = borrowed_dep.target_source.from_source().unwrap();
-                    let dependency = Dependency {
+                    let dependency_source = DependencySource::FromSource(DependencySourceData {
                         name: registered_dep.borrow().name(),
                         manifest: source_data.manifest.clone(),
                         library_type: registered_dep.borrow().library_type().ok_or_else(|| {
                             TargetError::DependencyNotALibrary(registered_dep.borrow().name())
                         })?,
+                    });
+                    let dependency = Dependency {
+                        source: dependency_source,
                     };
                     target_vec.push(dependency);
                 } else {
@@ -269,12 +297,15 @@ impl BuildTarget {
                     let target = BuildTarget::target_node_from_source(&path, dep_target, registry)?;
                     let borrowed_target = target.borrow();
                     let source_data = borrowed_target.target_source.from_source().unwrap();
-                    target_vec.push(Dependency {
+                    let dependency_source = DependencySource::FromSource(DependencySourceData {
                         name: target.borrow().name(),
                         manifest: source_data.manifest.clone(),
                         library_type: target.borrow().library_type().ok_or_else(|| {
                             TargetError::DependencyNotALibrary(target.borrow().name())
                         })?,
+                    });
+                    target_vec.push(Dependency {
+                        source: dependency_source,
                     });
                 }
             }
@@ -762,10 +793,14 @@ mod tests {
         let dependency_build_target =
             BuildTarget::library_from_source(&dep_manifest.directory, dependency_library).unwrap();
 
-        let expected = vec![Dependency {
+        let dependency_source = DependencySource::FromSource(DependencySourceData {
             name: dependency_build_target.name(),
             manifest: dep_manifest.clone(),
             library_type: LibraryType::Static,
+        });
+
+        let expected = vec![Dependency {
+            source: dependency_source,
         }];
 
         let stub_manifest = stub_project.manifest;
@@ -898,16 +933,24 @@ mod tests {
         )
         .unwrap();
 
+        let second_dependency_source = DependencySource::FromSource(DependencySourceData {
+            name: second_dependency_build_target.name(),
+            manifest: second_dep_manifest.clone(),
+            library_type: LibraryType::Static,
+        });
+
+        let dependency_source = DependencySource::FromSource(DependencySourceData {
+            name: dependency_build_target.name(),
+            manifest: dep_manifest.clone(),
+            library_type: LibraryType::Static,
+        });
+
         let expected = vec![
             Dependency {
-                name: second_dependency_build_target.name(),
-                manifest: second_dep_manifest.clone(),
-                library_type: LibraryType::Static,
+                source: second_dependency_source,
             },
             Dependency {
-                name: dependency_build_target.name(),
-                manifest: dep_manifest.clone(),
-                library_type: LibraryType::Static,
+                source: dependency_source,
             },
         ];
 

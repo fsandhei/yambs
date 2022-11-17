@@ -103,7 +103,11 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
             }
             for dependency in &source_data.dependencies {
                 formatted_string.push_str("\\\n");
-                formatted_string.push_str(&format!("   {}", dependency.name));
+                match dependency.source {
+                    build_target::DependencySource::FromSource(ref s) => {
+                        formatted_string.push_str(&format!("   {}", s.name));
+                    }
+                }
             }
         }
     }
@@ -282,17 +286,25 @@ impl MakefileGenerator {
         registry: &TargetRegistry,
     ) -> Result<(), GeneratorError> {
         if !source_data.dependencies.is_empty() {
-            self.push_and_create_directory(std::path::Path::new("lib"))?;
             let dependencies = &source_data.dependencies;
             for dependency in dependencies {
-                log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
-                            dependency.name,
-                            dependency.manifest.directory.display(),
+                match dependency.source {
+                    build_target::DependencySource::FromSource(ref s) => {
+                        log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
+                            s.name,
+                            s.manifest.directory.display(),
                             target_name,
                             source_data.manifest.directory.display());
-                self.generate_rule_for_dependency(generate, dependency, registry);
+                        if s.manifest.directory != source_data.manifest.directory {
+                            self.push_and_create_directory(std::path::Path::new("lib"))?;
+                            self.generate_rule_for_dependency(generate, dependency, registry);
+                            self.output_directory.pop();
+                        } else {
+                            self.generate_rule_for_dependency(generate, dependency, registry);
+                        }
+                    }
+                }
             }
-            self.output_directory.pop();
         }
         Ok(())
     }

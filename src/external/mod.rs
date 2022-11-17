@@ -4,7 +4,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 
 use crate::build_target::target_registry::TargetRegistry;
-use crate::build_target::TargetNode;
+use crate::build_target::{TargetNode, TargetSource};
 
 pub fn dottie(
     top: &TargetNode,
@@ -27,19 +27,23 @@ pub fn dottie(
         dottie_file.write_all(data.as_bytes())?;
     }
 
-    for requirement in &borrowed_top.dependencies {
-        data.push_str(&format!(
-            "\
+    match borrowed_top.target_source {
+        TargetSource::FromSource(ref s) => {
+            for requirement in &s.dependencies {
+                data.push_str(&format!(
+                    "\
         {:?} -> {:?}\n\
         ",
-            requirement.name, top_pretty_name
-        ));
-        dottie(
-            &requirement.to_build_target(registry).unwrap(),
-            registry,
-            true,
-            data,
-        )?;
+                    requirement.name, top_pretty_name
+                ));
+                dottie(
+                    &requirement.to_build_target(registry).unwrap(),
+                    registry,
+                    true,
+                    data,
+                )?;
+            }
+        }
     }
     Ok(())
 }

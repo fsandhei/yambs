@@ -100,11 +100,13 @@ fn try_cached_manifest(
 fn check_dependencies_for_up_to_date(cache: &Cache) -> Option<()> {
     let test_target_registry = TargetRegistry::from_cache(cache)?;
     for target in test_target_registry.registry {
-        let manifest_compare = manifest::Manifest::new(&target.borrow().manifest.directory);
-        if target.borrow().manifest.modification_time < manifest_compare.modification_time {
-            return None;
+        if let Some(source_data) = target.borrow().target_source.from_source() {
+            let manifest_compare = manifest::Manifest::new(&source_data.manifest.directory);
+            if source_data.manifest.modification_time < manifest_compare.modification_time {
+                return None;
+            }
+            log::debug!("{} is up to date", target.borrow().name());
         }
-        log::debug!("{} is up to date", target.borrow().name());
     }
     Some(())
 }

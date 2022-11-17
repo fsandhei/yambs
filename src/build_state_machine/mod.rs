@@ -87,8 +87,12 @@ impl<'gen> BuildManager<'gen> {
                     manifest_path.display()
                 );
             }
-            BuildTarget::create(&manifest.manifest.directory, build_target, dep_registry)
-                .map_err(BuildManagerError::Target)?;
+            BuildTarget::target_node_from_source(
+                &manifest.manifest.directory,
+                build_target,
+                dep_registry,
+            )
+            .map_err(BuildManagerError::Target)?;
         }
         Ok(())
     }

@@ -26,46 +26,78 @@ impl Dependency {
         &self,
         registry: &target_registry::TargetRegistry,
     ) -> Option<TargetNode> {
-        registry.get_target_from_predicate(|build_target| {
-            build_target.manifest.directory == self.manifest.directory
-                && build_target.library_type() == Some(self.library_type.clone())
+        registry.get_target_from_predicate(|build_target| match build_target.target_source {
+            TargetSource::FromSource(ref source_data) => {
+                source_data.manifest.directory == self.manifest.directory
+                    && build_target.library_type() == Some(self.library_type.clone())
+            }
         })
     }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct BuildTarget {
+pub struct SourceBuildData {
     pub manifest: manifest::Manifest,
     pub dependencies: Vec<Dependency>,
-    pub state: TargetState,
     pub source_files: SourceFiles,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum TargetSource {
+    FromSource(SourceBuildData),
+}
+
+impl TargetSource {
+    pub fn from_source(&self) -> Option<&SourceBuildData> {
+        match self {
+            TargetSource::FromSource(s) => Some(s),
+        }
+    }
+
+    pub fn from_source_mut(&mut self) -> Option<&mut SourceBuildData> {
+        match self {
+            TargetSource::FromSource(s) => Some(s),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct BuildTarget {
+    pub target_source: TargetSource,
+    pub state: TargetState,
     pub target_type: TargetType,
     pub include_directories: IncludeDirectories,
     pub compiler_flags: CompilerFlags,
 }
 
 impl BuildTarget {
-    pub fn create(
+    pub fn target_node_from_source(
         manifest_dir_path: &std::path::Path,
         target: &targets::Target,
         registry: &mut target_registry::TargetRegistry,
     ) -> Result<TargetNode, TargetError> {
         let target_type = TargetType::new(target);
 
-        if let Some(existing_node) = registry.get_target_from_predicate(|build_target| {
-            build_target.manifest.directory == manifest_dir_path
-                && build_target.target_type == target_type
-        }) {
+        if let Some(existing_node) =
+            registry.get_target_from_predicate(|build_target| match build_target.target_source {
+                TargetSource::FromSource(ref source_data) => {
+                    source_data.manifest.directory == manifest_dir_path
+                        && build_target.target_type == target_type
+                }
+            })
+        {
             return Ok(existing_node);
         }
 
         let target_node = match target {
-            targets::Target::Executable(executable) => {
-                TargetNode::new(BuildTarget::executable(manifest_dir_path, executable)?)
-            }
-            targets::Target::Library(library) => {
-                TargetNode::new(BuildTarget::library(manifest_dir_path, library)?)
-            }
+            targets::Target::Executable(executable) => TargetNode::new(
+                BuildTarget::executable_from_source(manifest_dir_path, executable)?,
+            ),
+            targets::Target::Library(library) => TargetNode::new(BuildTarget::library_from_source(
+                manifest_dir_path,
+                library,
+            )?),
         };
 
         log::debug!(
@@ -120,7 +152,7 @@ impl BuildTarget {
         }
     }
 
-    fn executable(
+    fn executable_from_source(
         manifest_dir_path: &std::path::Path,
         executable: &targets::Executable,
     ) -> Result<Self, TargetError> {
@@ -133,12 +165,16 @@ impl BuildTarget {
             path: manifest_dir_path.to_path_buf().join("include"),
         });
 
-        Ok(Self {
+        let target_source = TargetSource::FromSource(SourceBuildData {
             manifest: manifest::Manifest::new(manifest_dir_path),
             dependencies: Vec::new(),
-            state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
+        });
+
+        Ok(Self {
+            target_source,
+            state: TargetState::NotInProcess,
             target_type: TargetType::Executable(executable.name.to_string()),
             include_directories,
             compiler_flags: executable
@@ -148,7 +184,7 @@ impl BuildTarget {
         })
     }
 
-    fn library(
+    fn library_from_source(
         manifest_dir_path: &std::path::Path,
         library: &targets::Library,
     ) -> Result<Self, TargetError> {
@@ -160,12 +196,16 @@ impl BuildTarget {
             path: manifest_dir_path.to_path_buf().join("include"),
         });
 
-        Ok(Self {
+        let target_source = TargetSource::FromSource(SourceBuildData {
             manifest: manifest::Manifest::new(manifest_dir_path),
             dependencies: Vec::new(),
-            state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
+        });
+
+        Ok(Self {
+            target_source,
+            state: TargetState::NotInProcess,
             target_type: TargetType::from_library(library),
             include_directories,
             compiler_flags: library
@@ -188,14 +228,20 @@ impl BuildTarget {
         for dependency in target.dependencies() {
             if let Some((path, _)) = dependency.data.source() {
                 if let Some(registered_dep) = registry.get_target_from_predicate(|build_target| {
-                    build_target.manifest.directory == path
-                        && build_target.name() == dependency.name
+                    match build_target.target_source {
+                        TargetSource::FromSource(ref source_data) => {
+                            source_data.manifest.directory == path
+                                && build_target.name() == dependency.name
+                        }
+                    }
                 }) {
                     log::debug!("Found registered dependency. Checking for cyclic dependencies");
                     self.detect_cycle_from_target(&registered_dep)?;
+                    let borrowed_dep = registered_dep.borrow();
+                    let source_data = borrowed_dep.target_source.from_source().unwrap();
                     let dependency = Dependency {
                         name: registered_dep.borrow().name(),
-                        manifest: registered_dep.borrow().manifest.clone(),
+                        manifest: source_data.manifest.clone(),
                         library_type: registered_dep.borrow().library_type().ok_or_else(|| {
                             TargetError::DependencyNotALibrary(registered_dep.borrow().name())
                         })?,
@@ -220,10 +266,12 @@ impl BuildTarget {
                             None
                         })
                         .ok_or_else(|| TargetError::NoLibraryWithName(dependency.name.clone()))?;
-                    let target = BuildTarget::create(&path, dep_target, registry)?;
+                    let target = BuildTarget::target_node_from_source(&path, dep_target, registry)?;
+                    let borrowed_target = target.borrow();
+                    let source_data = borrowed_target.target_source.from_source().unwrap();
                     target_vec.push(Dependency {
                         name: target.borrow().name(),
-                        manifest: target.borrow().manifest.clone(),
+                        manifest: source_data.manifest.clone(),
                         library_type: target.borrow().library_type().ok_or_else(|| {
                             TargetError::DependencyNotALibrary(target.borrow().name())
                         })?,
@@ -239,16 +287,21 @@ impl BuildTarget {
         if target_node.borrow().state == TargetState::InProcess
             && target_node.borrow().name() == self.name()
         {
+            let borrowed_target_node = target_node.borrow();
+            let target_node_source_data = borrowed_target_node.target_source.from_source().unwrap();
+            let source_data = self.target_source.from_source().unwrap();
             return Err(TargetError::Circulation(
-                target_node.borrow().manifest.directory.to_path_buf(),
-                self.manifest.directory.to_path_buf(),
+                target_node_source_data.manifest.directory.to_path_buf(),
+                source_data.manifest.directory.to_path_buf(),
             ));
         }
         Ok(())
     }
 
     fn add_target(&mut self, dependency: Dependency) {
-        self.dependencies.push(dependency);
+        if let Some(source_data) = self.target_source.from_source_mut() {
+            source_data.dependencies.push(dependency);
+        }
     }
 }
 
@@ -517,16 +570,20 @@ mod tests {
             path: manifest.directory.to_path_buf().join("include"),
         });
 
-        let expected = BuildTarget {
+        let target_source = TargetSource::FromSource(SourceBuildData {
             manifest: manifest.clone(),
             dependencies: Vec::new(),
-            state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&executable.sources.clone()).unwrap(),
+        });
+
+        let expected = BuildTarget {
+            target_source,
+            state: TargetState::NotInProcess,
             target_type: TargetType::Executable("x".to_string()),
             include_directories,
             compiler_flags: CompilerFlags::new(),
         };
-        let actual = BuildTarget::executable(&manifest.directory, &executable).unwrap();
+        let actual = BuildTarget::executable_from_source(&manifest.directory, &executable).unwrap();
         assert_eq!(actual, expected);
     }
     #[test]
@@ -564,16 +621,20 @@ mod tests {
             path: manifest.directory.to_path_buf().join("include"),
         });
 
-        let expected = BuildTarget {
+        let target_source = TargetSource::FromSource(SourceBuildData {
             manifest: manifest.clone(),
             dependencies: Vec::new(),
-            state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&library.sources.clone()).unwrap(),
+        });
+
+        let expected = BuildTarget {
+            target_source,
+            state: TargetState::NotInProcess,
             target_type: TargetType::Library(LibraryType::Static, "libMyLibraryData.a".to_string()),
             include_directories,
             compiler_flags: CompilerFlags::new(),
         };
-        let actual = BuildTarget::library(&manifest.directory, &library).unwrap();
+        let actual = BuildTarget::library_from_source(&manifest.directory, &library).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -612,11 +673,15 @@ mod tests {
             path: manifest.directory.to_path_buf().join("include"),
         });
 
-        let expected = BuildTarget {
+        let target_source = TargetSource::FromSource(SourceBuildData {
             manifest: manifest.clone(),
             dependencies: Vec::new(),
-            state: TargetState::NotInProcess,
             source_files: SourceFiles::from_paths(&library.sources.clone()).unwrap(),
+        });
+
+        let expected = BuildTarget {
+            target_source,
+            state: TargetState::NotInProcess,
             target_type: TargetType::Library(
                 LibraryType::Dynamic,
                 "libMyLibraryData.so".to_string(),
@@ -624,7 +689,7 @@ mod tests {
             include_directories,
             compiler_flags: CompilerFlags::new(),
         };
-        let actual = BuildTarget::library(&manifest.directory, library).unwrap();
+        let actual = BuildTarget::library_from_source(&manifest.directory, library).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -695,7 +760,7 @@ mod tests {
         let dep_manifest = dep_stub_manifest.manifest;
 
         let dependency_build_target =
-            BuildTarget::library(&dep_manifest.directory, dependency_library).unwrap();
+            BuildTarget::library_from_source(&dep_manifest.directory, dependency_library).unwrap();
 
         let expected = vec![Dependency {
             name: dependency_build_target.name(),
@@ -705,7 +770,8 @@ mod tests {
 
         let stub_manifest = stub_project.manifest;
         let manifest = stub_manifest.manifest;
-        let build_target = BuildTarget::executable(&manifest.directory, &executable).unwrap();
+        let build_target =
+            BuildTarget::executable_from_source(&manifest.directory, &executable).unwrap();
         let actual = build_target
             .detect_target(&mut fixture.stub_registry, &executable_target)
             .unwrap();
@@ -824,11 +890,13 @@ mod tests {
         let second_dep_manifest = second_dep_stub_manifest.manifest;
 
         let dependency_build_target =
-            BuildTarget::library(&dep_manifest.directory, dependency_library).unwrap();
+            BuildTarget::library_from_source(&dep_manifest.directory, dependency_library).unwrap();
 
-        let second_dependency_build_target =
-            BuildTarget::library(&second_dep_manifest.directory, second_dependency_library)
-                .unwrap();
+        let second_dependency_build_target = BuildTarget::library_from_source(
+            &second_dep_manifest.directory,
+            second_dependency_library,
+        )
+        .unwrap();
 
         let expected = vec![
             Dependency {
@@ -845,7 +913,8 @@ mod tests {
 
         let stub_manifest = stub_project.manifest;
         let manifest = stub_manifest.manifest;
-        let build_target = BuildTarget::executable(&manifest.directory, &executable).unwrap();
+        let build_target =
+            BuildTarget::executable_from_source(&manifest.directory, &executable).unwrap();
         let actual = build_target
             .detect_target(&mut fixture.stub_registry, &executable_target)
             .unwrap();
@@ -914,7 +983,12 @@ mod tests {
             .target_with_target_type(TargetType::Executable("x".to_string()))
             .unwrap();
 
-        BuildTarget::create(manifest_dir, &executable_target, &mut fixture.stub_registry).unwrap();
+        BuildTarget::target_node_from_source(
+            manifest_dir,
+            &executable_target,
+            &mut fixture.stub_registry,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -976,16 +1050,19 @@ mod tests {
             ))
             .unwrap();
 
-        BuildTarget::create(
+        BuildTarget::target_node_from_source(
             dep_manifest_dir.path(),
             &dep_executable_target,
             &mut fixture.stub_registry,
         )
         .unwrap();
 
-        let actual =
-            BuildTarget::create(manifest_dir, &executable_target, &mut fixture.stub_registry)
-                .unwrap_err();
+        let actual = BuildTarget::target_node_from_source(
+            manifest_dir,
+            &executable_target,
+            &mut fixture.stub_registry,
+        )
+        .unwrap_err();
         assert_eq!(actual.to_string(), "Dependency \"DependencyLibraryButExecutable\" parsed is not a library, but an executable");
         assert!(matches!(actual, TargetError::DependencyNotALibrary(_)));
     }

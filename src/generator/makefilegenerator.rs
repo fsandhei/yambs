@@ -56,7 +56,7 @@ impl LibraryTargetFactory {
                 {target_name} : \
                     {prerequisites}\n\
                     \t@echo \"Linking shared library {target_name}\"\n\
-                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n",
+                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
                     target_name = target.borrow().name(),
                     prerequisites = generate_prerequisites(target, output_directory),
                     dependencies = generate_search_directories(target),
@@ -123,7 +123,7 @@ fn generate_search_directories(target: &TargetNode) -> String {
     match borrowed_target.target_source {
         build_target::TargetSource::FromSource(ref source_data) => {
             if !source_data.dependencies.is_empty() {
-                formatted_string.push_str("-L.");
+                formatted_string.push_str(" -L.");
             }
         }
     };

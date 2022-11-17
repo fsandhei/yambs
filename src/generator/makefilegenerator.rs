@@ -296,7 +296,8 @@ impl MakefileGenerator {
                             target_name,
                             source_data.manifest.directory.display());
                         if s.manifest.directory != source_data.manifest.directory {
-                            self.push_and_create_directory(std::path::Path::new("lib"))?;
+                            let dep_dir = format!("{}.d", &s.name);
+                            self.push_and_create_directory(&std::path::Path::new(&dep_dir))?;
                             self.generate_rule_for_dependency(generate, dependency, registry);
                             self.output_directory.pop();
                         } else {
@@ -342,7 +343,7 @@ impl MakefileGenerator {
 
     fn push_and_create_directory(&mut self, dir: &std::path::Path) -> Result<(), GeneratorError> {
         self.output_directory.push(dir);
-        Ok(match std::fs::create_dir(&self.output_directory) {
+        Ok(match std::fs::create_dir_all(&self.output_directory) {
             s @ Ok(()) => s,
             Err(err) => {
                 if err.kind() == std::io::ErrorKind::AlreadyExists {

@@ -363,7 +363,7 @@ pub enum TargetType {
 
 impl TargetType {
     pub fn new(target: &targets::Target) -> Self {
-        if let Some(ref library) = target.library() {
+        if let Some(library) = target.library() {
             Self::from_library(library)
         } else {
             let executable = target.executable().unwrap();
@@ -593,12 +593,12 @@ mod tests {
         let executable = executable_target.executable().unwrap();
 
         let stub_manifest = stub_project.manifest;
-        let manifest = stub_manifest.manifest.clone();
+        let manifest = stub_manifest.manifest;
         let mut include_directories =
             IncludeDirectories::from_dependencies(&executable.dependencies);
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
-            path: manifest.directory.to_path_buf().join("include"),
+            path: manifest.directory.join("include"),
         });
 
         let target_source = TargetSource::FromSource(SourceBuildData {
@@ -614,7 +614,7 @@ mod tests {
             include_directories,
             compiler_flags: CompilerFlags::new(),
         };
-        let actual = BuildTarget::executable_from_source(&manifest.directory, &executable).unwrap();
+        let actual = BuildTarget::executable_from_source(&manifest.directory, executable).unwrap();
         assert_eq!(actual, expected);
     }
     #[test]
@@ -644,12 +644,12 @@ mod tests {
         let library = library_target.library().unwrap();
 
         let stub_manifest = stub_project.manifest;
-        let manifest = stub_manifest.manifest.clone();
+        let manifest = stub_manifest.manifest;
 
         let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies);
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
-            path: manifest.directory.to_path_buf().join("include"),
+            path: manifest.directory.join("include"),
         });
 
         let target_source = TargetSource::FromSource(SourceBuildData {
@@ -665,7 +665,7 @@ mod tests {
             include_directories,
             compiler_flags: CompilerFlags::new(),
         };
-        let actual = BuildTarget::library_from_source(&manifest.directory, &library).unwrap();
+        let actual = BuildTarget::library_from_source(&manifest.directory, library).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -696,12 +696,12 @@ mod tests {
         let library = library_target.library().unwrap();
 
         let stub_manifest = stub_project.manifest;
-        let manifest = stub_manifest.manifest.clone();
+        let manifest = stub_manifest.manifest;
 
         let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies);
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
-            path: manifest.directory.to_path_buf().join("include"),
+            path: manifest.directory.join("include"),
         });
 
         let target_source = TargetSource::FromSource(SourceBuildData {
@@ -795,7 +795,7 @@ mod tests {
 
         let dependency_source = DependencySource::FromSource(DependencySourceData {
             name: dependency_build_target.name(),
-            manifest: dep_manifest.clone(),
+            manifest: dep_manifest,
             library_type: LibraryType::Static,
         });
 
@@ -806,7 +806,7 @@ mod tests {
         let stub_manifest = stub_project.manifest;
         let manifest = stub_manifest.manifest;
         let build_target =
-            BuildTarget::executable_from_source(&manifest.directory, &executable).unwrap();
+            BuildTarget::executable_from_source(&manifest.directory, executable).unwrap();
         let actual = build_target
             .detect_target(&mut fixture.stub_registry, &executable_target)
             .unwrap();
@@ -935,13 +935,13 @@ mod tests {
 
         let second_dependency_source = DependencySource::FromSource(DependencySourceData {
             name: second_dependency_build_target.name(),
-            manifest: second_dep_manifest.clone(),
+            manifest: second_dep_manifest,
             library_type: LibraryType::Static,
         });
 
         let dependency_source = DependencySource::FromSource(DependencySourceData {
             name: dependency_build_target.name(),
-            manifest: dep_manifest.clone(),
+            manifest: dep_manifest,
             library_type: LibraryType::Static,
         });
 
@@ -957,7 +957,7 @@ mod tests {
         let stub_manifest = stub_project.manifest;
         let manifest = stub_manifest.manifest;
         let build_target =
-            BuildTarget::executable_from_source(&manifest.directory, &executable).unwrap();
+            BuildTarget::executable_from_source(&manifest.directory, executable).unwrap();
         let actual = build_target
             .detect_target(&mut fixture.stub_registry, &executable_target)
             .unwrap();
@@ -1073,7 +1073,7 @@ mod tests {
                 ],
                 compiler_flags: None,
                 dependencies: vec![targets::Dependency::new(
-                    &"DependencyLibraryButExecutable",
+                    "DependencyLibraryButExecutable",
                     &targets::DependencyData::Source {
                         path: dep_manifest_dir.path().to_path_buf(),
                         origin: targets::IncludeSearchType::Include,

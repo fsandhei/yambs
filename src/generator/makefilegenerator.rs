@@ -238,10 +238,10 @@ impl MakefileGenerator {
 
     fn generate_makefile(
         &mut self,
-        generate: &mut Generate,
+        writers: &mut Writers,
         registry: &TargetRegistry,
     ) -> Result<(), GeneratorError> {
-        self.generate_header(generate, &registry.registry)?;
+        self.generate_header(&mut writers.makefile_writer, &registry.registry)?;
 
         for target in &registry.registry {
             if target.borrow().state != TargetState::BuildFileMade {
@@ -253,9 +253,12 @@ impl MakefileGenerator {
                             target.borrow().name(),
                             s.manifest.directory.display()
                         );
-                        self.generate_rule_declaration_for_target(generate, target);
+                        self.generate_rule_declaration_for_target(
+                            &mut writers.makefile_writer,
+                            target,
+                        );
                         self.generate_rule_for_dependencies_from_source_data(
-                            generate,
+                            &mut writers.makefile_writer,
                             &borrowed_target.name(),
                             s,
                             registry,
@@ -264,8 +267,15 @@ impl MakefileGenerator {
                         self.create_object_targets(target)
                             .iter()
                             .for_each(|object_target| {
-                                if !generate.object_targets.contains(object_target) {
-                                    generate.object_targets.push(object_target.clone());
+                                if !writers
+                                    .makefile_writer
+                                    .object_targets
+                                    .contains(object_target)
+                                {
+                                    writers
+                                        .makefile_writer
+                                        .object_targets
+                                        .push(object_target.clone());
                                 }
                             });
                     }
@@ -273,14 +283,14 @@ impl MakefileGenerator {
             }
             target.borrow_mut().state = TargetState::BuildFileMade;
         }
-        self.generate_object_rules(generate);
-        self.generate_depends_rules(generate);
+        self.generate_object_rules(&mut writers.makefile_writer);
+        self.generate_depends_rules(&mut writers.makefile_writer);
         Ok(())
     }
 
     fn generate_rule_for_dependencies_from_source_data(
         &mut self,
-        generate: &mut Generate,
+        writer: &mut Writer,
         target_name: &str,
         source_data: &build_target::SourceBuildData,
         registry: &TargetRegistry,
@@ -298,10 +308,10 @@ impl MakefileGenerator {
                         if s.manifest.directory != source_data.manifest.directory {
                             let dep_dir = format!("{}.d", &s.name);
                             self.push_and_create_directory(&std::path::Path::new(&dep_dir))?;
-                            self.generate_rule_for_dependency(generate, dependency, registry);
+                            self.generate_rule_for_dependency(writer, dependency, registry);
                             self.output_directory.pop();
                         } else {
-                            self.generate_rule_for_dependency(generate, dependency, registry);
+                            self.generate_rule_for_dependency(writer, dependency, registry);
                         }
                     }
                 }
@@ -312,7 +322,7 @@ impl MakefileGenerator {
 
     fn generate_rule_for_dependency(
         &self,
-        generate: &mut Generate,
+        writer: &mut Writer,
         dependency: &Dependency,
         registry: &TargetRegistry,
     ) {
@@ -324,11 +334,11 @@ impl MakefileGenerator {
             self.create_object_targets(&dependency_target)
                 .iter()
                 .for_each(|object_target| {
-                    if !generate.object_targets.contains(object_target) {
-                        generate.object_targets.push(object_target.clone());
+                    if !writer.object_targets.contains(object_target) {
+                        writer.object_targets.push(object_target.clone());
                     }
                 });
-            generate.data.push_str(&rule);
+            writer.data.push_str(&rule);
             dependency_target.borrow_mut().state = TargetState::BuildFileMade;
         }
     }
@@ -360,7 +370,7 @@ impl MakefileGenerator {
         utility::create_dir(&self.output_directory.join(dir)).map_err(GeneratorError::Fs)
     }
 
-    fn generate_default_all_target(&self, generate: &mut Generate, targets: &[TargetNode]) {
+    fn generate_default_all_target(&self, writer: &mut Writer, targets: &[TargetNode]) {
         let targets_as_string = {
             let mut targets_as_string = String::new();
             for target in targets {
@@ -375,10 +385,10 @@ impl MakefileGenerator {
             all : {}\n",
             targets_as_string
         );
-        generate.data.push_str(&text);
+        writer.data.push_str(&text);
     }
 
-    fn generate_phony(&self, generate: &mut Generate, target: &TargetNode) {
+    fn generate_phony(&self, writer: &mut Writer, target: &TargetNode) {
         let data = indoc::formatdoc!(
             "\n
             # Phony for target \"{target_name}\"
@@ -386,12 +396,12 @@ impl MakefileGenerator {
         ",
             target_name = target.borrow().name()
         );
-        generate.data.push_str(&data);
+        writer.data.push_str(&data);
     }
 
     fn generate_header(
         &self,
-        generate: &mut Generate,
+        writer: &mut Writer,
         targets: &[TargetNode],
     ) -> Result<(), GeneratorError> {
         let data = format!(
@@ -413,8 +423,8 @@ impl MakefileGenerator {
             build_directory = self.build_directory.as_path().display()
         );
 
-        generate.data.push_str(&data);
-        self.generate_default_all_target(generate, targets);
+        writer.data.push_str(&data);
+        self.generate_default_all_target(writer, targets);
         Ok(())
     }
 
@@ -431,16 +441,14 @@ impl MakefileGenerator {
         include_file_generator.generate_makefiles()
     }
 
-    fn generate_object_rules(&self, generate: &mut Generate) {
-        for object_target in &generate.object_targets {
-            generate
-                .data
-                .push_str(&generate_object_target(object_target))
+    fn generate_object_rules(&self, writer: &mut Writer) {
+        for object_target in &writer.object_targets {
+            writer.data.push_str(&generate_object_target(object_target))
         }
     }
 
-    fn generate_depends_rules(&self, generate: &mut Generate) {
-        let depend_files = generate
+    fn generate_depends_rules(&self, writer: &mut Writer) {
+        let depend_files = writer
             .object_targets
             .iter()
             .map(|object_target| {
@@ -450,29 +458,29 @@ impl MakefileGenerator {
             })
             .collect::<Vec<std::path::PathBuf>>();
 
-        generate.data.push('\n');
+        writer.data.push('\n');
         for depend_file in depend_files {
-            generate
+            writer
                 .data
                 .push_str(&format!("# Silently include {}\n", depend_file.display()));
-            generate
+            writer
                 .data
                 .push_str(&format!("sinclude {}\n", depend_file.display()));
         }
     }
 
-    fn generate_rule_declaration_for_target(&self, generate: &mut Generate, target: &TargetNode) {
-        self.generate_phony(generate, target);
+    fn generate_rule_declaration_for_target(&self, writer: &mut Writer, target: &TargetNode) {
+        self.generate_phony(writer, target);
         let target_rule_declaration =
             TargetRuleFactory::create_rule(target, &self.output_directory);
-        generate.data.push('\n');
-        generate.data.push_str(&format!(
+        writer.data.push('\n');
+        writer.data.push_str(&format!(
             "# Rule for target \"{}\"\n",
             target.borrow().name()
         ));
-        generate.data.push_str(&target_rule_declaration);
-        generate.data.push('\n');
-        generate.data.push('\n');
+        writer.data.push_str(&target_rule_declaration);
+        writer.data.push('\n');
+        writer.data.push('\n');
     }
 }
 
@@ -482,21 +490,52 @@ impl Generator for MakefileGenerator {
         self.push_and_create_directory(&directory_from_build_configuration(
             &self.configurations.build_type,
         ))?;
-        let mut generate = Generate::new(&self.output_directory.join("Makefile"))?;
-        self.generate_makefile(&mut generate, registry)?;
-        generate.write()?;
+        let mut writers = Writers {
+            makefile_writer: Writer::new(&self.output_directory.join("Makefile"))?,
+            progress_writer: ProgressWriter::new(&self.output_directory)?,
+        };
+        self.generate_makefile(&mut writers, registry)?;
+        writers.makefile_writer.write()?;
+        writers.progress_writer.write()?;
         Ok(())
     }
 }
 
-struct Generate {
+struct Writers {
+    makefile_writer: Writer,
+    progress_writer: ProgressWriter,
+}
+
+struct ProgressWriter {
+    file_handle: std::fs::File,
+    data: String,
+}
+
+impl ProgressWriter {
+    pub fn new(base_dir: &std::path::Path) -> Result<Self, GeneratorError> {
+        let file_handle = utility::create_file(&base_dir.join("progress.txt"))?;
+        Ok(Self {
+            file_handle,
+            data: String::new(),
+        })
+    }
+
+    pub fn write(&mut self) -> Result<(), FsError> {
+        self.file_handle
+            .write(self.data.as_bytes())
+            .map_err(FsError::WriteToFile)?;
+        Ok(())
+    }
+}
+
+struct Writer {
     file_handle: std::fs::File,
     data: String,
     object_targets: Vec<ObjectTarget>,
 }
 
-impl Generate {
-    pub fn new(path: &std::path::PathBuf) -> Result<Self, GeneratorError> {
+impl Writer {
+    pub fn new(path: &std::path::Path) -> Result<Self, GeneratorError> {
         let file_handle = utility::create_file(path)?;
         Ok(Self {
             file_handle,

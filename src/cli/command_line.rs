@@ -1,5 +1,3 @@
-use structopt::StructOpt;
-
 use crate::cli;
 use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
@@ -12,20 +10,15 @@ use crate::errors::{CommandLineError, FsError};
 // TODO: At a later stage, should jobs be added to build configurations or should it be abstracted
 // TODO: to its own struct?
 
-#[derive(StructOpt, Debug)]
-#[structopt(
-    version = "0.1.0",
-    name = "YAMBS",
-    about = "\
-             GNU Make build system overlay for C++ projects. Yambs generates makefiles and builds the project with the \n\
-             specifications written in the respective YAMBS files."
-)]
+#[derive(clap::Parser, Debug)]
+/// GNU Make build system overlay for C++ projects. Yambs generates makefiles and builds the project with the \n\
+/// specifications written in the respective YAMBS files.
 pub struct CommandLine {
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     pub subcommand: Option<Subcommand>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ManifestDirectory(std::path::PathBuf);
 
 impl ManifestDirectory {
@@ -57,7 +50,7 @@ impl std::str::FromStr for ManifestDirectory {
     }
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(clap::Subcommand, Debug)]
 pub enum Subcommand {
     /// Build project specified by manifest YAMBS file.
     Build(BuildOpts),
@@ -65,56 +58,56 @@ pub enum Subcommand {
     Remake(RemakeOpts),
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(setting(structopt::clap::AppSettings::TrailingVarArg))]
+#[derive(clap::Args, Debug)]
+#[command(dont_delimit_trailing_values = true)]
 pub struct BuildOpts {
     /// Input manifest file for YAMBS. By default, Yambs searches for yambs.toml manifest in current directory.
-    #[structopt(default_value, hide_default_value(true), long = "manifest-directory")]
+    #[arg(default_value_t, hide_default_value(true), long = "manifest-directory")]
     pub manifest_dir: ManifestDirectory,
     /// Set runtime configurations (build configurations, C++ standard, sanitizers, etc)
-    #[structopt(flatten)]
+    #[command(flatten)]
     pub configuration: ConfigurationOpts,
     /// Set parallelization of builds for Make.
-    #[structopt(short = "j", long = "jobs", default_value = "10")]
+    #[arg(short = 'j', long = "jobs", default_value = "10")]
     pub jobs: u8,
     /// Set build directory. Generated output by Yambs will be put here. Defaults to current working directory.
-    #[structopt(
+    #[arg(
         long,
-        short = "b",
-        default_value,
+        short = 'b',
+        default_value_t,
         hide_default_value(true),
-        parse(try_from_str)
+        value_parser
     )]
     pub build_directory: cli::BuildDirectory,
     /// Create dottie graph of build tree and exit.
-    #[structopt(long = "dottie-graph")]
+    #[arg(long = "dottie-graph")]
     pub create_dottie_graph: bool,
     /// Toggles verbose output.
-    #[structopt(short = "v", long = "verbose")]
+    #[arg(short = 'v', long = "verbose")]
     pub verbose: bool,
-    #[structopt(hidden = true)]
+    #[arg(hide = true)]
     pub make_args: Vec<String>,
 }
 
-#[derive(StructOpt, Debug, Clone)]
+#[derive(clap::Args, Debug, Clone)]
 pub struct ConfigurationOpts {
     /// Build configuration to use
-    #[structopt(default_value, long = "build-type")]
+    #[arg(default_value_t, long = "build-type")]
     pub build_type: configurations::BuildType,
     /// C++ standard to be passed to compiler
-    #[structopt(default_value,
+    #[arg(default_value_t,
                 long = "std",
-                parse(try_from_str = configurations::CXXStandard::parse))]
+                value_parser = clap::builder::ValueParser::new(configurations::CXXStandard::parse))]
     pub cxx_standard: configurations::CXXStandard,
     /// Enable sanitizers
-    #[structopt(long = "sanitizer")]
+    #[arg(long = "sanitizer")]
     pub sanitizer: Option<configurations::Sanitizer>,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(clap::Args, Debug)]
 pub struct RemakeOpts {
     /// Build directory to read invocation from.
-    #[structopt(parse(try_from_str))]
+    #[arg(value_parser)]
     pub build_directory: cli::BuildDirectory,
 }
 

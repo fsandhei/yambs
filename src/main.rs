@@ -1,9 +1,10 @@
 use std::io::BufRead;
 
 use anyhow::Context;
+use clap::CommandFactory;
+use clap::Parser;
 use colored::Colorize;
 use regex::Regex;
-use structopt::StructOpt;
 
 use yambs::build_state_machine::BuildManager;
 use yambs::build_target::target_registry::TargetRegistry;
@@ -19,7 +20,7 @@ use yambs::parser;
 use yambs::{YambsEnvironmentVariables, YAMBS_MANIFEST_NAME};
 
 fn main() -> anyhow::Result<()> {
-    let command_line = CommandLine::from_args();
+    let command_line = CommandLine::parse();
     let output = Output::new();
     let _environment_variables = YambsEnvironmentVariables::from_command_line(&command_line);
 
@@ -29,7 +30,7 @@ fn main() -> anyhow::Result<()> {
             Subcommand::Remake(ref remake_opts) => do_remake(remake_opts)?,
         }
     } else {
-        CommandLine::clap().print_help()?;
+        CommandLine::command().print_help()?;
         println!();
         std::process::exit(0);
     }

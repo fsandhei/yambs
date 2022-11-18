@@ -114,12 +114,30 @@ pub struct RemakeOpts {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use structopt::StructOpt;
+    use clap::Parser;
 
     #[test]
     fn arguments_passed_after_double_hyphen_are_parsed_raw() {
-        let build_args = ["--build-type", "debug", "--", "-j", "10", "-DNDEBUG=1"];
-        let build_opts = BuildOpts::from_iter(std::iter::once("build").chain(build_args));
+        let build_args = [
+            "build",
+            "--build-type",
+            "debug",
+            "--",
+            "-j",
+            "10",
+            "-DNDEBUG=1",
+        ];
+        let command_line = CommandLine::parse_from(std::iter::once("build").chain(build_args));
+        let build_opts = match command_line.subcommand {
+            Some(Subcommand::Build(b)) => b,
+            _ => panic!("Not build opts"),
+        };
         assert_eq!(build_opts.make_args, vec!["-j", "10", "-DNDEBUG=1"]);
+    }
+
+    #[test]
+    fn test_cli() {
+        use clap::CommandFactory;
+        CommandLine::command().debug_assert()
     }
 }

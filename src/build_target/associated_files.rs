@@ -23,6 +23,10 @@ impl SourceFiles {
     pub fn iter(&self) -> std::slice::Iter<'_, SourceFile> {
         self.0.iter()
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 impl std::iter::IntoIterator for SourceFiles {

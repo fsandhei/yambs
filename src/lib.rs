@@ -11,6 +11,7 @@ pub mod logger;
 pub mod manifest;
 pub mod output;
 pub mod parser;
+pub mod progress;
 pub mod targets;
 pub mod utility;
 

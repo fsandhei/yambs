@@ -77,6 +77,15 @@ impl TargetRuleFactory {
     }
 }
 
+fn generate_progress_message(writers: &mut Writers, message: &str) {
+    let progress_cmd = format!("@yambs progress");
+    let progress_cmd_args = format!("--progress-file {}", writers.progress_writer.path.display());
+    writers.makefile_writer.data.push_str(&format!(
+        "{} {} {}",
+        progress_cmd, progress_cmd_args, message
+    ));
+}
+
 fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Path) -> String {
     let mut formatted_string = String::new();
     let borrowed_target = target.borrow();
@@ -253,12 +262,9 @@ impl MakefileGenerator {
                             target.borrow().name(),
                             s.manifest.directory.display()
                         );
-                        self.generate_rule_declaration_for_target(
-                            &mut writers.makefile_writer,
-                            target,
-                        );
+                        self.generate_rule_declaration_for_target(writers, target);
                         self.generate_rule_for_dependencies_from_source_data(
-                            &mut writers.makefile_writer,
+                            writers,
                             &borrowed_target.name(),
                             s,
                             registry,
@@ -277,6 +283,16 @@ impl MakefileGenerator {
                                         .object_targets
                                         .push(object_target.clone());
                                 }
+                                if !writers
+                                    .progress_writer
+                                    .targets
+                                    .contains(&object_target.object)
+                                {
+                                    writers
+                                        .progress_writer
+                                        .targets
+                                        .push(object_target.object.clone());
+                                }
                             });
                     }
                 }
@@ -290,7 +306,7 @@ impl MakefileGenerator {
 
     fn generate_rule_for_dependencies_from_source_data(
         &mut self,
-        writer: &mut Writer,
+        writers: &mut Writers,
         target_name: &str,
         source_data: &build_target::SourceBuildData,
         registry: &TargetRegistry,
@@ -308,10 +324,10 @@ impl MakefileGenerator {
                         if s.manifest.directory != source_data.manifest.directory {
                             let dep_dir = format!("{}.d", &s.name);
                             self.push_and_create_directory(&std::path::Path::new(&dep_dir))?;
-                            self.generate_rule_for_dependency(writer, dependency, registry);
+                            self.generate_rule_for_dependency(writers, dependency, registry);
                             self.output_directory.pop();
                         } else {
-                            self.generate_rule_for_dependency(writer, dependency, registry);
+                            self.generate_rule_for_dependency(writers, dependency, registry);
                         }
                     }
                 }
@@ -322,7 +338,7 @@ impl MakefileGenerator {
 
     fn generate_rule_for_dependency(
         &self,
-        writer: &mut Writer,
+        writers: &mut Writers,
         dependency: &Dependency,
         registry: &TargetRegistry,
     ) {
@@ -334,11 +350,28 @@ impl MakefileGenerator {
             self.create_object_targets(&dependency_target)
                 .iter()
                 .for_each(|object_target| {
-                    if !writer.object_targets.contains(object_target) {
-                        writer.object_targets.push(object_target.clone());
+                    if !writers
+                        .makefile_writer
+                        .object_targets
+                        .contains(object_target)
+                    {
+                        writers
+                            .makefile_writer
+                            .object_targets
+                            .push(object_target.clone());
+                    }
+                    if !writers
+                        .progress_writer
+                        .targets
+                        .contains(&object_target.object)
+                    {
+                        writers
+                            .progress_writer
+                            .targets
+                            .push(object_target.object.clone());
                     }
                 });
-            writer.data.push_str(&rule);
+            writers.makefile_writer.data.push_str(&rule);
             dependency_target.borrow_mut().state = TargetState::BuildFileMade;
         }
     }
@@ -469,18 +502,26 @@ impl MakefileGenerator {
         }
     }
 
-    fn generate_rule_declaration_for_target(&self, writer: &mut Writer, target: &TargetNode) {
-        self.generate_phony(writer, target);
+    fn generate_rule_declaration_for_target(&self, writers: &mut Writers, target: &TargetNode) {
+        self.generate_phony(&mut writers.makefile_writer, target);
         let target_rule_declaration =
             TargetRuleFactory::create_rule(target, &self.output_directory);
-        writer.data.push('\n');
-        writer.data.push_str(&format!(
+        writers.makefile_writer.data.push('\n');
+        writers.makefile_writer.data.push_str(&format!(
             "# Rule for target \"{}\"\n",
             target.borrow().name()
         ));
-        writer.data.push_str(&target_rule_declaration);
-        writer.data.push('\n');
-        writer.data.push('\n');
+        writers
+            .makefile_writer
+            .data
+            .push_str(&target_rule_declaration);
+        writers.makefile_writer.data.push('\n');
+        writers.makefile_writer.data.push('\n');
+
+        writers
+            .progress_writer
+            .targets
+            .push(self.output_directory.join(target.borrow().name()));
     }
 }
 
@@ -508,21 +549,29 @@ struct Writers {
 
 struct ProgressWriter {
     file_handle: std::fs::File,
-    data: String,
+    path: std::path::PathBuf,
+    targets: Vec<std::path::PathBuf>,
 }
 
 impl ProgressWriter {
     pub fn new(base_dir: &std::path::Path) -> Result<Self, GeneratorError> {
-        let file_handle = utility::create_file(&base_dir.join("progress.txt"))?;
+        let path = base_dir.join("progress.txt");
+        let file_handle = utility::create_file(&path)?;
         Ok(Self {
             file_handle,
-            data: String::new(),
+            path,
+            targets: Vec::new(),
         })
     }
 
     pub fn write(&mut self) -> Result<(), FsError> {
+        let mut data = String::new();
+        for target in &self.targets {
+            data.push_str(&format!("{}\n", target.display().to_string()));
+        }
+
         self.file_handle
-            .write(self.data.as_bytes())
+            .write(data.as_bytes())
             .map_err(FsError::WriteToFile)?;
         Ok(())
     }

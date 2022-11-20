@@ -408,7 +408,6 @@ pub enum TargetState {
     InProcess,
     Registered,
     BuildFileMade,
-    Building,
     BuildComplete,
 }
 

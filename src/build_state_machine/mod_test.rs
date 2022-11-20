@@ -6,31 +6,11 @@ use indoc;
 use tempdir::TempDir;
 
 use super::*;
-use crate::build_target::{target_registry::TargetRegistry, TargetNode};
+use crate::build_target::target_registry::TargetRegistry;
 use crate::cli::configurations;
-use crate::generator::{Generator, GeneratorError, Sanitizer};
 use crate::parser;
 use crate::{YAMBS_MANIFEST_DIR_ENV, YAMBS_MANIFEST_NAME};
 
-pub struct GeneratorMock {
-    _dep: Option<TargetNode>,
-}
-
-impl GeneratorMock {
-    pub fn new() -> Self {
-        Self { _dep: None }
-    }
-}
-
-impl Sanitizer for GeneratorMock {
-    fn set_sanitizer(&mut self, _: &str) {}
-}
-
-impl Generator for GeneratorMock {
-    fn generate(&mut self, _registry: &TargetRegistry) -> Result<(), GeneratorError> {
-        Ok(())
-    }
-}
 struct EnvLock {
     mutex: std::sync::Mutex<()>,
     env_var: Option<String>,
@@ -86,8 +66,7 @@ fn dummy_manifest(dir_name: &str) -> (TempDir, std::path::PathBuf) {
 
 #[test]
 fn parse_and_register_one_target() {
-    let mut generator = GeneratorMock::new();
-    let mut builder = BuildManager::new(&mut generator);
+    let mut builder = BuildManager::new();
     let mut dep_registry = TargetRegistry::new();
     let (dir, test_file_path) = dummy_manifest("example");
     let mut lock = EnvLock::new();
@@ -101,8 +80,7 @@ fn parse_and_register_one_target() {
 
 #[test]
 fn resolve_build_directory_debug() {
-    let mut generator = GeneratorMock::new();
-    let mut builder = BuildManager::new(&mut generator);
+    let mut builder = BuildManager::new();
     builder.configuration = configurations::BuildType::Debug;
     let path = std::path::PathBuf::from("some/path");
     let expected = path.join("debug");
@@ -111,8 +89,7 @@ fn resolve_build_directory_debug() {
 
 #[test]
 fn resolve_build_directory_release() {
-    let mut generator = GeneratorMock::new();
-    let mut builder = BuildManager::new(&mut generator);
+    let mut builder = BuildManager::new();
     builder.configuration = configurations::BuildType::Release;
     let path = std::path::PathBuf::from("some/path");
     let expected = path.join("release");

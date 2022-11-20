@@ -268,13 +268,16 @@ fn build_project(
     }
 
     let process_code = make_thread.join().unwrap().status.code();
-    let msg = {
-        match process_code {
-            Some(0) => format!("{}", "Build SUCCESS".green()),
-            _ => format!("{}", "Build FAILED".red()),
+    match process_code {
+        Some(0) => {
+            let msg = format!("{}", "Build SUCCESS".green());
+            pb.finish_with_message(msg);
         }
-    };
-    pb.finish_with_message(msg);
+        _ => {
+            let msg = format!("{}", "Build FAILED".red());
+            pb.abandon_with_message(msg);
+        }
+    }
     let log_path = logger.path();
     output.status(&format!("Build log available at {:?}", log_path.display()));
     Ok(())

@@ -307,6 +307,10 @@ impl MakefileGenerator {
                             source_data.manifest.directory.display());
                         if s.manifest.directory != source_data.manifest.directory {
                             let dep_dir = format!("{}.d", &s.name);
+                            writers
+                                .progress_writer
+                                .targets
+                                .push(self.output_directory.join(&s.name));
                             self.push_and_create_directory(&std::path::Path::new(&dep_dir))?;
                             self.generate_rule_for_dependency(writers, dependency, registry);
                             self.output_directory.pop();

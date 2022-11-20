@@ -9,6 +9,7 @@ use crate::output;
 #[derive(Default)]
 pub struct Make {
     configs: Vec<String>,
+    process: Option<std::process::Child>,
 }
 
 impl Make {
@@ -18,11 +19,7 @@ impl Make {
         self
     }
 
-    fn log(
-        &self,
-        process_output: &std::process::Output,
-        output: &output::Output,
-    ) -> Result<(), FsError> {
+    fn log(process_output: &std::process::Output, output: &output::Output) -> Result<(), FsError> {
         let stderr = String::from_utf8(process_output.stderr.clone()).unwrap();
         let stdout = String::from_utf8(process_output.stdout.clone()).unwrap();
 
@@ -40,34 +37,38 @@ impl Make {
         Ok(())
     }
 
-    pub fn spawn(
-        &self,
-        makefile_directory: &std::path::Path,
-        output: &output::Output,
-    ) -> Result<std::process::Output, FsError> {
+    pub fn spawn(&mut self, makefile_directory: &std::path::Path) -> Result<(), FsError> {
         std::env::set_current_dir(makefile_directory).map_err(FsError::AccessDirectory)?;
         log::debug!("Running make in directory {}", makefile_directory.display());
-        let spawn = Command::new("/usr/bin/make")
+        let child = Command::new("/usr/bin/make")
             .args(&self.configs)
             .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|_| FsError::Spawn(Command::new("/usr/bin/make")))?;
-        let process_output = spawn.wait_with_output().unwrap();
-        self.log(&process_output, output)?;
-        Ok(process_output)
+        self.process = Some(child);
+        Ok(())
+    }
+
+    pub fn wait_with_output(&mut self, output: &output::Output) -> std::process::Output {
+        if let Some(process) = self.process.take() {
+            let process_output = process.wait_with_output().unwrap();
+            Make::log(&process_output, output).unwrap();
+            process_output
+        } else {
+            panic!("No process to call wait on!");
+        }
     }
 
     pub fn spawn_with_args<I>(
         &mut self,
         makefile_directory: &std::path::Path,
-        output: &output::Output,
         args: I,
-    ) -> Result<std::process::Output, FsError>
+    ) -> Result<(), FsError>
     where
         I: std::iter::IntoIterator<Item = String>,
     {
         self.configs.extend(args);
-        self.spawn(makefile_directory, output)
+        self.spawn(makefile_directory)
     }
 }
 

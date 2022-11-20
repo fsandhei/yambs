@@ -12,14 +12,15 @@ use colored::Colorize;
 
 const YAMBS_PREFIX: &str = "yambs";
 
+#[derive(Debug, Clone)]
 pub struct Output {
-    inner: InnerOutput,
+    inner: std::sync::Arc<InnerOutput>,
 }
 
 impl Output {
     pub fn new() -> Self {
         Self {
-            inner: InnerOutput::new(),
+            inner: std::sync::Arc::new(InnerOutput::new()),
         }
     }
 
@@ -60,6 +61,7 @@ impl Output {
     }
 }
 
+#[derive(Debug, Clone)]
 struct InnerOutput {
     prefix: String,
 }

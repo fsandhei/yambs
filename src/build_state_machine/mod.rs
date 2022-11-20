@@ -4,7 +4,6 @@ use crate::cli::command_line::ConfigurationOpts;
 use crate::cli::configurations;
 use crate::cli::BuildDirectory;
 use crate::errors::{CacheError, FsError};
-use crate::generator::{Generator, GeneratorError};
 use crate::manifest;
 use crate::parser;
 use crate::YAMBS_MANIFEST_NAME;
@@ -22,8 +21,6 @@ pub enum BuildManagerError {
     CannotFindCachedManifestOrRegistry,
     #[error("Failed to cache manifest.")]
     FailedToCacheManifest(#[source] CacheError),
-    #[error(transparent)]
-    Generator(#[from] GeneratorError),
     #[error("Failed to parse recipe file")]
     FailedToParse(#[source] parser::ParseTomlError),
     #[error("{0}: called in an unexpected way.")]
@@ -32,17 +29,15 @@ pub enum BuildManagerError {
     Fs(#[from] FsError),
 }
 
-pub struct BuildManager<'a> {
-    generator: &'a mut dyn Generator,
+pub struct BuildManager {
     configuration: configurations::BuildType,
     make: Make,
     top_build_directory: BuildDirectory,
 }
 
-impl<'gen> BuildManager<'gen> {
-    pub fn new(generator: &'gen mut dyn Generator) -> BuildManager {
+impl BuildManager {
+    pub fn new() -> BuildManager {
         BuildManager {
-            generator,
             configuration: configurations::BuildType::Debug,
             make: Make::default(),
             top_build_directory: BuildDirectory::default(),
@@ -94,14 +89,6 @@ impl<'gen> BuildManager<'gen> {
             )
             .map_err(BuildManagerError::Target)?;
         }
-        Ok(())
-    }
-
-    pub fn generate_makefiles(
-        &mut self,
-        registry: &TargetRegistry,
-    ) -> Result<(), BuildManagerError> {
-        self.generator.generate(registry)?;
         Ok(())
     }
 

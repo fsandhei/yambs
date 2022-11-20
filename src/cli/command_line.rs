@@ -111,17 +111,6 @@ pub struct RemakeOpts {
     pub build_directory: cli::BuildDirectory,
 }
 
-#[derive(clap::Args, Debug)]
-/// Auxiliary subcommand to print information during a build
-pub struct ProgressOpts {
-    #[arg(long)]
-    /// Directory to where to base progress of
-    pub progress_directory: std::path::PathBuf,
-    #[arg(long)]
-    /// Text to display
-    pub text: String,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

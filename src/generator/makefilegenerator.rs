@@ -28,7 +28,6 @@ impl ExecutableTargetFactory {
         format!("\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t@echo \"Linking executable {target_name}\"\n\
                     \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
                     target_name = target.borrow().name(),
                     prerequisites = generate_prerequisites(target, output_directory),
@@ -46,7 +45,6 @@ impl LibraryTargetFactory {
                 "\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t@echo \"Linking static library {target_name}\"\n\
                     \t@$(strip $(AR) $(ARFLAGS) $@ $?)\n\n",
                 target_name = target.borrow().name(),
                 prerequisites = generate_prerequisites(target, output_directory)
@@ -55,12 +53,11 @@ impl LibraryTargetFactory {
                 "\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t@echo \"Linking shared library {target_name}\"\n\
                     \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
                     target_name = target.borrow().name(),
                     prerequisites = generate_prerequisites(target, output_directory),
                     dependencies = generate_search_directories(target),
-            )
+            ),
         }
     }
 }
@@ -75,15 +72,6 @@ impl TargetRuleFactory {
             LibraryTargetFactory::create_rule(target, output_dir)
         }
     }
-}
-
-fn generate_progress_message(writers: &mut Writers, message: &str) {
-    let progress_cmd = format!("@yambs progress");
-    let progress_cmd_args = format!("--progress-file {}", writers.progress_writer.path.display());
-    writers.makefile_writer.data.push_str(&format!(
-        "{} {} {}",
-        progress_cmd, progress_cmd_args, message
-    ));
 }
 
 fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Path) -> String {
@@ -165,10 +153,6 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
     formatted_string.push('\t');
     formatted_string.push_str(&object_target.source.display().to_string());
     formatted_string.push('\n');
-    formatted_string.push_str(&format!(
-        "\t@echo \"Building CXX object {}\"\n",
-        object_target.object.display()
-    ));
     formatted_string.push_str(&format!(
         "\t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) \
          $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
@@ -299,7 +283,7 @@ impl MakefileGenerator {
             }
             target.borrow_mut().state = TargetState::BuildFileMade;
         }
-        self.generate_object_rules(&mut writers.makefile_writer);
+        self.generate_object_rules(writers);
         self.generate_depends_rules(&mut writers.makefile_writer);
         Ok(())
     }
@@ -474,9 +458,12 @@ impl MakefileGenerator {
         include_file_generator.generate_makefiles()
     }
 
-    fn generate_object_rules(&self, writer: &mut Writer) {
-        for object_target in &writer.object_targets {
-            writer.data.push_str(&generate_object_target(object_target))
+    fn generate_object_rules(&self, writers: &mut Writers) {
+        for object_target in &writers.makefile_writer.object_targets {
+            writers
+                .makefile_writer
+                .data
+                .push_str(&generate_object_target(object_target))
         }
     }
 
@@ -549,7 +536,6 @@ struct Writers {
 
 struct ProgressWriter {
     file_handle: std::fs::File,
-    path: std::path::PathBuf,
     targets: Vec<std::path::PathBuf>,
 }
 
@@ -559,7 +545,6 @@ impl ProgressWriter {
         let file_handle = utility::create_file(&path)?;
         Ok(Self {
             file_handle,
-            path,
             targets: Vec::new(),
         })
     }

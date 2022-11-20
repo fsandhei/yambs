@@ -12,11 +12,12 @@ use yambs::cache::Cache;
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
 use yambs::compiler;
 use yambs::external;
-use yambs::generator::MakefileGenerator;
+use yambs::generator::{Generator, MakefileGenerator};
 use yambs::logger;
 use yambs::manifest;
 use yambs::output::Output;
 use yambs::parser;
+use yambs::progress;
 use yambs::{YambsEnvironmentVariables, YAMBS_MANIFEST_NAME};
 
 fn main() -> anyhow::Result<()> {
@@ -26,7 +27,7 @@ fn main() -> anyhow::Result<()> {
 
     if let Some(subcommand) = command_line.subcommand {
         match subcommand {
-            Subcommand::Build(ref build_opts) => do_build(build_opts, &output)?,
+            Subcommand::Build(build_opts) => do_build(build_opts, &output)?,
             Subcommand::Remake(ref remake_opts) => do_remake(remake_opts)?,
         }
     } else {
@@ -112,7 +113,7 @@ fn check_dependencies_for_up_to_date(cache: &Cache) -> Option<()> {
     Some(())
 }
 
-fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
+fn do_build(opts: BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
     log::trace!("do_build");
@@ -124,36 +125,39 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
 
-    evaluate_compiler(&compiler, opts, &cache)?;
+    evaluate_compiler(&compiler, &opts, &cache)?;
 
     let mut generator =
         MakefileGenerator::new(&opts.configuration, &opts.build_directory, compiler)?;
-    let mut build_manager = BuildManager::new(&mut generator);
+    let build_manager = std::sync::Arc::new(std::sync::RwLock::new(BuildManager::new()));
 
-    build_manager
-        .configure(opts)
-        .context("An error occured when configuring the project.")?;
+    {
+        let mut bm_lock = build_manager.write().unwrap();
+        bm_lock
+            .configure(&opts)
+            .context("An error occured when configuring the project.")?;
 
-    if try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none() {
-        log::debug!("Did not find a cached manifest that suited. Making a new one.");
-        parse_and_register_dependencies(
-            &mut build_manager,
-            &cache,
-            &manifest,
-            output,
-            &mut dependency_registry,
-        )
-        .with_context(|| "An error occured when registering project dependencies")?;
+        if try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none() {
+            log::debug!("Did not find a cached manifest that suited. Making a new one.");
+            parse_and_register_dependencies(
+                &mut bm_lock,
+                &cache,
+                &manifest,
+                output,
+                &mut dependency_registry,
+            )
+            .with_context(|| "An error occured when registering project dependencies")?;
 
-        generate_makefiles(&mut build_manager, &dependency_registry, opts)?;
+            generate_makefiles(&mut generator, &dependency_registry, &opts)?;
+        }
+
+        // FIXME: This most likely does not work anymore...
+        if opts.create_dottie_graph {
+            return create_dottie_graph(&dependency_registry, output);
+        }
     }
 
-    // FIXME: This most likely does not work anymore...
-    if opts.create_dottie_graph {
-        return create_dottie_graph(&dependency_registry, output);
-    }
-
-    build_project(&mut build_manager, output, opts, &logger)?;
+    build_project(build_manager, output.clone(), opts, &logger)?;
     cache.cache(&dependency_registry)?;
     Ok(())
 }
@@ -178,12 +182,12 @@ fn do_remake(opts: &RemakeOpts) -> anyhow::Result<()> {
 }
 
 fn generate_makefiles(
-    build_manager: &mut BuildManager,
+    generator: &mut dyn Generator,
     registry: &TargetRegistry,
     opts: &BuildOpts,
 ) -> anyhow::Result<()> {
     log::trace!("generate_makefiles");
-    build_manager.generate_makefiles(registry)?;
+    generator.generate(registry)?;
     log::debug!(
         "Build files generated in {}",
         opts.build_directory.as_path().display()
@@ -222,26 +226,55 @@ fn create_dottie_graph(registry: &TargetRegistry, output: &Output) -> anyhow::Re
 }
 
 fn build_project(
-    build_manager: &mut BuildManager,
-    output: &Output,
-    opts: &BuildOpts,
+    build_manager: std::sync::Arc<std::sync::RwLock<BuildManager>>,
+    output: Output,
+    opts: BuildOpts,
     logger: &logger::Logger,
 ) -> anyhow::Result<()> {
     log::trace!("build_project");
-    let build_directory = build_manager.resolve_build_directory(opts.build_directory.as_path());
-    let make_process = build_manager.make_mut().spawn_with_args(
-        &build_directory,
-        output,
-        opts.make_args.clone(),
-    )?;
-    let process_code: Option<i32> = make_process.status.code();
-    if process_code != Some(0) {
-        output.status(&format!("{}", "Build FAILED".red()));
+    let output_clone = output.clone();
+    let build_directory = opts.build_directory.clone();
+    let bm_clone = build_manager.clone();
+    let make_thread = std::thread::spawn(move || {
+        let mut lock = build_manager.write().unwrap();
+        let build_directory = lock.resolve_build_directory(opts.build_directory.as_path());
+        lock.make_mut()
+            .spawn_with_args(&build_directory, opts.make_args.clone())
+            .unwrap();
+        let process_output = lock.make_mut().wait_with_output(&output_clone);
+        process_output
+    });
+    let progress_path = {
+        let read_lock = bm_clone.read().unwrap();
+        read_lock.resolve_build_directory(build_directory.as_path())
+    };
+
+    let mut progress = progress::Progress::new(&progress_path)?;
+
+    let pb = indicatif::ProgressBar::new(progress.total);
+    pb.set_style(
+        indicatif::ProgressStyle::with_template("[{bar:.cyan/blue}] {msg}")
+            .unwrap()
+            .progress_chars("#>-"),
+    );
+
+    let mut joinable = make_thread.is_finished();
+    while !joinable {
+        let msg = format!("[{}/{}] Building...", progress.current, progress.total);
+        pb.set_message(msg);
+        pb.set_position(progress.current);
+        progress.update()?;
+        joinable = make_thread.is_finished();
     }
 
-    if process_code == Some(0) {
-        output.status(&format!("{}", "Build SUCCESS".green()));
-    }
+    let process_code = make_thread.join().unwrap().status.code();
+    let msg = {
+        match process_code {
+            Some(0) => format!("{}", "Build SUCCESS".green()),
+            _ => format!("{}", "Build FAILED".red()),
+        }
+    };
+    pb.finish_with_message(msg);
     let log_path = logger.path();
     output.status(&format!("Build log available at {:?}", log_path.display()));
     Ok(())

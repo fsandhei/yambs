@@ -157,7 +157,7 @@ fn do_build(opts: BuildOpts, output: &Output) -> anyhow::Result<()> {
         }
     }
 
-    build_project(build_manager, output.clone(), opts, &logger)?;
+    build_project(build_manager, output, opts, &logger)?;
     cache.cache(&dependency_registry)?;
     Ok(())
 }
@@ -227,7 +227,7 @@ fn create_dottie_graph(registry: &TargetRegistry, output: &Output) -> anyhow::Re
 
 fn build_project(
     build_manager: std::sync::Arc<std::sync::RwLock<BuildManager>>,
-    output: Output,
+    output: &Output,
     opts: BuildOpts,
     logger: &logger::Logger,
 ) -> anyhow::Result<()> {
@@ -253,9 +253,9 @@ fn build_project(
 
     let pb = indicatif::ProgressBar::new(progress.total);
     pb.set_style(
-        indicatif::ProgressStyle::with_template("[{bar:.cyan/blue}] {msg}")
+        indicatif::ProgressStyle::with_template("[{bar:.cyan/blue}] [{elapsed_precise}] {msg}")
             .unwrap()
-            .progress_chars("#>-"),
+            .progress_chars("=>-"),
     );
 
     let mut joinable = make_thread.is_finished();
@@ -271,7 +271,8 @@ fn build_project(
     match process_code {
         Some(0) => {
             let msg = format!("{}", "Build SUCCESS".green());
-            pb.finish_with_message(msg);
+            pb.println(msg);
+            pb.finish_and_clear();
         }
         _ => {
             let msg = format!("{}", "Build FAILED".red());

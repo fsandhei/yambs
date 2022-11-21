@@ -61,7 +61,7 @@ impl Output {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct InnerOutput {
     prefix: String,
 }
@@ -90,6 +90,34 @@ impl InnerOutput {
             PrefixPolicy::WithPrefix => format!("{}: {}", self.prefix, text),
             PrefixPolicy::NoPrefix => text.to_string(),
         }
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref DEFAULT_PROGRESS_BAR_STYLE: indicatif::ProgressStyle =
+        indicatif::ProgressStyle::with_template("[{bar:.cyan/blue}] [{elapsed_precise}] {msg}")
+                .unwrap()
+                .progress_chars("=>-");
+}
+
+pub struct ProgressBar {
+    pub bar: indicatif::ProgressBar,
+}
+
+impl ProgressBar {
+    pub fn new(len: u64) -> Self {
+        let pb = indicatif::ProgressBar::new(len);
+        pb.set_style(DEFAULT_PROGRESS_BAR_STYLE.clone());
+        Self { bar: pb }
+    }
+
+    pub fn finish_with_message(&self, msg: impl AsRef<str>) {
+        self.bar.println(msg);
+        self.bar.finish_and_clear();
+    }
+
+    pub fn fail_with_message(&self, msg: impl Into<std::borrow::Cow<'static, str>>) {
+        self.bar.abandon_with_message(msg);
     }
 }
 

@@ -15,6 +15,7 @@ use yambs::external;
 use yambs::generator::{Generator, MakefileGenerator};
 use yambs::logger;
 use yambs::manifest;
+use yambs::output;
 use yambs::output::Output;
 use yambs::parser;
 use yambs::progress;
@@ -251,18 +252,13 @@ fn build_project(
 
     let mut progress = progress::Progress::new(&progress_path)?;
 
-    let pb = indicatif::ProgressBar::new(progress.total);
-    pb.set_style(
-        indicatif::ProgressStyle::with_template("[{bar:.cyan/blue}] [{elapsed_precise}] {msg}")
-            .unwrap()
-            .progress_chars("=>-"),
-    );
+    let pb = output::ProgressBar::new(progress.total);
 
     let mut joinable = make_thread.is_finished();
     while !joinable {
         let msg = format!("[{}/{}] Building...", progress.current, progress.total);
-        pb.set_message(msg);
-        pb.set_position(progress.current);
+        pb.bar.set_message(msg);
+        pb.bar.set_position(progress.current);
         progress.update()?;
         joinable = make_thread.is_finished();
     }
@@ -271,12 +267,11 @@ fn build_project(
     match process_code {
         Some(0) => {
             let msg = format!("{}", "Build SUCCESS".green());
-            pb.println(msg);
-            pb.finish_and_clear();
+            pb.finish_with_message(msg);
         }
         _ => {
             let msg = format!("{}", "Build FAILED".red());
-            pb.abandon_with_message(msg);
+            pb.fail_with_message(msg);
         }
     }
     let log_path = logger.path();

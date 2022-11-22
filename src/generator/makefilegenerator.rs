@@ -28,7 +28,7 @@ impl ExecutableTargetFactory {
         format!("\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
+                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
                     target_name = target.borrow().name(),
                     prerequisites = generate_prerequisites(target, output_directory),
                     dependencies = generate_search_directories(target),
@@ -45,7 +45,7 @@ impl LibraryTargetFactory {
                 "\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t@$(strip $(AR) $(ARFLAGS) $@ $?)\n\n",
+                    \t$(strip $(AR) $(ARFLAGS) $@ $?)\n\n",
                 target_name = target.borrow().name(),
                 prerequisites = generate_prerequisites(target, output_directory)
             ),
@@ -53,7 +53,7 @@ impl LibraryTargetFactory {
                 "\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
+                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
                     target_name = target.borrow().name(),
                     prerequisites = generate_prerequisites(target, output_directory),
                     dependencies = generate_search_directories(target),
@@ -154,7 +154,7 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
     formatted_string.push_str(&object_target.source.display().to_string());
     formatted_string.push('\n');
     formatted_string.push_str(&format!(
-        "\t@$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) \
+        "\t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) \
          $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
         dependencies = generate_include_directories(&object_target.include_directories),
     ));

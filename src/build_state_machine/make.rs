@@ -5,7 +5,6 @@ use crate::build_state_machine::filter;
 use crate::errors::FsError;
 use crate::output;
 
-#[allow(dead_code)]
 #[derive(Default)]
 pub struct Make {
     configs: Vec<String>,
@@ -43,6 +42,7 @@ impl Make {
         let child = Command::new("/usr/bin/make")
             .args(&self.configs)
             .stderr(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
             .spawn()
             .map_err(|_| FsError::Spawn(Command::new("/usr/bin/make")))?;
         self.process = Some(child);
@@ -69,17 +69,5 @@ impl Make {
     {
         self.configs.extend(args);
         self.spawn(makefile_directory)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn with_flag_test() {
-        let mut make = Make::default();
-        make.with_flag("-j", "10");
-        make.with_flag("-r", "debug");
-        assert_eq!(make.configs, ["-j", "10", "-r", "debug"]);
     }
 }

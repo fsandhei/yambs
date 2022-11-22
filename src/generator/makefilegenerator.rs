@@ -24,13 +24,17 @@ use crate::utility;
 struct ExecutableTargetFactory;
 
 impl ExecutableTargetFactory {
-    pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
+    pub fn create_rule(
+        target: &TargetNode,
+        output_directory: &std::path::Path,
+        build_type: &configurations::BuildType,
+    ) -> String {
         format!("\
                 {target_name} : \
                     {prerequisites}\n\
                     \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
                     target_name = target.borrow().name(),
-                    prerequisites = generate_prerequisites(target, output_directory),
+                    prerequisites = generate_prerequisites(target, output_directory, build_type),
                     dependencies = generate_search_directories(target),
             )
     }
@@ -39,7 +43,11 @@ impl ExecutableTargetFactory {
 struct LibraryTargetFactory;
 
 impl LibraryTargetFactory {
-    pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
+    pub fn create_rule(
+        target: &TargetNode,
+        output_directory: &std::path::Path,
+        build_type: &configurations::BuildType,
+    ) -> String {
         match target.borrow().library_type().unwrap() {
             LibraryType::Static => format!(
                 "\
@@ -47,7 +55,7 @@ impl LibraryTargetFactory {
                     {prerequisites}\n\
                     \t$(strip $(AR) $(ARFLAGS) $@ $?)\n\n",
                 target_name = target.borrow().name(),
-                prerequisites = generate_prerequisites(target, output_directory)
+                prerequisites = generate_prerequisites(target, output_directory, build_type)
             ),
             LibraryType::Dynamic => format!(
                 "\
@@ -55,7 +63,7 @@ impl LibraryTargetFactory {
                     {prerequisites}\n\
                     \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
                     target_name = target.borrow().name(),
-                    prerequisites = generate_prerequisites(target, output_directory),
+                    prerequisites = generate_prerequisites(target, output_directory, build_type),
                     dependencies = generate_search_directories(target),
             ),
         }
@@ -65,16 +73,24 @@ impl LibraryTargetFactory {
 struct TargetRuleFactory;
 
 impl TargetRuleFactory {
-    pub fn create_rule(target: &TargetNode, output_dir: &std::path::Path) -> String {
+    pub fn create_rule(
+        target: &TargetNode,
+        output_dir: &std::path::Path,
+        build_type: &configurations::BuildType,
+    ) -> String {
         if target.borrow().is_executable() {
-            ExecutableTargetFactory::create_rule(target, output_dir)
+            ExecutableTargetFactory::create_rule(target, output_dir, build_type)
         } else {
-            LibraryTargetFactory::create_rule(target, output_dir)
+            LibraryTargetFactory::create_rule(target, output_dir, build_type)
         }
     }
 }
 
-fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Path) -> String {
+fn generate_prerequisites(
+    target: &TargetNode,
+    output_directory: &std::path::Path,
+    build_type: &configurations::BuildType,
+) -> String {
     let mut formatted_string = String::new();
     let borrowed_target = target.borrow();
     match borrowed_target.target_source {
@@ -104,9 +120,20 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
                     build_target::DependencySource::FromSource(ref s) => {
                         formatted_string.push_str(&format!("   {}", s.name));
                     }
+                    build_target::DependencySource::FromPrebuilt(ref b) => match build_type {
+                        configurations::BuildType::Debug => {
+                            formatted_string
+                                .push_str(&format!("   {}", b.debug_binary_path.display()));
+                        }
+                        configurations::BuildType::Release => {
+                            formatted_string
+                                .push_str(&format!("   {}", b.release_binary_path.display()));
+                        }
+                    },
                 }
             }
         }
+        _ => {}
     }
     formatted_string
 }
@@ -123,6 +150,7 @@ fn generate_search_directories(target: &TargetNode) -> String {
                 formatted_string.push_str(" -L.");
             }
         }
+        _ => {}
     };
     formatted_string.trim_end().to_string()
 }
@@ -240,6 +268,7 @@ impl MakefileGenerator {
             if target.borrow().state != TargetState::BuildFileMade {
                 let borrowed_target = target.borrow();
                 match borrowed_target.target_source {
+                    build_target::TargetSource::FromPrebuilt(_) => {}
                     build_target::TargetSource::FromSource(ref s) => {
                         log::debug!(
                             "Generating makefiles for target {:?} (manifest path: {})",
@@ -299,6 +328,7 @@ impl MakefileGenerator {
             let dependencies = &source_data.dependencies;
             for dependency in dependencies {
                 match dependency.source {
+                    build_target::DependencySource::FromPrebuilt(_) => {}
                     build_target::DependencySource::FromSource(ref s) => {
                         log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
                             s.name,
@@ -333,8 +363,11 @@ impl MakefileGenerator {
         let dependency_target = dependency.to_build_target(registry).unwrap();
 
         if dependency_target.borrow().state != TargetState::BuildFileMade {
-            let rule =
-                LibraryTargetFactory::create_rule(&dependency_target, &self.output_directory);
+            let rule = LibraryTargetFactory::create_rule(
+                &dependency_target,
+                &self.output_directory,
+                &self.configurations.build_type,
+            );
             self.create_object_targets(&dependency_target)
                 .iter()
                 .for_each(|object_target| {
@@ -495,8 +528,11 @@ impl MakefileGenerator {
 
     fn generate_rule_declaration_for_target(&self, writers: &mut Writers, target: &TargetNode) {
         self.generate_phony(&mut writers.makefile_writer, target);
-        let target_rule_declaration =
-            TargetRuleFactory::create_rule(target, &self.output_directory);
+        let target_rule_declaration = TargetRuleFactory::create_rule(
+            target,
+            &self.output_directory,
+            &self.configurations.build_type,
+        );
         writers.makefile_writer.data.push('\n');
         writers.makefile_writer.data.push_str(&format!(
             "# Rule for target \"{}\"\n",
@@ -887,11 +923,162 @@ impl<'generator> Sanitizer for IncludeFileGenerator<'generator> {
 mod tests {
     use std::fs;
 
+    use crate::flags;
+    use crate::manifest;
     use crate::tests::EnvLock;
     use pretty_assertions::assert_eq;
     use tempdir::TempDir;
 
     use super::*;
+
+    struct TargetNodeStub;
+
+    impl TargetNodeStub {
+        pub fn builder() -> TargetNodeBuilder {
+            TargetNodeBuilder {
+                target_source: None,
+                target_type: None,
+                include_directories: None,
+                compiler_flags: None,
+            }
+        }
+    }
+
+    struct TargetNodeBuilder {
+        target_source: Option<build_target::TargetSource>,
+        target_type: Option<build_target::TargetType>,
+        include_directories: Option<build_target::include_directories::IncludeDirectories>,
+        compiler_flags: Option<flags::CompilerFlags>,
+    }
+
+    impl TargetNodeBuilder {
+        pub fn create(self) -> build_target::TargetNode {
+            let build_target = build_target::BuildTarget {
+                target_source: self.target_source.unwrap(),
+                state: build_target::TargetState::Registered,
+                target_type: self
+                    .target_type
+                    .unwrap_or(build_target::TargetType::Executable("x".to_string())),
+                include_directories: self
+                    .include_directories
+                    .unwrap_or(build_target::include_directories::IncludeDirectories::new()),
+                compiler_flags: self.compiler_flags.unwrap_or(flags::CompilerFlags::new()),
+            };
+
+            build_target::TargetNode::new(build_target)
+        }
+
+        pub fn with_target_source(mut self, target_source: build_target::TargetSource) -> Self {
+            self.target_source = Some(target_source);
+            self
+        }
+
+        pub fn with_target_type(mut self, target_type: build_target::TargetType) -> Self {
+            self.target_type = Some(target_type);
+            self
+        }
+
+        pub fn with_include_directories(
+            mut self,
+            include_directories: build_target::include_directories::IncludeDirectories,
+        ) -> Self {
+            self.include_directories = Some(include_directories);
+            self
+        }
+    }
+
+    struct ManifestStub {
+        pub manifest: manifest::Manifest,
+    }
+
+    impl ManifestStub {
+        pub fn new(path: &std::path::Path) -> Self {
+            let manifest_path = path.join(crate::YAMBS_MANIFEST_NAME);
+            std::fs::File::create(manifest_path).unwrap();
+            Self {
+                manifest: manifest::Manifest::new(path),
+            }
+        }
+    }
+
+    struct ProjectTestFixture {
+        dir: TempDir,
+        target_registry: build_target::target_registry::TargetRegistry,
+    }
+
+    impl ProjectTestFixture {
+        pub fn new() -> Self {
+            let dir = TempDir::new("project").unwrap();
+            let target_registry = build_target::target_registry::TargetRegistry::new();
+
+            Self {
+                dir,
+                target_registry,
+            }
+        }
+    }
+
+    struct MakefileGeneratorTestFixture {
+        build_dir: TempDir,
+        configuration_opts: command_line::ConfigurationOpts,
+        compiler: Compiler,
+        writers: Writers,
+    }
+
+    impl MakefileGeneratorTestFixture {
+        pub fn new() -> Self {
+            let build_dir = TempDir::new("build").unwrap();
+            let build_dir_path = build_dir.path().to_path_buf();
+            let configuration_opts = create_configuration_opts();
+            let compiler = create_compiler();
+            let writers = Writers {
+                makefile_writer: Writer::new(&build_dir_path.join("Makefile")).unwrap(),
+                progress_writer: ProgressWriter::new(&build_dir_path).unwrap(),
+            };
+
+            Self {
+                build_dir,
+                configuration_opts,
+                compiler,
+                writers,
+            }
+        }
+
+        pub fn build_directory(&self) -> BuildDirectory {
+            BuildDirectory::from(self.build_dir.path())
+        }
+    }
+
+    fn create_compiler() -> Compiler {
+        let _lock = EnvLock::lock("CXX", "gcc");
+        Compiler::new().unwrap()
+    }
+
+    fn create_configuration_opts() -> command_line::ConfigurationOpts {
+        let build_type = configurations::BuildType::Debug;
+        let cxx_standard = configurations::CXXStandard::CXX17;
+        let sanitizer = None;
+
+        command_line::ConfigurationOpts {
+            build_type,
+            cxx_standard,
+            sanitizer,
+        }
+    }
+
+    fn create_include_directory(
+        path: &std::path::Path,
+    ) -> build_target::include_directories::IncludeDirectory {
+        build_target::include_directories::IncludeDirectory {
+            include_type: build_target::include_directories::IncludeType::Include,
+            path: path.to_path_buf(),
+        }
+    }
+
+    fn create_source_file(path: &std::path::Path) -> build_target::associated_files::SourceFile {
+        std::fs::File::create(path).unwrap();
+        build_target::associated_files::SourceFile::new(path).unwrap()
+    }
 
     fn produce_include_path(base_dir: TempDir) -> std::path::PathBuf {
         let build_dir = std::path::PathBuf::from(".build");
@@ -904,9 +1091,420 @@ mod tests {
     }
 
     #[test]
+    fn generate_include_directories_generate_include_statements() {
+        let project_fixture = ProjectTestFixture::new();
+        let project_path = project_fixture.dir.path();
+        let inner_project_path = project_fixture.dir.path().join("myProject");
+        let mut include_directories = build_target::include_directories::IncludeDirectories::new();
+        let project_include_path = project_path.join("include");
+        let inner_project_include_path = inner_project_path.join("include");
+        include_directories.add(create_include_directory(&project_include_path));
+        include_directories.add(create_include_directory(&inner_project_include_path));
+
+        let actual = generate_include_directories(&include_directories);
+        let expected = format!(
+            "-I{} -I{}",
+            project_include_path.display(),
+            inner_project_include_path.display()
+        );
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn factory_creates_static_library_target_declaration() {
+        let mut project_fixture = ProjectTestFixture::new();
+        let project_path = project_fixture.dir.path();
+        let fixture = MakefileGeneratorTestFixture::new();
+        let build_path = fixture.build_dir.path();
+        let source_directory = project_path.join("src");
+        std::fs::create_dir(&source_directory).unwrap();
+
+        let manifest = ManifestStub::new(project_path);
+        let source_files = build_target::associated_files::SourceFiles::new();
+        let dependencies = Vec::<build_target::Dependency>::new();
+        let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
+            manifest: manifest.manifest,
+            dependencies,
+            source_files: source_files.clone(),
+        });
+
+        let mut include_directories = build_target::include_directories::IncludeDirectories::new();
+        include_directories.add(create_include_directory(&project_path.join("include")));
+
+        let target_node = TargetNodeStub::builder()
+            .with_target_source(target_source)
+            .with_target_type(build_target::TargetType::Library(
+                build_target::LibraryType::Static,
+                "myLib".to_string(),
+            ))
+            .with_include_directories(include_directories)
+            .create();
+
+        project_fixture
+            .target_registry
+            .add_target(target_node.clone());
+
+        let build_type = configurations::BuildType::Debug;
+
+        let actual = TargetRuleFactory::create_rule(&target_node, &build_path, &build_type);
+        let expected = indoc::formatdoc!(
+            "
+        {target_name} : \
+            {object_files_string}\n\
+            \t$(strip $(AR) $(ARFLAGS) $@ $?)
+
+
+",
+            target_name = target_node.borrow().name(),
+            object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+        );
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn factory_creates_dynamic_library_target_declaration() {
+        let mut project_fixture = ProjectTestFixture::new();
+        let project_path = project_fixture.dir.path();
+        let fixture = MakefileGeneratorTestFixture::new();
+        let build_path = fixture.build_dir.path();
+        let source_directory = project_path.join("src");
+        std::fs::create_dir(&source_directory).unwrap();
+
+        let manifest = ManifestStub::new(project_path);
+        let source_files = build_target::associated_files::SourceFiles::new();
+        let dependencies = Vec::<build_target::Dependency>::new();
+        let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
+            manifest: manifest.manifest,
+            dependencies,
+            source_files: source_files.clone(),
+        });
+
+        let mut include_directories = build_target::include_directories::IncludeDirectories::new();
+        include_directories.add(create_include_directory(&project_path.join("include")));
+
+        let target_node = TargetNodeStub::builder()
+            .with_target_source(target_source)
+            .with_target_type(build_target::TargetType::Library(
+                build_target::LibraryType::Dynamic,
+                "myLib".to_string(),
+            ))
+            .with_include_directories(include_directories)
+            .create();
+
+        project_fixture
+            .target_registry
+            .add_target(target_node.clone());
+
+        let build_type = configurations::BuildType::Debug;
+
+        let actual = TargetRuleFactory::create_rule(&target_node, &build_path, &build_type);
+        let expected = indoc::formatdoc!(
+            "
+        {target_name} : \
+            {object_files_string}\n\
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)
+
+
+",
+            target_name = target_node.borrow().name(),
+            object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+            dependencies = generate_search_directories(&target_node),
+        );
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn factory_creates_executable_target_declaration() {
+        let mut project_fixture = ProjectTestFixture::new();
+        let project_path = project_fixture.dir.path();
+        let fixture = MakefileGeneratorTestFixture::new();
+        let build_path = fixture.build_dir.path();
+        let source_directory = project_path.join("src");
+        std::fs::create_dir(&source_directory).unwrap();
+
+        let manifest = ManifestStub::new(project_path);
+        let source_files = build_target::associated_files::SourceFiles::new();
+        let dependencies = Vec::<build_target::Dependency>::new();
+        let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
+            manifest: manifest.manifest,
+            dependencies,
+            source_files: source_files.clone(),
+        });
+
+        let mut include_directories = build_target::include_directories::IncludeDirectories::new();
+        include_directories.add(create_include_directory(&project_path.join("include")));
+
+        let target_node = TargetNodeStub::builder()
+            .with_target_source(target_source)
+            .with_target_type(build_target::TargetType::Executable("x".to_string()))
+            .with_include_directories(include_directories)
+            .create();
+
+        project_fixture
+            .target_registry
+            .add_target(target_node.clone());
+
+        let build_type = configurations::BuildType::Debug;
+
+        let actual = TargetRuleFactory::create_rule(&target_node, &build_path, &build_type);
+        let expected = indoc::formatdoc!(
+            "
+        {target_name} : \
+            {object_files_string}\n\
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)
+",
+            target_name = target_node.borrow().name(),
+            object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+            dependencies = generate_search_directories(&target_node),
+        );
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn generator_produces_target_rule_for_single_target() {
+        let mut project_fixture = ProjectTestFixture::new();
+        let project_path = project_fixture.dir.path();
+        let mut fixture = MakefileGeneratorTestFixture::new();
+        let build_path = fixture.build_dir.path();
+        let source_directory = project_path.join("src");
+        std::fs::create_dir(&source_directory).unwrap();
+        let generator = MakefileGenerator::new(
+            &fixture.configuration_opts,
+            &fixture.build_directory(),
+            fixture.compiler,
+        )
+        .unwrap();
+
+        let manifest = ManifestStub::new(project_path);
+        let source_files = build_target::associated_files::SourceFiles::new();
+        let dependencies = Vec::<build_target::Dependency>::new();
+        let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
+            manifest: manifest.manifest,
+            dependencies,
+            source_files: source_files.clone(),
+        });
+
+        let mut include_directories = build_target::include_directories::IncludeDirectories::new();
+        include_directories.add(create_include_directory(&project_path.join("include")));
+
+        let target_node = TargetNodeStub::builder()
+            .with_target_source(target_source)
+            .with_target_type(build_target::TargetType::Executable("x".to_string()))
+            .with_include_directories(include_directories)
+            .create();
+
+        project_fixture
+            .target_registry
+            .add_target(target_node.clone());
+
+        generator.generate_rule_declaration_for_target(&mut fixture.writers, &target_node);
+        let build_type = configurations::BuildType::Debug;
+        let actual = fixture.writers.makefile_writer.data;
+
+        let expected = indoc::formatdoc!(
+            "
+
+
+        # Phony for target \"{target_name}\"
+        .PHONY: {target_name}
+
+        # Rule for target \"{target_name}\"
+        {target_name} : \
+            {object_files_string}\n\
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)
+
+
+",
+            target_name = target_node.borrow().name(),
+            object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+            dependencies = generate_search_directories(&target_node),
+        );
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn generator_produces_object_target_rule_for_single_target() {
+        let mut project_fixture = ProjectTestFixture::new();
+        let project_path = project_fixture.dir.path();
+        let mut fixture = MakefileGeneratorTestFixture::new();
+        let source_directory = project_path.join("src");
+        std::fs::create_dir(&source_directory).unwrap();
+        let generator = MakefileGenerator::new(
+            &fixture.configuration_opts,
+            &fixture.build_directory(),
+            fixture.compiler,
+        )
+        .unwrap();
+
+        let manifest = ManifestStub::new(project_path);
+        let mut source_files = build_target::associated_files::SourceFiles::new();
+        source_files.push(create_source_file(&source_directory.join("a.cpp")));
+        source_files.push(create_source_file(&source_directory.join("b.cpp")));
+        source_files.push(create_source_file(&source_directory.join("c.cpp")));
+        let dependencies = Vec::<build_target::Dependency>::new();
+        let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
+            manifest: manifest.manifest,
+            dependencies,
+            source_files: source_files.clone(),
+        });
+
+        let mut include_directories = build_target::include_directories::IncludeDirectories::new();
+        include_directories.add(create_include_directory(&project_path.join("include")));
+
+        let target_node = TargetNodeStub::builder()
+            .with_target_source(target_source)
+            .with_target_type(build_target::TargetType::Executable("x".to_string()))
+            .with_include_directories(include_directories)
+            .create();
+
+        project_fixture
+            .target_registry
+            .add_target(target_node.clone());
+
+        let object_targets = generator.create_object_targets(&target_node);
+        fixture
+            .writers
+            .makefile_writer
+            .object_targets
+            .extend_from_slice(&object_targets);
+        generator.generate_object_rules(&mut fixture.writers);
+        let actual = fixture.writers.makefile_writer.data;
+
+        let expected = {
+            let mut formatted_string = String::new();
+            let object_targets = generator.create_object_targets(&target_node);
+            for object_target in object_targets {
+                let object = object_target.object;
+                formatted_string.push_str(&indoc::formatdoc!(
+                    "
+            # Build rule for {object}
+            {object}: \\
+            \t{source}\n\
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) {dependencies} $< -c -o $@)
+
+
+",
+                    object = object.display(),
+                    source = object_target.source.display(),
+                    dependencies = generate_search_directories(&target_node),
+                ));
+            }
+            formatted_string
+        };
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn generator_produces_makefile_for_single_target() {
+        let mut project_fixture = ProjectTestFixture::new();
+        let project_path = project_fixture.dir.path();
+        let mut fixture = MakefileGeneratorTestFixture::new();
+        let build_path = fixture.build_dir.path();
+        let source_directory = project_path.join("src");
+        std::fs::create_dir(&source_directory).unwrap();
+        let mut generator = MakefileGenerator::new(
+            &fixture.configuration_opts,
+            &fixture.build_directory(),
+            fixture.compiler,
+        )
+        .unwrap();
+
+        let manifest = ManifestStub::new(project_path);
+        let mut source_files = build_target::associated_files::SourceFiles::new();
+        source_files.push(create_source_file(&source_directory.join("a.cpp")));
+        source_files.push(create_source_file(&source_directory.join("b.cpp")));
+        source_files.push(create_source_file(&source_directory.join("c.cpp")));
+        let dependencies = Vec::<build_target::Dependency>::new();
+        let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
+            manifest: manifest.manifest,
+            dependencies,
+            source_files: source_files.clone(),
+        });
+
+        let mut include_directories = build_target::include_directories::IncludeDirectories::new();
+        include_directories.add(create_include_directory(&project_path.join("include")));
+
+        let target_node = TargetNodeStub::builder()
+            .with_target_source(target_source)
+            .with_target_type(build_target::TargetType::Executable("x".to_string()))
+            .with_include_directories(include_directories)
+            .create();
+
+        project_fixture
+            .target_registry
+            .add_target(target_node.clone());
+
+        generator
+            .generate_makefile(&mut fixture.writers, &project_fixture.target_registry)
+            .unwrap();
+        let actual = fixture.writers.makefile_writer.data;
+        let object_targets = generator.create_object_targets(&target_node);
+        let object_target_rules = {
+            let mut formatted_string = String::new();
+
+            for object_target in &object_targets {
+                formatted_string.push_str(&generate_object_target(&object_target));
+            }
+            formatted_string
+        };
+
+        let depends_rules = {
+            let mut formatted_string = String::new();
+            for object_target in &object_targets {
+                let object = object_target.object.as_path();
+                let depend_file = object.with_extension("d");
+                formatted_string
+                    .push_str(&format!("# Silently include {}\n", depend_file.display()));
+                formatted_string.push_str(&format!("sinclude {}\n", depend_file.display()));
+            }
+            formatted_string
+        };
+
+        let build_type = configurations::BuildType::Debug;
+
+        let expected = indoc::formatdoc!(
+            "\
+        # ----- INCLUDES -----\n\
+        include {build_directory}/make_include/strict.mk\n\
+        include {build_directory}/make_include/default_make.mk\n\
+        include {build_directory}/make_include/debug.mk\n\
+        \n\
+        # ----- DEFAULT PHONIES -----\n\
+        \n\
+        .SUFFIXES:         # We do not use suffixes on makefiles.\n\
+        .PHONY: all\n\
+        .PHONY: package\n\
+        .PHONY: install\n\
+        .PHONY: uninstall\n\
+        .PHONY: clean
+        # Default all target to build all targets.\n\
+        all : \\
+           {target_name}\n
+
+        # Phony for target \"{target_name}\"
+        .PHONY: {target_name}
+
+        # Rule for target \"{target_name}\"
+        {target_name} : \
+            {object_files_string}\n\
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)
+
+        {object_target_rules}
+        {depends_rules}
+",
+            build_directory = generator.build_directory.as_path().display(),
+            target_name = target_node.borrow().name(),
+            object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+            dependencies = generate_search_directories(&target_node),
+            object_target_rules = object_target_rules,
+            depends_rules = depends_rules
+        );
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn add_cpp_version_cpp98_test() -> Result<(), GeneratorError> {
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
         let mut gen = construct_generator(&output_directory);
         gen.add_cpp_version("c++98");
@@ -916,8 +1514,7 @@ mod tests {
 
     #[test]
     fn add_cpp_version_cpp11_test() -> Result<(), GeneratorError> {
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
         let mut gen = construct_generator(&output_directory);
         gen.add_cpp_version("c++11");
@@ -928,8 +1525,7 @@ mod tests {
     #[test]
     fn add_cpp_version_cpp14_test() -> Result<(), GeneratorError> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         gen.add_cpp_version("c++14");
         assert_eq!(gen.args["C++"], "c++14");
@@ -939,8 +1535,7 @@ mod tests {
     #[test]
     fn add_cpp_version_cpp17_test() -> Result<(), GeneratorError> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         gen.add_cpp_version("c++17");
         assert_eq!(gen.args["C++"], "c++17");
@@ -950,8 +1545,7 @@ mod tests {
     #[test]
     fn add_cpp_version_cpp17_uppercase_test() -> Result<(), GeneratorError> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         gen.add_cpp_version("C++17");
         assert_eq!(gen.args["C++"], "c++17");
@@ -961,8 +1555,7 @@ mod tests {
     #[test]
     fn add_cpp_version_cpp20_test() -> Result<(), GeneratorError> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         gen.add_cpp_version("c++20");
         assert_eq!(gen.args["C++"], "c++20");
@@ -972,8 +1565,7 @@ mod tests {
     #[test]
     fn generate_strict_mk_test() -> std::io::Result<()> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         let file_name = output_directory.join("strict.mk");
         gen.generate_strict_mk().unwrap();
@@ -1039,8 +1631,7 @@ mod tests {
     #[test]
     fn generate_debug_mk_test() -> std::io::Result<()> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         let file_name = output_directory.join("debug.mk");
         gen.generate_debug_mk().unwrap();
@@ -1068,8 +1659,7 @@ mod tests {
     #[test]
     fn generate_debug_mk_with_address_sanitizer_test() -> std::io::Result<()> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         let file_name = output_directory.join("debug.mk");
         gen.set_sanitizer("address");
@@ -1101,9 +1691,7 @@ mod tests {
     #[test]
     fn generate_debug_mk_with_thread_sanitizer_test() -> std::io::Result<()> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
-
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         let file_name = output_directory.join("debug.mk");
         gen.set_sanitizer("thread");
@@ -1135,9 +1723,7 @@ mod tests {
     #[test]
     fn generate_release_mk_test() -> std::io::Result<()> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
-
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         let file_name = output_directory.join("release.mk");
         gen.generate_release_mk().unwrap();
@@ -1157,8 +1743,7 @@ mod tests {
     #[test]
     fn generate_default_mk_test() -> std::io::Result<()> {
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let mut gen = construct_generator(&output_directory);
         let file_name = output_directory.join("default_make.mk");
         gen.generate_default_mk().unwrap();
@@ -1227,8 +1812,7 @@ mod tests {
 
     #[test]
     fn generate_defines_mk_test() -> std::io::Result<()> {
-        let mut lock = EnvLock::new();
-        lock.lock("CXX", "gcc");
+        let _lock = EnvLock::lock("CXX", "gcc");
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
         let mut gen = construct_generator(&output_directory);
         let file_name = output_directory.join("defines.mk");
@@ -1253,31 +1837,30 @@ mod tests {
 
     #[test]
     fn evaluate_compiler_with_gcc_results_in_gcc_set() {
-        let mut lock = EnvLock::new();
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
 
         {
-            lock.lock("CXX", "gcc");
+            let _lock = EnvLock::lock("CXX", "gcc");
             let gen = construct_generator(&output_directory);
             assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
             assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
         }
 
         {
-            lock.lock("CXX", "/usr/bin/gcc");
+            let _lock = EnvLock::lock("CXX", "/usr/bin/gcc");
             let gen = construct_generator(&output_directory);
             assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
             assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
         }
 
         {
-            lock.lock("CXX", "g++");
+            let _lock = EnvLock::lock("CXX", "g++");
             let gen = construct_generator(&output_directory);
             assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
             assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
         }
         {
-            lock.lock("CXX", "/usr/bin/g++");
+            let _lock = EnvLock::lock("CXX", "/usr/bin/g++");
             let gen = construct_generator(&output_directory);
             assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
             assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
@@ -1286,16 +1869,15 @@ mod tests {
 
     #[test]
     fn evaluate_compiler_with_clang_results_in_clang_set() {
-        let mut lock = EnvLock::new();
         let output_directory = produce_include_path(TempDir::new("example").unwrap());
         {
-            lock.lock("CXX", "clang");
+            let _lock = EnvLock::lock("CXX", "clang");
             let gen = construct_generator(&output_directory);
             assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
             assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "true");
         }
         {
-            lock.lock("CXX", "/usr/bin/clang");
+            let _lock = EnvLock::lock("CXX", "/usr/bin/clang");
             let gen = construct_generator(&output_directory);
             assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
             assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "true");

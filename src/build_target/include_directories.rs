@@ -1,4 +1,11 @@
+use crate::parser::types;
 use crate::targets;
+
+#[derive(Debug, thiserror::Error)]
+pub enum IncludeDirectoriesError {
+    #[error("Could not find any include directory located at {0}")]
+    CouldNotFindIncludeDirectory(std::path::PathBuf),
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
@@ -22,29 +29,67 @@ impl IncludeDirectory {
         }
         None
     }
-}
 
-impl IncludeDirectories {
-    pub fn from_dependencies(dependencies: &[targets::Dependency]) -> Self {
-        let include_directories = dependencies
-            .iter()
-            .filter_map(|dependency| {
-                let (path, origin) = dependency.data.source()?;
-                let include_path = IncludeDirectory::find(&path)?;
+    pub fn from_dependency(
+        dependency: &targets::Dependency,
+    ) -> Result<Self, IncludeDirectoriesError> {
+        let include_directory = match dependency.data {
+            types::DependencyData::Source(ref source_data) => {
+                let include_path = IncludeDirectory::find(&source_data.path).ok_or_else(|| {
+                    IncludeDirectoriesError::CouldNotFindIncludeDirectory(
+                        source_data.path.to_path_buf(),
+                    )
+                })?;
 
-                Some(match origin {
-                    targets::IncludeSearchType::Include => IncludeDirectory {
+                match source_data.origin {
+                    types::IncludeSearchType::Include => IncludeDirectory {
                         include_type: IncludeType::Include,
                         path: include_path,
                     },
-                    targets::IncludeSearchType::System => IncludeDirectory {
+                    types::IncludeSearchType::System => IncludeDirectory {
                         include_type: IncludeType::System,
                         path: include_path,
                     },
-                })
-            })
-            .collect::<Vec<IncludeDirectory>>();
-        Self(include_directories)
+                }
+            }
+            types::DependencyData::Binary(ref binary_data) => {
+                let include_path = IncludeDirectory::find(&binary_data.include_directory)
+                    .ok_or_else(|| {
+                        IncludeDirectoriesError::CouldNotFindIncludeDirectory(
+                            binary_data.include_directory.clone(),
+                        )
+                    })?;
+                match binary_data.search_type {
+                    types::IncludeSearchType::Include => IncludeDirectory {
+                        include_type: IncludeType::Include,
+                        path: include_path,
+                    },
+                    types::IncludeSearchType::System => IncludeDirectory {
+                        include_type: IncludeType::System,
+                        path: include_path,
+                    },
+                }
+            }
+        };
+        Ok(include_directory)
+    }
+}
+
+impl IncludeDirectories {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn from_dependencies(
+        dependencies: &[targets::Dependency],
+    ) -> Result<Self, IncludeDirectoriesError> {
+        let mut include_directories = Vec::new();
+        for dependency in dependencies {
+            let include_directory = IncludeDirectory::from_dependency(dependency)?;
+            include_directories.push(include_directory);
+        }
+        include_directories.dedup_by(|path_a, path_b| path_a == path_b);
+        Ok(Self(include_directories))
     }
 
     pub fn add(&mut self, include_directory: IncludeDirectory) {
@@ -87,26 +132,25 @@ mod tests {
     use tempdir::TempDir;
 
     struct DependencyStub {
-        _tempdir: TempDir,
         dep_include_path: std::path::PathBuf,
         dependency: targets::Dependency,
     }
 
     impl DependencyStub {
-        fn create_include_dir(tempdir_name: &str, dependency_name: &str) -> Self {
-            let dep_dir = TempDir::new(tempdir_name).unwrap();
-            let dep_include_path = dep_dir.path().join("include");
-            std::fs::create_dir(&dep_include_path).unwrap();
+        fn create_include_dir(base_dir: &std::path::Path, dependency_name: &str) -> Self {
+            let dep_include_path = base_dir.join("include");
+            if !dep_include_path.exists() {
+                std::fs::create_dir(&dep_include_path).unwrap();
+            }
 
             let dependency = targets::Dependency {
                 name: dependency_name.to_string(),
-                data: targets::DependencyData::Source {
-                    path: dep_dir.path().to_path_buf(),
-                    origin: targets::IncludeSearchType::Include,
-                },
+                data: types::DependencyData::Source(types::SourceData {
+                    path: base_dir.to_path_buf(),
+                    origin: types::IncludeSearchType::Include,
+                }),
             };
             Self {
-                _tempdir: dep_dir,
                 dep_include_path,
                 dependency,
             }
@@ -115,9 +159,13 @@ mod tests {
 
     #[test]
     fn from_mmk_registers_include_directories_within_mmk_directory() {
-        let stub_one = DependencyStub::create_include_dir("base_one", "DependencyOne");
-        let stub_two = DependencyStub::create_include_dir("base_two", "DependencyTwo");
-        let stub_three = DependencyStub::create_include_dir("base_three", "DependencyThree");
+        let tempdir_stub_one = TempDir::new("base_one").unwrap();
+        let stub_one = DependencyStub::create_include_dir(tempdir_stub_one.path(), "DependencyOne");
+        let tempdir_stub_two = TempDir::new("base_two").unwrap();
+        let stub_two = DependencyStub::create_include_dir(tempdir_stub_two.path(), "DependencyTwo");
+        let tempdir_stub_three = TempDir::new("base_three").unwrap();
+        let stub_three =
+            DependencyStub::create_include_dir(tempdir_stub_three.path(), "DependencyThree");
 
         let expected = IncludeDirectories(vec![
             IncludeDirectory {
@@ -137,20 +185,28 @@ mod tests {
             stub_one.dependency,
             stub_two.dependency,
             stub_three.dependency,
-        ]);
+        ])
+        .unwrap();
 
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn from_mmk_registers_include_directories_third_party() {
-        let stub_one = DependencyStub::create_include_dir("base_one", "DependencyOne");
-        let mut stub_two = DependencyStub::create_include_dir("base_two", "DependencyTwo");
-        stub_two.dependency.data = targets::DependencyData::Source {
-            path: stub_two.dependency.data.source().unwrap().0,
-            origin: targets::IncludeSearchType::System,
+        let tempdir_stub_one = TempDir::new("base_one").unwrap();
+        let stub_one = DependencyStub::create_include_dir(tempdir_stub_one.path(), "DependencyOne");
+        let tempdir_stub_two = TempDir::new("base_two").unwrap();
+        let mut stub_two =
+            DependencyStub::create_include_dir(tempdir_stub_two.path(), "DependencyTwo");
+        match stub_two.dependency.data {
+            types::DependencyData::Source(ref mut source_data) => {
+                source_data.origin = types::IncludeSearchType::System;
+            }
+            _ => {}
         };
-        let stub_three = DependencyStub::create_include_dir("base_three", "DependencyThree");
+        let tempdir_stub_three = TempDir::new("base_three").unwrap();
+        let stub_three =
+            DependencyStub::create_include_dir(tempdir_stub_three.path(), "DependencyThree");
         let expected = IncludeDirectories(vec![
             IncludeDirectory {
                 include_type: IncludeType::Include,
@@ -170,7 +226,28 @@ mod tests {
             stub_one.dependency,
             stub_two.dependency,
             stub_three.dependency,
-        ]);
+        ])
+        .unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn from_mmk_registers_include_directories_with_duplicates() {
+        let tempdir_stub = TempDir::new("base_one").unwrap();
+        let stub_one = DependencyStub::create_include_dir(tempdir_stub.path(), "DependencyOne");
+        let stub_two = DependencyStub::create_include_dir(tempdir_stub.path(), "DependencyTwo");
+        let stub_three = DependencyStub::create_include_dir(tempdir_stub.path(), "DependencyThree");
+        let expected = IncludeDirectories(vec![IncludeDirectory {
+            include_type: IncludeType::Include,
+            path: stub_one.dep_include_path,
+        }]);
+
+        let actual = IncludeDirectories::from_dependencies(&[
+            stub_one.dependency,
+            stub_two.dependency,
+            stub_three.dependency,
+        ])
+        .unwrap();
         assert_eq!(actual, expected);
     }
 }

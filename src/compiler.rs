@@ -143,38 +143,11 @@ impl std::string::ToString for Compiler {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    struct EnvLock {
-        mutex: std::sync::Mutex<()>,
-        old_env_value: Option<String>,
-    }
-
-    impl EnvLock {
-        fn new() -> Self {
-            Self {
-                mutex: std::sync::Mutex::new(()),
-                old_env_value: None,
-            }
-        }
-        fn lock(&mut self, new_value: &str) {
-            let _lock = self.mutex.lock().unwrap();
-            self.old_env_value = std::env::var("CXX").ok();
-            std::env::set_var("CXX", new_value);
-        }
-    }
-
-    impl Drop for EnvLock {
-        fn drop(&mut self) {
-            if let Some(ref old_env_value) = self.old_env_value {
-                std::env::set_var("CXX", old_env_value);
-            }
-        }
-    }
+    use crate::tests::EnvLock;
 
     #[test]
     fn evaluate_compiler_fails_when_cxx_is_not_set() {
-        let mut lock = EnvLock::new();
-        lock.lock("");
+        let _lock = EnvLock::lock("CXX", "");
         let result = Compiler::new();
         assert_eq!(
             result.unwrap_err().to_string(),
@@ -184,14 +157,13 @@ mod tests {
 
     #[test]
     fn evaluate_compiler_type_gcc() {
-        let mut lock = EnvLock::new();
         {
-            lock.lock("gcc-9");
+            let _lock = EnvLock::lock("CXX", "gcc-9");
             let compiler = Compiler::new().unwrap();
             assert!(matches!(compiler.compiler_type(), &Type::Gcc));
         }
         {
-            lock.lock("gcc");
+            let _lock = EnvLock::lock("CXX", "gcc");
             let compiler = Compiler::new().unwrap();
             assert!(matches!(compiler.compiler_type(), &Type::Gcc));
         }
@@ -199,14 +171,13 @@ mod tests {
 
     #[test]
     fn evaluate_compiler_type_clang() {
-        let mut lock = EnvLock::new();
         {
-            lock.lock("clang");
+            let _lock = EnvLock::lock("CXX", "clang");
             let compiler = Compiler::new().unwrap();
             assert!(matches!(compiler.compiler_type(), &Type::Clang));
         }
         {
-            lock.lock("clang-14");
+            let _lock = EnvLock::lock("CXX", "clang-14");
             let compiler = Compiler::new().unwrap();
             assert!(matches!(compiler.compiler_type(), &Type::Clang));
         }
@@ -214,9 +185,8 @@ mod tests {
 
     #[test]
     fn try_get_version_clang() {
-        let mut lock = EnvLock::new();
         {
-            lock.lock("clang");
+            let _lock = EnvLock::lock("CXX", "clang");
             let compiler_exe = std::env::var_os("CXX")
                 .map(std::path::PathBuf::from)
                 .unwrap();
@@ -226,7 +196,7 @@ mod tests {
             );
         }
         {
-            lock.lock("clang-14");
+            let _lock = EnvLock::lock("CXX", "clang-14");
             let compiler_exe = std::env::var_os("CXX")
                 .map(std::path::PathBuf::from)
                 .unwrap();
@@ -239,9 +209,8 @@ mod tests {
 
     #[test]
     fn try_get_version_gcc() {
-        let mut lock = EnvLock::new();
         {
-            lock.lock("gcc");
+            let _lock = EnvLock::lock("CXX", "gcc");
             let compiler_exe = std::env::var_os("CXX")
                 .map(std::path::PathBuf::from)
                 .unwrap();

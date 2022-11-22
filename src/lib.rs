@@ -26,11 +26,11 @@ pub const YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV: &str = "YAMBS_BUILD_SYSTEM_EXECUTAB
 pub fn canonicalize_source(
     base_dir: &std::path::Path,
     path: &std::path::Path,
-) -> std::path::PathBuf {
+) -> std::io::Result<std::path::PathBuf> {
     if path == std::path::Path::new(".") {
-        base_dir.to_path_buf()
+        Ok(base_dir.to_path_buf())
     } else {
-        base_dir.join(path).canonicalize().unwrap()
+        base_dir.join(path).canonicalize()
     }
 }
 
@@ -76,34 +76,34 @@ impl YambsEnvironmentVariables {
 
 #[cfg(test)]
 mod tests {
-    pub struct EnvLock {
-        mutex: std::sync::Mutex<()>,
-        env_var: Option<String>,
+    lazy_static::lazy_static! {
+        static ref ENV_LOCK_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    }
+    pub struct EnvLock<'env> {
+        _mutex_guard: std::sync::MutexGuard<'env, ()>,
+        env_var: String,
         old_env_value: Option<String>,
     }
 
-    impl EnvLock {
-        pub fn new() -> Self {
-            Self {
-                mutex: std::sync::Mutex::new(()),
-                env_var: None,
-                old_env_value: None,
-            }
-        }
-        pub fn lock(&mut self, env_var: &str, new_value: &str) {
-            let _lock = self.mutex.lock().unwrap();
-            self.old_env_value = std::env::var(env_var).ok();
-            self.env_var = Some(env_var.to_string());
+    impl<'env> EnvLock<'env> {
+        pub fn lock(env_var: &str, new_value: &str) -> Self {
+            let mutex_guard = ENV_LOCK_MUTEX.lock().unwrap();
+            let old_env_value = std::env::var(env_var).ok();
             std::env::set_var(&env_var, new_value);
+            Self {
+                _mutex_guard: mutex_guard,
+                env_var: env_var.to_string(),
+                old_env_value,
+            }
         }
     }
 
-    impl Drop for EnvLock {
+    impl<'env> Drop for EnvLock<'env> {
         fn drop(&mut self) {
-            if let Some(ref env_var) = self.env_var {
-                if let Some(ref old_env_value) = self.old_env_value {
-                    std::env::set_var(env_var, old_env_value);
-                }
+            if let Some(ref old_env_value) = self.old_env_value {
+                std::env::set_var(&self.env_var, old_env_value);
+            } else {
+                std::env::remove_var(&self.env_var);
             }
         }
     }

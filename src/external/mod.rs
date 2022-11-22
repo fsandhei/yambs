@@ -39,6 +39,14 @@ pub fn dottie(
                             ds.name, top_pretty_name
                         ));
                     }
+                    DependencySource::FromPrebuilt(ref b) => {
+                        data.push_str(&format!(
+                            "\
+                            {:?} -> {:?}\n\
+                            ",
+                            b.name, top_pretty_name
+                        ));
+                    }
                 }
                 dottie(
                     &requirement.to_build_target(registry).unwrap(),
@@ -48,6 +56,7 @@ pub fn dottie(
                 )?;
             }
         }
+        TargetSource::FromPrebuilt(_) => {}
     }
     Ok(())
 }

@@ -5,6 +5,7 @@ use crate::errors;
 use crate::flags::CompilerFlags;
 use crate::manifest;
 use crate::parser;
+use crate::parser::types;
 use crate::targets;
 use crate::YAMBS_MANIFEST_NAME;
 
@@ -22,15 +23,24 @@ pub struct DependencySourceData {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct DependencyPrebuiltData {
+    pub name: String,
+    pub debug_binary_path: std::path::PathBuf,
+    pub release_binary_path: std::path::PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum DependencySource {
     FromSource(DependencySourceData),
+    FromPrebuilt(DependencyPrebuiltData),
 }
 
 impl DependencySource {
     pub fn from_source(&self) -> Option<&DependencySourceData> {
         match self {
             Self::FromSource(s) => Some(s),
+            _ => None,
         }
     }
 }
@@ -52,6 +62,7 @@ impl Dependency {
                     && build_target.library_type()
                         == Some(dependency_source_data.library_type.clone())
             }
+            _ => false,
         })
     }
 }
@@ -64,21 +75,30 @@ pub struct SourceBuildData {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct PrebuiltBuildData {
+    pub debug_binary_path: std::path::PathBuf,
+    pub release_binary_path: std::path::PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum TargetSource {
     FromSource(SourceBuildData),
+    FromPrebuilt(PrebuiltBuildData),
 }
 
 impl TargetSource {
     pub fn from_source(&self) -> Option<&SourceBuildData> {
         match self {
             Self::FromSource(s) => Some(s),
+            _ => None,
         }
     }
 
     pub fn from_source_mut(&mut self) -> Option<&mut SourceBuildData> {
         match self {
             Self::FromSource(s) => Some(s),
+            _ => None,
         }
     }
 }
@@ -93,6 +113,32 @@ pub struct BuildTarget {
 }
 
 impl BuildTarget {
+    pub fn target_node_from_binary(
+        name: &str,
+        binary_data: &types::BinaryData,
+        registry: &mut target_registry::TargetRegistry,
+    ) -> Result<TargetNode, TargetError> {
+        let target_type =
+            TargetType::from_prebuilt(name, &binary_data.debug_path_information.path)?;
+
+        if let Some(existing_node) =
+            registry.get_target_from_predicate(|build_target| match build_target.target_source {
+                TargetSource::FromPrebuilt(ref other_binary_data) => {
+                    (other_binary_data.debug_binary_path == binary_data.debug_path_information.path
+                        && other_binary_data.release_binary_path
+                            == binary_data.release_path_information.path)
+                        && build_target.target_type == target_type
+                }
+                _ => false,
+            })
+        {
+            return Ok(existing_node);
+        }
+
+        let target_node = TargetNode::new(BuildTarget::library_from_prebuilt(name, binary_data)?);
+        Ok(target_node)
+    }
+
     pub fn target_node_from_source(
         manifest_dir_path: &std::path::Path,
         target: &targets::Target,
@@ -106,6 +152,7 @@ impl BuildTarget {
                     source_data.manifest.directory == manifest_dir_path
                         && build_target.target_type == target_type
                 }
+                _ => false,
             })
         {
             return Ok(existing_node);
@@ -137,6 +184,9 @@ impl BuildTarget {
                         s.name,
                         s.manifest.directory.display()
                     );
+                }
+                DependencySource::FromPrebuilt(ref b) => {
+                    log::debug!("Registering prebuilt target \"{}\"", b.name);
                 }
             }
             target_node.borrow_mut().add_target(target);
@@ -184,7 +234,8 @@ impl BuildTarget {
         let source_files = executable.sources.clone();
 
         let mut include_directories =
-            IncludeDirectories::from_dependencies(&executable.dependencies);
+            IncludeDirectories::from_dependencies(&executable.dependencies)
+                .map_err(TargetError::IncludeDirectories)?;
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
             path: manifest_dir_path.to_path_buf().join("include"),
@@ -209,13 +260,46 @@ impl BuildTarget {
         })
     }
 
+    fn library_from_prebuilt(
+        name: &str,
+        binary_data: &types::BinaryData,
+    ) -> Result<Self, TargetError> {
+        let mut include_directories = IncludeDirectories::new();
+        let include_type = match binary_data.search_type {
+            types::IncludeSearchType::Include => include_directories::IncludeType::Include,
+            types::IncludeSearchType::System => include_directories::IncludeType::System,
+        };
+
+        include_directories.add(include_directories::IncludeDirectory {
+            include_type: include_type.clone(),
+            path: binary_data.include_directory.clone(),
+        });
+
+        let target_source = TargetSource::FromPrebuilt(PrebuiltBuildData {
+            debug_binary_path: binary_data.debug_path_information.path.clone(),
+            release_binary_path: binary_data.release_path_information.path.clone(),
+        });
+
+        Ok(Self {
+            target_source,
+            state: TargetState::NotInProcess,
+            target_type: TargetType::from_prebuilt(
+                name,
+                &binary_data.release_path_information.path,
+            )?,
+            include_directories,
+            compiler_flags: CompilerFlags::new(),
+        })
+    }
+
     fn library_from_source(
         manifest_dir_path: &std::path::Path,
         library: &targets::Library,
     ) -> Result<Self, TargetError> {
         let source_files = library.sources.clone();
 
-        let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies);
+        let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies)
+            .map_err(TargetError::IncludeDirectories)?;
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
             path: manifest_dir_path.to_path_buf().join("include"),
@@ -251,62 +335,104 @@ impl BuildTarget {
         );
         let mut target_vec = Vec::new();
         for dependency in target.dependencies() {
-            if let Some((path, _)) = dependency.data.source() {
-                if let Some(registered_dep) = registry.get_target_from_predicate(|build_target| {
-                    match build_target.target_source {
-                        TargetSource::FromSource(ref source_data) => {
-                            source_data.manifest.directory == path
-                                && build_target.name() == dependency.name
-                        }
-                    }
-                }) {
-                    log::debug!("Found registered dependency. Checking for cyclic dependencies");
-                    self.detect_cycle_from_target(&registered_dep)?;
-                    let borrowed_dep = registered_dep.borrow();
-                    let source_data = borrowed_dep.target_source.from_source().unwrap();
-                    let dependency_source = DependencySource::FromSource(DependencySourceData {
-                        name: registered_dep.borrow().name(),
-                        manifest: source_data.manifest.clone(),
-                        library_type: registered_dep.borrow().library_type().ok_or_else(|| {
-                            TargetError::DependencyNotALibrary(registered_dep.borrow().name())
-                        })?,
-                    });
+            match dependency.data {
+                types::DependencyData::Binary(ref dependency_binary_data) => {
+                    let dependency_target = BuildTarget::target_node_from_binary(
+                        &dependency.name,
+                        &dependency_binary_data,
+                        registry,
+                    )?;
+                    let dependency_source =
+                        DependencySource::FromPrebuilt(DependencyPrebuiltData {
+                            name: dependency_target.borrow().name(),
+                            debug_binary_path: dependency_binary_data
+                                .debug_path_information
+                                .path
+                                .clone(),
+                            release_binary_path: dependency_binary_data
+                                .release_path_information
+                                .path
+                                .clone(),
+                        });
                     let dependency = Dependency {
                         source: dependency_source,
                     };
                     target_vec.push(dependency);
-                } else {
-                    log::debug!(
-                        "No registered dependency found. Creating dependency build target."
-                    );
-                    let manifest_path = path.join(YAMBS_MANIFEST_NAME);
-                    let manifest = parser::parse(&manifest_path).map_err(TargetError::Parse)?;
-                    let dep_target = manifest
-                        .data
-                        .targets
-                        .iter()
-                        .find_map(|dep| {
-                            if let Some(lib) = dep.library() {
-                                if lib.name == dependency.name {
-                                    return Some(dep);
+                }
+                types::DependencyData::Source(ref dependency_source_data) => {
+                    if let Some(registered_dep) =
+                        registry.get_target_from_predicate(|build_target| {
+                            match build_target.target_source {
+                                TargetSource::FromSource(ref source_data) => {
+                                    source_data.manifest.directory == dependency_source_data.path
+                                        && build_target.name() == dependency.name
                                 }
+                                _ => false,
                             }
-                            None
                         })
-                        .ok_or_else(|| TargetError::NoLibraryWithName(dependency.name.clone()))?;
-                    let target = BuildTarget::target_node_from_source(&path, dep_target, registry)?;
-                    let borrowed_target = target.borrow();
-                    let source_data = borrowed_target.target_source.from_source().unwrap();
-                    let dependency_source = DependencySource::FromSource(DependencySourceData {
-                        name: target.borrow().name(),
-                        manifest: source_data.manifest.clone(),
-                        library_type: target.borrow().library_type().ok_or_else(|| {
-                            TargetError::DependencyNotALibrary(target.borrow().name())
-                        })?,
-                    });
-                    target_vec.push(Dependency {
-                        source: dependency_source,
-                    });
+                    {
+                        log::debug!(
+                            "Found registered dependency. Checking for cyclic dependencies"
+                        );
+                        self.detect_cycle_from_target(&registered_dep)?;
+                        let borrowed_dep = registered_dep.borrow();
+                        let source_data = borrowed_dep.target_source.from_source().unwrap();
+                        let dependency_source =
+                            DependencySource::FromSource(DependencySourceData {
+                                name: registered_dep.borrow().name(),
+                                manifest: source_data.manifest.clone(),
+                                library_type: registered_dep.borrow().library_type().ok_or_else(
+                                    || {
+                                        TargetError::DependencyNotALibrary(
+                                            registered_dep.borrow().name(),
+                                        )
+                                    },
+                                )?,
+                            });
+                        let dependency = Dependency {
+                            source: dependency_source,
+                        };
+                        target_vec.push(dependency);
+                    } else {
+                        log::debug!(
+                            "No registered dependency found. Creating dependency build target."
+                        );
+                        let manifest_path = dependency_source_data.path.join(YAMBS_MANIFEST_NAME);
+                        let manifest = parser::parse(&manifest_path).map_err(TargetError::Parse)?;
+                        let dep_target = manifest
+                            .data
+                            .targets
+                            .iter()
+                            .find_map(|dep| {
+                                if let Some(lib) = dep.library() {
+                                    if lib.name == dependency.name {
+                                        return Some(dep);
+                                    }
+                                }
+                                None
+                            })
+                            .ok_or_else(|| {
+                                TargetError::NoLibraryWithName(dependency.name.clone())
+                            })?;
+                        let target = BuildTarget::target_node_from_source(
+                            &dependency_source_data.path,
+                            dep_target,
+                            registry,
+                        )?;
+                        let borrowed_target = target.borrow();
+                        let source_data = borrowed_target.target_source.from_source().unwrap();
+                        let dependency_source =
+                            DependencySource::FromSource(DependencySourceData {
+                                name: target.borrow().name(),
+                                manifest: source_data.manifest.clone(),
+                                library_type: target.borrow().library_type().ok_or_else(|| {
+                                    TargetError::DependencyNotALibrary(target.borrow().name())
+                                })?,
+                            });
+                        target_vec.push(Dependency {
+                            source: dependency_source,
+                        });
+                    }
                 }
             }
         }
@@ -374,10 +500,19 @@ impl TargetType {
     pub fn from_library(library: &targets::Library) -> TargetType {
         let lib_type = &library.lib_type;
         let library_name = match lib_type {
-            targets::LibraryType::Dynamic => format!("lib{}.so", library.name),
-            targets::LibraryType::Static => format!("lib{}.a", library.name),
+            types::LibraryType::Dynamic => format!("lib{}.so", library.name),
+            types::LibraryType::Static => format!("lib{}.a", library.name),
         };
         TargetType::Library(LibraryType::from(lib_type), library_name)
+    }
+
+    pub fn from_prebuilt(name: &str, binary: &std::path::Path) -> Result<TargetType, TargetError> {
+        let extension = binary.extension().and_then(std::ffi::OsStr::to_str);
+        match extension {
+            Some("a") => Ok(TargetType::Library(LibraryType::Static, name.to_string())),
+            Some("so") => Ok(TargetType::Library(LibraryType::Dynamic, name.to_string())),
+            _ => Err(TargetError::DependencyNotALibrary(name.to_string())),
+        }
     }
 }
 
@@ -388,10 +523,10 @@ pub enum LibraryType {
 }
 
 impl LibraryType {
-    pub fn from(lib_type: &targets::LibraryType) -> Self {
+    pub fn from(lib_type: &types::LibraryType) -> Self {
         match lib_type {
-            &targets::LibraryType::Dynamic => LibraryType::Dynamic,
-            &targets::LibraryType::Static => LibraryType::Static,
+            &types::LibraryType::Dynamic => LibraryType::Dynamic,
+            &types::LibraryType::Static => LibraryType::Static,
         }
     }
 }
@@ -434,6 +569,8 @@ pub enum TargetError {
     NoLibraryWithName(String),
     #[error("Dependency \"{0}\" parsed is not a library, but an executable")]
     DependencyNotALibrary(String),
+    #[error("Error occured when parsing include directories")]
+    IncludeDirectories(#[source] include_directories::IncludeDirectoriesError),
 }
 
 #[cfg(test)]
@@ -519,9 +656,12 @@ mod tests {
                     ));
                 }
             }
+            let include_directory = manifest_dir.join("include");
+            std::fs::create_dir(&include_directory).unwrap();
             StubProject {
                 targets: self.targets,
                 manifest: StubManifest::new(manifest_dir, &manifest_data),
+                _include_directory: include_directory,
             }
         }
     }
@@ -529,6 +669,7 @@ mod tests {
     struct StubProject {
         pub targets: Vec<StubTarget>,
         pub manifest: StubManifest,
+        pub _include_directory: std::path::PathBuf,
     }
 
     impl StubProject {
@@ -569,6 +710,8 @@ mod tests {
         }
     }
 
+    // FIXME: Refactor tests so we can use less lines!
+
     #[test]
     fn can_create_build_target_from_executable() {
         let fixture = TestFixture::new();
@@ -594,7 +737,7 @@ mod tests {
         let stub_manifest = stub_project.manifest;
         let manifest = stub_manifest.manifest;
         let mut include_directories =
-            IncludeDirectories::from_dependencies(&executable.dependencies);
+            IncludeDirectories::from_dependencies(&executable.dependencies).unwrap();
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
             path: manifest.directory.join("include"),
@@ -616,6 +759,7 @@ mod tests {
         let actual = BuildTarget::executable_from_source(&manifest.directory, executable).unwrap();
         assert_eq!(actual, expected);
     }
+
     #[test]
     fn can_create_build_target_from_static_library() {
         let fixture = TestFixture::new();
@@ -631,7 +775,7 @@ mod tests {
                 ],
                 dependencies: Vec::new(),
                 compiler_flags: None,
-                lib_type: targets::LibraryType::Static,
+                lib_type: types::LibraryType::Static,
             }))
             .create(manifest_dir);
         let library_target = stub_project
@@ -645,7 +789,8 @@ mod tests {
         let stub_manifest = stub_project.manifest;
         let manifest = stub_manifest.manifest;
 
-        let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies);
+        let mut include_directories =
+            IncludeDirectories::from_dependencies(&library.dependencies).unwrap();
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
             path: manifest.directory.join("include"),
@@ -683,7 +828,7 @@ mod tests {
                 ],
                 dependencies: Vec::new(),
                 compiler_flags: None,
-                lib_type: targets::LibraryType::Dynamic,
+                lib_type: types::LibraryType::Dynamic,
             }))
             .create(manifest_dir);
         let library_target = stub_project
@@ -697,7 +842,8 @@ mod tests {
         let stub_manifest = stub_project.manifest;
         let manifest = stub_manifest.manifest;
 
-        let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies);
+        let mut include_directories =
+            IncludeDirectories::from_dependencies(&library.dependencies).unwrap();
         include_directories.add(include_directories::IncludeDirectory {
             include_type: include_directories::IncludeType::Include,
             path: manifest.directory.join("include"),
@@ -747,7 +893,7 @@ mod tests {
                         .join(std::path::PathBuf::from("a.cpp")),
                 ],
                 compiler_flags: None,
-                lib_type: targets::LibraryType::Static,
+                lib_type: types::LibraryType::Static,
                 dependencies: vec![],
             }))
             .create(dep_manifest_dir.path());
@@ -770,14 +916,15 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 compiler_flags: None,
-                dependencies: vec![targets::Dependency::new(
+                dependencies: vec![targets::Dependency::from_source(
                     &dependency_library.name,
-                    &targets::DependencyData::Source {
+                    &types::SourceData {
                         path: dep_manifest_dir.path().to_path_buf(),
-                        origin: targets::IncludeSearchType::Include,
+                        origin: types::IncludeSearchType::Include,
                     },
                     dep_manifest_dir.path(),
-                )],
+                )
+                .unwrap()],
             }))
             .create(manifest_dir);
 
@@ -818,6 +965,7 @@ mod tests {
         let manifest_dir = fixture.dir.path();
 
         let dep_manifest_dir = tempdir::TempDir::new("dependency").unwrap();
+
         let dep_stub_project = StubProject::builder()
             .with_target(StubTarget::library(targets::Library {
                 name: "DependencyLibrary".to_string(),
@@ -836,7 +984,7 @@ mod tests {
                         .join(std::path::PathBuf::from("a.cpp")),
                 ],
                 compiler_flags: None,
-                lib_type: targets::LibraryType::Static,
+                lib_type: types::LibraryType::Static,
                 dependencies: vec![],
             }))
             .create(dep_manifest_dir.path());
@@ -860,7 +1008,7 @@ mod tests {
                         .join(std::path::PathBuf::from("a.cpp")),
                 ],
                 compiler_flags: None,
-                lib_type: targets::LibraryType::Static,
+                lib_type: types::LibraryType::Static,
                 dependencies: vec![],
             }))
             .create(second_dep_manifest_dir.path());
@@ -892,22 +1040,24 @@ mod tests {
                 ],
                 compiler_flags: None,
                 dependencies: vec![
-                    targets::Dependency::new(
+                    targets::Dependency::from_source(
                         &second_dependency_library.name,
-                        &targets::DependencyData::Source {
+                        &types::SourceData {
                             path: second_dep_manifest_dir.path().to_path_buf(),
-                            origin: targets::IncludeSearchType::Include,
+                            origin: types::IncludeSearchType::Include,
                         },
                         second_dep_manifest_dir.path(),
-                    ),
-                    targets::Dependency::new(
+                    )
+                    .unwrap(),
+                    targets::Dependency::from_source(
                         &dependency_library.name,
-                        &targets::DependencyData::Source {
+                        &types::SourceData {
                             path: dep_manifest_dir.path().to_path_buf(),
-                            origin: targets::IncludeSearchType::Include,
+                            origin: types::IncludeSearchType::Include,
                         },
                         dep_manifest_dir.path(),
-                    ),
+                    )
+                    .unwrap(),
                 ],
             }))
             .create(manifest_dir);
@@ -987,7 +1137,7 @@ mod tests {
                         .join(std::path::PathBuf::from("a.cpp")),
                 ],
                 compiler_flags: None,
-                lib_type: targets::LibraryType::Static,
+                lib_type: types::LibraryType::Static,
                 dependencies: vec![],
             }))
             .create(dep_manifest_dir.path());
@@ -1010,14 +1160,15 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 compiler_flags: None,
-                dependencies: vec![targets::Dependency::new(
+                dependencies: vec![targets::Dependency::from_source(
                     &dependency_library.name,
-                    &targets::DependencyData::Source {
+                    &types::SourceData {
                         path: dep_manifest_dir.path().to_path_buf(),
-                        origin: targets::IncludeSearchType::Include,
+                        origin: types::IncludeSearchType::Include,
                     },
                     dep_manifest_dir.path(),
-                )],
+                )
+                .unwrap()],
             }))
             .create(manifest_dir);
 
@@ -1071,14 +1222,15 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 compiler_flags: None,
-                dependencies: vec![targets::Dependency::new(
+                dependencies: vec![targets::Dependency::from_source(
                     "DependencyLibraryButExecutable",
-                    &targets::DependencyData::Source {
+                    &types::SourceData {
                         path: dep_manifest_dir.path().to_path_buf(),
-                        origin: targets::IncludeSearchType::Include,
+                        origin: types::IncludeSearchType::Include,
                     },
                     dep_manifest_dir.path(),
-                )],
+                )
+                .unwrap()],
             }))
             .create(manifest_dir);
 

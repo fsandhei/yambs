@@ -33,11 +33,13 @@ impl ExecutableTargetFactory {
         output_directory: &std::path::Path,
         build_type: &configurations::BuildType,
     ) -> String {
+        let target_name = target.borrow().name();
         format!("\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
-                    target_name = target.borrow().name(),
+                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
+                    target_name = target_name,
+                    target_name_capitalized = target_name.to_uppercase(),
                     prerequisites = generate_prerequisites(target, output_directory, build_type),
                     dependencies = generate_search_directories(target),
             )
@@ -67,8 +69,9 @@ impl LibraryTargetFactory {
                 "\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
+                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
                     target_name = library_name,
+                    target_name_capitalized = library_name.to_uppercase(),
                     prerequisites = generate_prerequisites(target, output_directory, build_type),
                     dependencies = generate_search_directories(target),
             ),
@@ -102,20 +105,6 @@ impl TargetRuleFactory {
         }
     }
 }
-// TODO: Add implementation existing in BuildType::from_library here.
-fn library_name_from_target_type(target_type: &TargetType) -> String {
-    match target_type {
-        TargetType::Executable(_) => panic!("Not a library"),
-        TargetType::Library(lib_type, name) => match lib_type {
-            build_target::LibraryType::Dynamic => {
-                format!("lib{}.{}", name, SHARED_LIBRARY_FILE_EXTENSION)
-            }
-            build_target::LibraryType::Static => {
-                format!("lib{}.{}", name, STATIC_LIBRARY_FILE_EXTENSION)
-            }
-        },
-    }
-}
 
 fn library_name_from_dependency_source_data(
     dependency_source_data: &build_target::DependencySourceData,
@@ -129,6 +118,20 @@ fn library_name_from_dependency_source_data(
             "lib{}.{}",
             dependency_source_data.name, STATIC_LIBRARY_FILE_EXTENSION
         ),
+    }
+}
+
+fn library_name_from_target_type(target_type: &TargetType) -> String {
+    match target_type {
+        TargetType::Executable(_) => panic!("Not a library"),
+        TargetType::Library(lib_type, name) => match lib_type {
+            build_target::LibraryType::Dynamic => {
+                format!("lib{}.{}", name, SHARED_LIBRARY_FILE_EXTENSION)
+            }
+            build_target::LibraryType::Static => {
+                format!("lib{}.{}", name, STATIC_LIBRARY_FILE_EXTENSION)
+            }
+        },
     }
 }
 
@@ -187,6 +190,41 @@ fn generate_prerequisites(
     formatted_string
 }
 
+fn generate_compiler_flags_for_target(target: &TargetNode, makefile_writer: &mut Writer) {
+    let borrowed_target = target.borrow();
+    let target_name = borrowed_target.name();
+    let target_name_capitalized = target_name.to_uppercase();
+    let cxx_flags = &borrowed_target.compiler_flags.cxx_flags;
+
+    makefile_writer.data.push_str(&indoc::formatdoc!(
+        "# CXXFLAGS for target \"{target_name}\"
+    {target_name_capitalized}_CXXFLAGS +="
+    ));
+
+    if let Some(cxx) = cxx_flags {
+        makefile_writer.data.push_str(&indoc::formatdoc!(
+            "{cxx_flags}",
+            cxx_flags = cxx.flags().join(" ")
+        ));
+    }
+    makefile_writer.data.push('\n');
+    makefile_writer.data.push('\n');
+
+    let cpp_flags = &borrowed_target.compiler_flags.cpp_flags;
+    makefile_writer.data.push_str(&indoc::formatdoc!(
+        "# CPPFLAGS for target \"{target_name}\"
+    {target_name_capitalized}_CPPFLAGS +="
+    ));
+
+    if let Some(cpp) = cpp_flags {
+        makefile_writer.data.push_str(&indoc::formatdoc!(
+            "{cpp_flags}",
+            cpp_flags = cpp.flags().join(" ")
+        ));
+    }
+    makefile_writer.data.push('\n');
+}
+
 fn generate_search_directories(target: &TargetNode) -> String {
     let borrowed_target = target.borrow();
     let mut formatted_string = String::new();
@@ -231,9 +269,10 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
     formatted_string.push_str(&object_target.source.display().to_string());
     formatted_string.push('\n');
     formatted_string.push_str(&format!(
-        "\t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) \
+        "\t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target}_CXXFLAGS) $({target}_CPPFLAGS) \
          $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
         dependencies = generate_include_directories(&object_target.include_directories),
+        target = object_target.target.to_uppercase(),
     ));
     formatted_string
 }
@@ -279,7 +318,7 @@ impl MakefileGenerator {
             targets: Vec::new(),
         };
 
-        let mut target_all = generator::targets::Target {
+        let mut target_all = generator::targets::ProgressTrackingTarget {
             target: "all".to_string(),
             object_files: Vec::new(),
             dependencies: Vec::new(),
@@ -305,7 +344,7 @@ impl MakefileGenerator {
                 build_target::TargetSource::FromPrebuilt(_) => Vec::new(),
             };
 
-            let target = generator::targets::Target {
+            let target = generator::targets::ProgressTrackingTarget {
                 target: target_name.clone(),
                 object_files: target_object_targets.clone(),
                 dependencies: target_dependencies.clone(),
@@ -327,6 +366,7 @@ impl MakefileGenerator {
             .iter()
             .filter(|file| file.is_source());
         let dependency_root_path = &source_data.manifest.directory;
+        let target_name = borrowed_target.name();
 
         for source in sources {
             let source_file = source.file();
@@ -348,6 +388,7 @@ impl MakefileGenerator {
             }
             .with_extension("o");
             let object_target = ObjectTarget {
+                target: target_name.clone(),
                 object,
                 source: source_file,
                 include_directories: borrowed_target.include_directories.clone(),
@@ -450,6 +491,8 @@ impl MakefileGenerator {
         let dependency_target = dependency.to_build_target(registry).unwrap();
 
         if dependency_target.borrow().state != TargetState::BuildFileMade {
+            generate_compiler_flags_for_target(&dependency_target, &mut writers.makefile_writer);
+            writers.makefile_writer.data.push('\n');
             let rule = LibraryTargetFactory::create_rule(
                 &dependency_target,
                 &self.output_directory,
@@ -523,7 +566,7 @@ impl MakefileGenerator {
         let data = indoc::formatdoc!(
             "\n
             # Phony for target \"{target_name}\"
-            .PHONY: {target_name}
+            .PHONY: {target_name}\n
         ",
             target_name = target.borrow().name()
         );
@@ -605,6 +648,7 @@ impl MakefileGenerator {
 
     fn generate_rule_declaration_for_target(&self, writers: &mut Writers, target: &TargetNode) {
         self.generate_phony(&mut writers.makefile_writer, target);
+        generate_compiler_flags_for_target(target, &mut writers.makefile_writer);
         let target_rule_declaration = TargetRuleFactory::create_rule(
             target,
             &self.output_directory,
@@ -1196,6 +1240,8 @@ mod tests {
         }
     }
 
+    // FIXME: Add test for generation of dependencies.
+
     #[test]
     fn populate_progress_document_generates_document_with_all_object_files_to_targets() {
         let mut project_fixture = ProjectTestFixture::new();
@@ -1231,12 +1277,12 @@ mod tests {
             .unwrap();
         let expected = generator::targets::ProgressDocument {
             targets: vec![
-                generator::targets::Target {
+                generator::targets::ProgressTrackingTarget {
                     target: "myLib".to_string(),
                     object_files: object_files_paths,
                     dependencies: Vec::new(),
                 },
-                generator::targets::Target {
+                generator::targets::ProgressTrackingTarget {
                     target: "all".to_string(),
                     object_files: Vec::new(),
                     dependencies: vec!["myLib".to_string()],
@@ -1433,21 +1479,22 @@ mod tests {
 
         let actual = TargetRuleFactory::create_rule(&target_node, &build_path, &build_type);
         let expected = indoc::formatdoc!(
-            "
-        {target_name} : \
-            {object_files_string}\n\
-            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)
+                    "\
+                {target_name} : \
+                    {object_files_string}\n\
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)
 
         # Convenience rule for \"{target}\"
         {target}: {target_name}
 
 
 ",
-            target_name = target_name,
-            target = target_node.borrow().name(),
-            object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
-            dependencies = generate_search_directories(&target_node),
-        );
+                    target_name = target_name,
+                    target_name_capitalized = target_name.to_uppercase(),
+                    target = target_node.borrow().name(),
+                    object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+                    dependencies = generate_search_directories(&target_node),
+                );
         assert_eq!(actual, expected);
     }
 
@@ -1483,15 +1530,17 @@ mod tests {
             .add_target(target_node.clone());
 
         let build_type = configurations::BuildType::Debug;
+        let target_name = target_node.borrow().name();
 
         let actual = TargetRuleFactory::create_rule(&target_node, &build_path, &build_type);
         let expected = indoc::formatdoc!(
             "
         {target_name} : \
             {object_files_string}\n\
-            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)
 ",
-            target_name = target_node.borrow().name(),
+            target_name = target_name,
+            target_name_capitalized = target_name.to_uppercase(),
             object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
             dependencies = generate_search_directories(&target_node),
         );
@@ -1538,7 +1587,7 @@ mod tests {
         generator.generate_rule_declaration_for_target(&mut fixture.writers, &target_node);
         let build_type = configurations::BuildType::Debug;
         let actual = fixture.writers.makefile_writer.data;
-
+        let target_name = target_node.borrow().name();
         let expected = indoc::formatdoc!(
             "
 
@@ -1546,14 +1595,21 @@ mod tests {
         # Phony for target \"{target_name}\"
         .PHONY: {target_name}
 
+        # CXXFLAGS for target \"{target_name}\"
+        {target_name_capitalized}_CXXFLAGS +=
+
+        # CPPFLAGS for target \"{target_name}\"
+        {target_name_capitalized}_CPPFLAGS +=
+
         # Rule for target \"{target_name}\"
         {target_name} : \
             {object_files_string}\n\
-            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)
 
 
 ",
-            target_name = target_node.borrow().name(),
+            target_name = target_name,
+            target_name_capitalized = target_name.to_uppercase(),
             object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
             dependencies = generate_search_directories(&target_node),
         );
@@ -1618,12 +1674,13 @@ mod tests {
             # Build rule for {object}
             {object}: \\
             \t{source}\n\
-            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) {dependencies} $< -c -o $@)
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target}_CXXFLAGS) $({target}_CPPFLAGS) $(WARNINGS) {dependencies} $< -c -o $@)
 
 
 ",
                     object = object.display(),
                     source = object_target.source.display(),
+                    target = object_target.target.to_uppercase(),
                     dependencies = generate_search_directories(&target_node),
                 ));
             }
@@ -1699,6 +1756,7 @@ mod tests {
         };
 
         let build_type = configurations::BuildType::Debug;
+        let target_name = target_node.borrow().name();
 
         let expected = indoc::formatdoc!(
             "\
@@ -1722,16 +1780,24 @@ mod tests {
         # Phony for target \"{target_name}\"
         .PHONY: {target_name}
 
+        # CXXFLAGS for target \"{target_name}\"
+        {target_name_capitalized}_CXXFLAGS +=
+
+        # CPPFLAGS for target \"{target_name}\"
+        {target_name_capitalized}_CPPFLAGS +=
+
         # Rule for target \"{target_name}\"
         {target_name} : \
             {object_files_string}\n\
-            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)
+            \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) \
+            $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)
 
         {object_target_rules}
         {depends_rules}
 ",
             build_directory = generator.build_directory.as_path().display(),
-            target_name = target_node.borrow().name(),
+            target_name = target_name,
+            target_name_capitalized = target_name.to_uppercase(),
             object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
             dependencies = generate_search_directories(&target_node),
             object_target_rules = object_target_rules,

@@ -55,7 +55,7 @@ impl Progress {
     }
 
     fn object_files_from_target(
-        targets: &[generator::targets::Target],
+        targets: &[generator::targets::ProgressTrackingTarget],
         target: &str,
     ) -> Vec<std::path::PathBuf> {
         let progress_target = targets.iter().find(|t| t.target == target).unwrap();

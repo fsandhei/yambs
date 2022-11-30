@@ -36,11 +36,11 @@ pub mod targets {
 
     #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
     pub struct ProgressDocument {
-        pub targets: Vec<Target>,
+        pub targets: Vec<ProgressTrackingTarget>,
     }
 
     #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-    pub struct Target {
+    pub struct ProgressTrackingTarget {
         pub target: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         pub object_files: Vec<std::path::PathBuf>,
@@ -50,6 +50,7 @@ pub mod targets {
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
     pub struct ObjectTarget {
+        pub target: String,
         pub object: std::path::PathBuf,
         pub source: std::path::PathBuf,
         pub include_directories: IncludeDirectories,

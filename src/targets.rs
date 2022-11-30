@@ -36,7 +36,7 @@ pub struct Executable {
     pub name: String,
     pub sources: Vec<std::path::PathBuf>,
     pub dependencies: Vec<Dependency>,
-    pub compiler_flags: Option<CompilerFlags>,
+    pub compiler_flags: CompilerFlags,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
@@ -44,7 +44,7 @@ pub struct Library {
     pub name: String,
     pub sources: Vec<std::path::PathBuf>,
     pub dependencies: Vec<Dependency>,
-    pub compiler_flags: Option<CompilerFlags>,
+    pub compiler_flags: CompilerFlags,
     pub lib_type: types::LibraryType,
 }
 

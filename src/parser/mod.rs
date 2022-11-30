@@ -50,6 +50,7 @@ pub enum ParseTomlError {
 mod tests {
 
     use super::*;
+    use crate::flags::CompilerFlags;
     use crate::manifest::ManifestData;
     use crate::targets::{Dependency, Executable, Library, Target};
     use types::{
@@ -99,7 +100,48 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
+            };
+            let expected = ManifestData {
+                targets: vec![Target::Executable(executable)],
+            };
+            assert_eq!(manifest, expected);
+        }
+    }
+
+    #[test]
+    fn parse_produces_manifest_with_executable_with_custom_cxxflags() {
+        let fixture = TestFixture::new();
+        let manifest_dir = fixture.tempdir.path().to_path_buf();
+
+        fixture.create_dummy_file(&std::path::PathBuf::from("main.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("x.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
+
+        let input = r#"
+    [executable.x]
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
+    cxxflags_append = ["-g", "-O2"]
+    "#;
+        {
+            let manifest = parse_toml(input, &manifest_dir).unwrap();
+            let executable = Executable {
+                name: "x".to_string(),
+                sources: vec![
+                    manifest_dir.join(std::path::PathBuf::from("x.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("y.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("main.cpp")),
+                ],
+                dependencies: Vec::new(),
+                compiler_flags: crate::flags::CompilerFlags {
+                    cxx_flags: Some(crate::flags::CXXFlags::from_slice(&[
+                        "-g".to_string(),
+                        "-O2".to_string(),
+                    ])),
+                    cpp_flags: None,
+                },
             };
             let expected = ManifestData {
                 targets: vec![Target::Executable(executable)],
@@ -136,7 +178,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
             };
             let executable_y = Executable {
                 name: "y".to_string(),
@@ -147,7 +189,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
                 targets: vec![
@@ -184,7 +226,7 @@ mod tests {
                 manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
             ],
             dependencies: Vec::new(),
-            compiler_flags: None,
+            compiler_flags: CompilerFlags::new(),
             lib_type: LibraryType::default(),
         };
         let expected = ManifestData {
@@ -244,7 +286,7 @@ mod tests {
                     }),
                 },
             ],
-            compiler_flags: None,
+            compiler_flags: CompilerFlags::new(),
             lib_type: LibraryType::default(),
         };
         let expected = ManifestData {
@@ -303,7 +345,7 @@ mod tests {
                         search_type: IncludeSearchType::System,
                     }),
                 }],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 lib_type: LibraryType::default(),
             };
             let expected = ManifestData {
@@ -379,7 +421,7 @@ mod tests {
                         }),
                     },
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 lib_type: LibraryType::default(),
             };
             let expected = ManifestData {

@@ -45,7 +45,7 @@ pub struct RawCommonData {
     #[serde(default)]
     pub dependencies: std::collections::BTreeMap<String, DependencyData>,
     #[serde(flatten)]
-    pub compiler_flags: Option<CompilerFlags>,
+    pub compiler_flags: CompilerFlags,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]

@@ -253,10 +253,7 @@ impl BuildTarget {
             state: TargetState::NotInProcess,
             target_type: TargetType::Executable(executable.name.to_string()),
             include_directories,
-            compiler_flags: executable
-                .compiler_flags
-                .clone()
-                .unwrap_or(CompilerFlags::new()),
+            compiler_flags: executable.compiler_flags.clone(),
         })
     }
 
@@ -317,10 +314,7 @@ impl BuildTarget {
             state: TargetState::NotInProcess,
             target_type: TargetType::from_library(library),
             include_directories,
-            compiler_flags: library
-                .compiler_flags
-                .clone()
-                .unwrap_or(CompilerFlags::new()),
+            compiler_flags: library.compiler_flags.clone(),
         })
     }
 
@@ -724,7 +718,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
             }))
             .create(fixture.dir.path());
         let executable_target = stub_project
@@ -772,7 +766,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
             }))
             .create(manifest_dir);
@@ -825,7 +819,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Dynamic,
             }))
             .create(manifest_dir);
@@ -887,7 +881,7 @@ mod tests {
                         .path()
                         .join(std::path::PathBuf::from("a.cpp")),
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
                 dependencies: vec![],
             }))
@@ -910,7 +904,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 dependencies: vec![targets::Dependency::from_source(
                     &dependency_library.name,
                     &types::SourceData {
@@ -978,7 +972,7 @@ mod tests {
                         .path()
                         .join(std::path::PathBuf::from("a.cpp")),
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
                 dependencies: vec![],
             }))
@@ -1002,7 +996,7 @@ mod tests {
                         .path()
                         .join(std::path::PathBuf::from("a.cpp")),
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
                 dependencies: vec![],
             }))
@@ -1033,7 +1027,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 dependencies: vec![
                     targets::Dependency::from_source(
                         &second_dependency_library.name,
@@ -1131,7 +1125,7 @@ mod tests {
                         .path()
                         .join(std::path::PathBuf::from("a.cpp")),
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
                 dependencies: vec![],
             }))
@@ -1154,7 +1148,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 dependencies: vec![targets::Dependency::from_source(
                     &dependency_library.name,
                     &types::SourceData {
@@ -1202,7 +1196,7 @@ mod tests {
                         .path()
                         .join(std::path::PathBuf::from("a.cpp")),
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 dependencies: vec![],
             }))
             .create(dep_manifest_dir.path());
@@ -1216,7 +1210,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
-                compiler_flags: None,
+                compiler_flags: CompilerFlags::new(),
                 dependencies: vec![targets::Dependency::from_source(
                     "DependencyLibraryButExecutable",
                     &types::SourceData {

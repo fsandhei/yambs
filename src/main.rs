@@ -158,7 +158,7 @@ fn do_build(opts: BuildOpts, output: &Output) -> anyhow::Result<()> {
         }
     }
 
-    build_project(build_manager, output, opts, &logger)?;
+    build_project(build_manager, output, &opts, &logger)?;
     cache.cache(&dependency_registry)?;
     Ok(())
 }
@@ -229,28 +229,31 @@ fn create_dottie_graph(registry: &TargetRegistry, output: &Output) -> anyhow::Re
 fn build_project(
     build_manager: std::sync::Arc<std::sync::RwLock<BuildManager>>,
     output: &Output,
-    opts: BuildOpts,
+    opts: &BuildOpts,
     logger: &logger::Logger,
 ) -> anyhow::Result<()> {
     log::trace!("build_project");
     let output_clone = output.clone();
-    let build_directory = opts.build_directory.clone();
     let bm_clone = build_manager.clone();
+    let mut make_args = opts.make_args.clone();
+    if let Some(ref target) = opts.target {
+        log::debug!("Found specified target. \"{}\" will be built.", target);
+        make_args.push(target.clone());
+    }
+    let target = opts.target.clone();
+
     let make_thread = std::thread::spawn(move || {
-        let mut lock = build_manager.write().unwrap();
-        let build_directory = lock.resolve_build_directory(opts.build_directory.as_path());
-        lock.make_mut()
-            .spawn_with_args(&build_directory, opts.make_args.clone())
-            .unwrap();
-        let process_output = lock.make_mut().wait_with_output(&output_clone);
-        process_output
+        let lock = build_manager.write().unwrap();
+        let mut make = lock.build(make_args)?;
+        let process_output = make.wait_with_output(&output_clone);
+        Ok::<std::process::Output, anyhow::Error>(process_output)
     });
     let progress_path = {
         let read_lock = bm_clone.read().unwrap();
-        read_lock.resolve_build_directory(build_directory.as_path())
+        read_lock.resolve_build_directory(opts.build_directory.as_path())
     };
 
-    let mut progress = progress::Progress::new(&progress_path)?;
+    let mut progress = progress::Progress::new(&progress_path, target)?;
 
     let pb = output::ProgressBar::new(progress.total);
 
@@ -263,7 +266,8 @@ fn build_project(
         joinable = make_thread.is_finished();
     }
 
-    let process_code = make_thread.join().unwrap().status.code();
+    let process_output = make_thread.join().unwrap()?;
+    let process_code = process_output.status.code();
     match process_code {
         Some(0) => {
             let msg = format!("{}", "Build SUCCESS".green());

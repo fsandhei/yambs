@@ -31,7 +31,6 @@ pub enum BuildManagerError {
 
 pub struct BuildManager {
     configuration: configurations::BuildType,
-    make: Make,
     top_build_directory: BuildDirectory,
 }
 
@@ -39,26 +38,24 @@ impl BuildManager {
     pub fn new() -> BuildManager {
         BuildManager {
             configuration: configurations::BuildType::Debug,
-            make: Make::default(),
             top_build_directory: BuildDirectory::default(),
         }
     }
 
+    pub fn build(&self, args: Vec<String>) -> Result<Make, BuildManagerError> {
+        let mut make = Make::new()?;
+        let makefile_directory = self.resolve_build_directory(self.top_build_directory.as_path());
+        make.spawn_with_args(&makefile_directory, args)?;
+
+        Ok(make)
+    }
+
     pub fn configure(&mut self, opts: &BuildOpts) -> Result<(), BuildManagerError> {
-        self.add_make_flag("-j", &opts.jobs.to_string());
         self.top_build_directory = opts.build_directory.to_owned();
 
         self.use_configuration(&opts.configuration)?;
 
         Ok(())
-    }
-
-    pub fn make(&self) -> &Make {
-        &self.make
-    }
-
-    pub fn make_mut(&mut self) -> &mut Make {
-        &mut self.make
     }
 
     pub fn parse_and_register_dependencies(
@@ -97,10 +94,6 @@ impl BuildManager {
             configurations::BuildType::Debug => path.join("debug"),
             configurations::BuildType::Release => path.join("release"),
         }
-    }
-
-    fn add_make_flag(&mut self, flag: &str, value: &str) {
-        self.make.with_flag(flag, value);
     }
 
     fn use_configuration(

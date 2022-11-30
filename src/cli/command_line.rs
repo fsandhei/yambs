@@ -67,9 +67,6 @@ pub struct BuildOpts {
     /// Set runtime configurations (build configurations, C++ standard, sanitizers, etc)
     #[command(flatten)]
     pub configuration: ConfigurationOpts,
-    /// Set parallelization of builds for Make.
-    #[arg(short = 'j', long = "jobs", default_value = "10")]
-    pub jobs: u8,
     /// Set build directory. Generated output by Yambs will be put here. Defaults to current working directory.
     #[arg(
         long,
@@ -85,6 +82,9 @@ pub struct BuildOpts {
     /// Toggles verbose output.
     #[arg(short = 'v', long = "verbose")]
     pub verbose: bool,
+    /// Specific target to build
+    #[arg(long)]
+    pub target: Option<String>,
     #[arg(hide = true)]
     pub make_args: Vec<String>,
 }
@@ -96,8 +96,8 @@ pub struct ConfigurationOpts {
     pub build_type: configurations::BuildType,
     /// C++ standard to be passed to compiler
     #[arg(default_value_t,
-                long = "std",
-                value_parser = clap::builder::ValueParser::new(configurations::CXXStandard::parse))]
+          long = "std",
+          value_parser = clap::builder::ValueParser::new(configurations::CXXStandard::parse))]
     pub cxx_standard: configurations::CXXStandard,
     /// Enable sanitizers
     #[arg(long = "sanitizer")]
@@ -118,21 +118,13 @@ mod tests {
 
     #[test]
     fn arguments_passed_after_double_hyphen_are_parsed_raw() {
-        let build_args = [
-            "build",
-            "--build-type",
-            "debug",
-            "--",
-            "-j",
-            "10",
-            "-DNDEBUG=1",
-        ];
+        let build_args = ["build", "--build-type", "debug", "--", "-j", "10", "x"];
         let command_line = CommandLine::parse_from(std::iter::once("build").chain(build_args));
         let build_opts = match command_line.subcommand {
             Some(Subcommand::Build(b)) => b,
             _ => panic!("Not build opts"),
         };
-        assert_eq!(build_opts.make_args, vec!["-j", "10", "-DNDEBUG=1"]);
+        assert_eq!(build_opts.make_args, vec!["-j", "10", "x"]);
     }
 
     #[test]

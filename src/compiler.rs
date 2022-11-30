@@ -32,7 +32,10 @@ impl Compiler {
     pub fn evaluate(&self, test_dir: &std::path::Path) -> Result<(), CompilerError> {
         let main_cpp =
             create_sample_cpp_main(test_dir).map_err(CompilerError::FailedToCreateSample)?;
-        self.sample_compile(&main_cpp, test_dir)
+        log::debug!("Running sample build with compiler specified in CXX");
+        self.sample_compile(&main_cpp, test_dir)?;
+        log::debug!("Running sample build with compiler specified in CXX... OK");
+        Ok(())
     }
 
     pub fn compiler_type(&self) -> &Type {

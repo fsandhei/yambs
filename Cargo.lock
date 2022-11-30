@@ -347,6 +347,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_cpus"
+version = "1.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6058e64324c71e02bc2b150e4f3bc8286db6c83092132ffa3f6b1eab0f9def5"
+dependencies = [
+ "hermit-abi",
+ "libc",
+]
+
+[[package]]
 name = "number_prefix"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -879,6 +889,7 @@ dependencies = [
  "lazy_static",
  "log",
  "log4rs",
+ "num_cpus",
  "pretty_assertions",
  "regex",
  "semver",

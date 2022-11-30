@@ -499,13 +499,11 @@ impl TargetType {
 
     pub fn from_library(library: &targets::Library) -> TargetType {
         let lib_type = &library.lib_type;
-        let library_name = match lib_type {
-            types::LibraryType::Dynamic => format!("lib{}.so", library.name),
-            types::LibraryType::Static => format!("lib{}.a", library.name),
-        };
-        TargetType::Library(LibraryType::from(lib_type), library_name)
+        TargetType::Library(LibraryType::from(lib_type), library.name.clone())
     }
 
+    // FIXME: For now this works for Linux, but if we're going to support other OS
+    // we need to have abstraction.
     pub fn from_prebuilt(name: &str, binary: &std::path::Path) -> Result<TargetType, TargetError> {
         let extension = binary.extension().and_then(std::ffi::OsStr::to_str);
         match extension {
@@ -805,7 +803,7 @@ mod tests {
         let expected = BuildTarget {
             target_source,
             state: TargetState::NotInProcess,
-            target_type: TargetType::Library(LibraryType::Static, "libMyLibraryData.a".to_string()),
+            target_type: TargetType::Library(LibraryType::Static, "MyLibraryData".to_string()),
             include_directories,
             compiler_flags: CompilerFlags::new(),
         };
@@ -858,10 +856,7 @@ mod tests {
         let expected = BuildTarget {
             target_source,
             state: TargetState::NotInProcess,
-            target_type: TargetType::Library(
-                LibraryType::Dynamic,
-                "libMyLibraryData.so".to_string(),
-            ),
+            target_type: TargetType::Library(LibraryType::Dynamic, "MyLibraryData".to_string()),
             include_directories,
             compiler_flags: CompilerFlags::new(),
         };

@@ -1,43 +1,44 @@
-use std::io::Read;
+use crate::generator;
+
+pub const PROGRESS_FILE_NAME: &str = "progress.json";
 
 #[derive(Debug)]
 pub struct Progress {
     pub total: u64,
     pub current: u64,
-    pub fh: std::fs::File,
     pub targets_to_build: Vec<std::path::PathBuf>,
 }
 
 impl Progress {
-    pub fn new(path: &std::path::Path) -> std::io::Result<Self> {
-        let progress_file = path.join("progress.txt");
+    pub fn new(path: &std::path::Path, target: Option<String>) -> std::io::Result<Self> {
+        let progress_file = path.join(PROGRESS_FILE_NAME);
 
-        let mut fh = std::fs::File::open(&progress_file)?;
-        let mut buffer = Vec::new();
+        let fh = std::fs::File::open(&progress_file)?;
+        let reader = std::io::BufReader::new(fh);
 
-        fh.read_to_end(&mut buffer)?;
+        let progress_document: generator::targets::ProgressDocument =
+            serde_json::from_reader(reader)?;
+        let targets = progress_document.targets;
 
-        let targets = String::from_utf8_lossy(&buffer)
-            .split("\n")
-            .map(|b| b.to_owned())
-            .filter(|b| !b.is_empty())
-            .map(std::path::PathBuf::from)
-            .collect::<Vec<std::path::PathBuf>>();
-        let total_targets = targets.len();
+        let object_files = if let Some(target) = target {
+            Progress::object_files_from_target(&targets, &target)
+        } else {
+            Progress::object_files_from_target(&targets, "all")
+        };
 
-        let mut targets_built = 0;
+        let total = object_files.len() as u64;
 
-        for target in &targets {
-            if target.exists() {
-                targets_built += 1;
+        let mut object_files_built = 0;
+
+        for object_file in &object_files {
+            if object_file.exists() {
+                object_files_built += 1;
             }
         }
-
         Ok(Self {
-            total: total_targets as u64,
-            current: targets_built,
-            fh,
-            targets_to_build: targets.clone(),
+            total,
+            current: object_files_built,
+            targets_to_build: object_files,
         })
     }
 
@@ -51,5 +52,24 @@ impl Progress {
         }
         self.current = targets_built;
         Ok(())
+    }
+
+    fn object_files_from_target(
+        targets: &[generator::targets::Target],
+        target: &str,
+    ) -> Vec<std::path::PathBuf> {
+        let progress_target = targets.iter().find(|t| t.target == target).unwrap();
+        let mut object_files = Vec::<std::path::PathBuf>::new();
+        for dependency in &progress_target.dependencies {
+            let target_dependency = targets.iter().find(|t| t.target == *dependency).unwrap();
+
+            for object_file in &target_dependency.object_files {
+                if !object_files.contains(&object_file) {
+                    object_files.push(object_file.to_owned());
+                }
+            }
+        }
+        object_files.extend_from_slice(&progress_target.object_files);
+        object_files
     }
 }

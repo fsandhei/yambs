@@ -4,18 +4,30 @@ use std::vec::Vec;
 use crate::build_state_machine::filter;
 use crate::errors::FsError;
 use crate::output;
+use crate::YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV;
 
-#[derive(Default)]
+#[derive(Debug)]
 pub struct Make {
     configs: Vec<String>,
+    executable: std::path::PathBuf,
     process: Option<std::process::Child>,
 }
 
 impl Make {
-    pub fn with_flag(&mut self, flag: &str, value: &str) -> &mut Make {
-        self.configs.push(flag.to_string());
-        self.configs.push(value.to_string());
-        self
+    pub fn new() -> Result<Self, FsError> {
+        let jobs = Jobs::default();
+        let configs = vec!["-j".to_string(), jobs.0.to_string()];
+        let executable = std::env::var(YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV)
+            .map(std::path::PathBuf::from)
+            .map_err(|e| {
+                FsError::EnvVariableNotSet(YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV.to_string(), e)
+            })?;
+
+        Ok(Self {
+            configs,
+            executable,
+            process: None,
+        })
     }
 
     fn log(process_output: &std::process::Output, output: &output::Output) -> Result<(), FsError> {
@@ -38,8 +50,13 @@ impl Make {
 
     pub fn spawn(&mut self, makefile_directory: &std::path::Path) -> Result<(), FsError> {
         std::env::set_current_dir(makefile_directory).map_err(FsError::AccessDirectory)?;
-        log::debug!("Running make in directory {}", makefile_directory.display());
-        let child = Command::new("/usr/bin/make")
+        log::debug!(
+            "Running \"{} {}\" in directory {}",
+            self.executable.display(),
+            self.configs.join(" "),
+            makefile_directory.display()
+        );
+        let child = Command::new(&self.executable)
             .args(&self.configs)
             .stderr(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
@@ -69,5 +86,23 @@ impl Make {
     {
         self.configs.extend(args);
         self.spawn(makefile_directory)
+    }
+}
+
+#[derive(Debug)]
+struct Jobs(usize);
+
+impl Jobs {
+    fn calculate_heuristic() -> usize {
+        const HEURISTIC_MULTIPLIER: usize = 2;
+        HEURISTIC_MULTIPLIER * num_cpus::get()
+    }
+}
+
+impl std::default::Default for Jobs {
+    fn default() -> Self {
+        Self {
+            0: Jobs::calculate_heuristic(),
+        }
     }
 }

@@ -34,7 +34,21 @@ pub trait UtilityGenerator<'config> {
 pub mod targets {
     use crate::build_target::include_directories::IncludeDirectories;
 
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+    pub struct ProgressDocument {
+        pub targets: Vec<Target>,
+    }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+    pub struct Target {
+        pub target: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub object_files: Vec<std::path::PathBuf>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub dependencies: Vec<String>,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
     pub struct ObjectTarget {
         pub object: std::path::PathBuf,
         pub source: std::path::PathBuf,

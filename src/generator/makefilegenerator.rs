@@ -1490,7 +1490,7 @@ mod tests {
 
 ",
                     target_name = target_name,
-                    target_name_capitalized = target_name.to_uppercase(),
+                    target_name_capitalized = target_node.borrow().name().to_uppercase(),
                     target = target_node.borrow().name(),
                     object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
                     dependencies = generate_search_directories(&target_node),

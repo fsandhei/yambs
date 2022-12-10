@@ -71,7 +71,7 @@ impl LibraryTargetFactory {
                     {prerequisites}\n\
                     \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
                     target_name = library_name,
-                    target_name_capitalized = library_name.to_uppercase(),
+                    target_name_capitalized = target.borrow().name().to_uppercase(),
                     prerequisites = generate_prerequisites(target, output_directory, build_type),
                     dependencies = generate_search_directories(target),
             ),

@@ -19,6 +19,7 @@ use crate::generator;
 use crate::generator::{
     targets::ObjectTarget, Generator, GeneratorError, Sanitizer, UtilityGenerator,
 };
+use crate::parser::types;
 use crate::progress;
 use crate::utility;
 
@@ -222,6 +223,14 @@ fn generate_compiler_flags_for_target(target: &TargetNode, makefile_writer: &mut
             cpp_flags = cpp.flags().join(" ")
         ));
     }
+
+    let defines = match borrowed_target.target_source {
+        build_target::TargetSource::FromSource(ref s) => generate_defines(&s.defines),
+        _ => "".to_string(),
+    };
+
+    makefile_writer.data.push_str(&defines);
+
     makefile_writer.data.push('\n');
 }
 
@@ -240,6 +249,19 @@ fn generate_search_directories(target: &TargetNode) -> String {
         _ => {}
     };
     formatted_string.trim_end().to_string()
+}
+
+fn generate_defines(defines: &[types::Define]) -> String {
+    defines
+        .iter()
+        .map(|d| {
+            if let Some(ref value) = d.value {
+                format!(" -D{}={}", d.macro_, value)
+            } else {
+                format!(" -D{}", d.macro_,)
+            }
+        })
+        .collect::<String>()
 }
 
 fn generate_include_directories(
@@ -1217,6 +1239,7 @@ mod tests {
             manifest: manifest.manifest,
             dependencies,
             source_files: source_files.clone(),
+            defines: Vec::new(),
         })
     }
 
@@ -1398,6 +1421,7 @@ mod tests {
             manifest: manifest.manifest,
             dependencies,
             source_files: source_files.clone(),
+            defines: Vec::new(),
         });
 
         let mut include_directories = build_target::include_directories::IncludeDirectories::new();
@@ -1455,6 +1479,7 @@ mod tests {
             manifest: manifest.manifest,
             dependencies,
             source_files: source_files.clone(),
+            defines: Vec::new(),
         });
 
         let mut include_directories = build_target::include_directories::IncludeDirectories::new();
@@ -1514,6 +1539,7 @@ mod tests {
             manifest: manifest.manifest,
             dependencies,
             source_files: source_files.clone(),
+            defines: Vec::new(),
         });
 
         let mut include_directories = build_target::include_directories::IncludeDirectories::new();
@@ -1569,6 +1595,7 @@ mod tests {
             manifest: manifest.manifest,
             dependencies,
             source_files: source_files.clone(),
+            defines: Vec::new(),
         });
 
         let mut include_directories = build_target::include_directories::IncludeDirectories::new();
@@ -1640,6 +1667,7 @@ mod tests {
             manifest: manifest.manifest,
             dependencies,
             source_files: source_files.clone(),
+            defines: Vec::new(),
         });
 
         let mut include_directories = build_target::include_directories::IncludeDirectories::new();
@@ -1714,6 +1742,7 @@ mod tests {
             manifest: manifest.manifest,
             dependencies,
             source_files: source_files.clone(),
+            defines: Vec::new(),
         });
 
         let mut include_directories = build_target::include_directories::IncludeDirectories::new();

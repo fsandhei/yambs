@@ -85,6 +85,7 @@ impl ManifestData {
                         sources: canonicalized_sources,
                         dependencies: parsed_dependencies,
                         compiler_flags: data.common_raw.compiler_flags,
+                        defines: data.common_raw.defines,
                     });
                     target_executables.push(target_executable);
                 }
@@ -125,6 +126,7 @@ impl ManifestData {
                         dependencies: parsed_dependencies,
                         compiler_flags: data.common_raw.compiler_flags,
                         lib_type: data.lib_type,
+                        defines: data.common_raw.defines,
                     });
                     target_libraries.push(target_library);
                 }

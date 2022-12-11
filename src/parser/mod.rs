@@ -100,6 +100,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
+                defines: Vec::new(),
                 compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
@@ -135,6 +136,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
+                defines: Vec::new(),
                 compiler_flags: crate::flags::CompilerFlags {
                     cxx_flags: Some(crate::flags::CXXFlags::from_slice(&[
                         "-g".to_string(),
@@ -178,6 +180,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
+                defines: Vec::new(),
                 compiler_flags: CompilerFlags::new(),
             };
             let executable_y = Executable {
@@ -189,6 +192,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
+                defines: Vec::new(),
                 compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
@@ -226,6 +230,7 @@ mod tests {
                 manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
             ],
             dependencies: Vec::new(),
+            defines: Vec::new(),
             compiler_flags: CompilerFlags::new(),
             lib_type: LibraryType::default(),
         };
@@ -286,6 +291,7 @@ mod tests {
                     }),
                 },
             ],
+            defines: Vec::new(),
             compiler_flags: CompilerFlags::new(),
             lib_type: LibraryType::default(),
         };
@@ -345,6 +351,7 @@ mod tests {
                         search_type: IncludeSearchType::System,
                     }),
                 }],
+                defines: Vec::new(),
                 compiler_flags: CompilerFlags::new(),
                 lib_type: LibraryType::default(),
             };
@@ -421,6 +428,7 @@ mod tests {
                         }),
                     },
                 ],
+                defines: Vec::new(),
                 compiler_flags: CompilerFlags::new(),
                 lib_type: LibraryType::default(),
             };

@@ -72,6 +72,7 @@ pub struct SourceBuildData {
     pub manifest: manifest::Manifest,
     pub dependencies: Vec<Dependency>,
     pub source_files: SourceFiles,
+    pub defines: Vec<types::Define>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -246,6 +247,7 @@ impl BuildTarget {
             dependencies: Vec::new(),
             source_files: SourceFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
+            defines: executable.defines.clone(),
         });
 
         Ok(Self {
@@ -307,6 +309,7 @@ impl BuildTarget {
             dependencies: Vec::new(),
             source_files: SourceFiles::from_paths(&source_files)
                 .map_err(TargetError::AssociatedFile)?,
+            defines: library.defines.clone(),
         });
 
         Ok(Self {
@@ -718,6 +721,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
+                defines: vec![],
                 compiler_flags: CompilerFlags::new(),
             }))
             .create(fixture.dir.path());
@@ -738,6 +742,7 @@ mod tests {
         let target_source = TargetSource::FromSource(SourceBuildData {
             manifest: manifest.clone(),
             dependencies: Vec::new(),
+            defines: vec![],
             source_files: SourceFiles::from_paths(&executable.sources.clone()).unwrap(),
         });
 
@@ -766,6 +771,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
+                defines: vec![],
                 compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
             }))
@@ -792,6 +798,7 @@ mod tests {
             manifest: manifest.clone(),
             dependencies: Vec::new(),
             source_files: SourceFiles::from_paths(&library.sources.clone()).unwrap(),
+            defines: vec![],
         });
 
         let expected = BuildTarget {
@@ -819,6 +826,7 @@ mod tests {
                     manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
+                defines: vec![],
                 compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Dynamic,
             }))
@@ -845,6 +853,7 @@ mod tests {
             manifest: manifest.clone(),
             dependencies: Vec::new(),
             source_files: SourceFiles::from_paths(&library.sources.clone()).unwrap(),
+            defines: vec![],
         });
 
         let expected = BuildTarget {
@@ -884,6 +893,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
                 dependencies: vec![],
+                defines: vec![],
             }))
             .create(dep_manifest_dir.path());
 
@@ -914,6 +924,7 @@ mod tests {
                     dep_manifest_dir.path(),
                 )
                 .unwrap()],
+                defines: vec![],
             }))
             .create(manifest_dir);
 
@@ -975,6 +986,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
                 dependencies: vec![],
+                defines: vec![],
             }))
             .create(dep_manifest_dir.path());
 
@@ -999,6 +1011,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
                 dependencies: vec![],
+                defines: vec![],
             }))
             .create(second_dep_manifest_dir.path());
 
@@ -1048,6 +1061,7 @@ mod tests {
                     )
                     .unwrap(),
                 ],
+                defines: vec![],
             }))
             .create(manifest_dir);
 
@@ -1128,6 +1142,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
                 lib_type: types::LibraryType::Static,
                 dependencies: vec![],
+                defines: vec![],
             }))
             .create(dep_manifest_dir.path());
 
@@ -1158,6 +1173,7 @@ mod tests {
                     dep_manifest_dir.path(),
                 )
                 .unwrap()],
+                defines: vec![],
             }))
             .create(manifest_dir);
 
@@ -1198,6 +1214,7 @@ mod tests {
                 ],
                 compiler_flags: CompilerFlags::new(),
                 dependencies: vec![],
+                defines: vec![],
             }))
             .create(dep_manifest_dir.path());
 
@@ -1220,6 +1237,7 @@ mod tests {
                     dep_manifest_dir.path(),
                 )
                 .unwrap()],
+                defines: vec![],
             }))
             .create(manifest_dir);
 

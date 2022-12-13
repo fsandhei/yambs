@@ -4,25 +4,33 @@ use std::vec::Vec;
 use crate::build_state_machine::filter;
 use crate::errors::FsError;
 use crate::output;
+use crate::YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV;
 
-#[allow(dead_code)]
-#[derive(Default)]
+#[derive(Debug)]
 pub struct Make {
     configs: Vec<String>,
+    executable: std::path::PathBuf,
+    process: Option<std::process::Child>,
 }
 
 impl Make {
-    pub fn with_flag(&mut self, flag: &str, value: &str) -> &mut Make {
-        self.configs.push(flag.to_string());
-        self.configs.push(value.to_string());
-        self
+    pub fn new() -> Result<Self, FsError> {
+        let jobs = Jobs::default();
+        let configs = vec!["-j".to_string(), jobs.0.to_string()];
+        let executable = std::env::var(YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV)
+            .map(std::path::PathBuf::from)
+            .map_err(|e| {
+                FsError::EnvVariableNotSet(YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV.to_string(), e)
+            })?;
+
+        Ok(Self {
+            configs,
+            executable,
+            process: None,
+        })
     }
 
-    fn log(
-        &self,
-        process_output: &std::process::Output,
-        output: &output::Output,
-    ) -> Result<(), FsError> {
+    fn log(process_output: &std::process::Output, output: &output::Output) -> Result<(), FsError> {
         let stderr = String::from_utf8(process_output.stderr.clone()).unwrap();
         let stdout = String::from_utf8(process_output.stdout.clone()).unwrap();
 
@@ -40,45 +48,61 @@ impl Make {
         Ok(())
     }
 
-    pub fn spawn(
-        &self,
-        makefile_directory: &std::path::Path,
-        output: &output::Output,
-    ) -> Result<std::process::Output, FsError> {
+    pub fn spawn(&mut self, makefile_directory: &std::path::Path) -> Result<(), FsError> {
         std::env::set_current_dir(makefile_directory).map_err(FsError::AccessDirectory)?;
-        log::debug!("Running make in directory {}", makefile_directory.display());
-        let spawn = Command::new("/usr/bin/make")
+        log::debug!(
+            "Running \"{} {}\" in directory {}",
+            self.executable.display(),
+            self.configs.join(" "),
+            makefile_directory.display()
+        );
+        let child = Command::new(&self.executable)
             .args(&self.configs)
             .stderr(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
             .spawn()
             .map_err(|_| FsError::Spawn(Command::new("/usr/bin/make")))?;
-        let process_output = spawn.wait_with_output().unwrap();
-        self.log(&process_output, output)?;
-        Ok(process_output)
+        self.process = Some(child);
+        Ok(())
+    }
+
+    pub fn wait_with_output(&mut self, output: &output::Output) -> std::process::Output {
+        if let Some(process) = self.process.take() {
+            let process_output = process.wait_with_output().unwrap();
+            Make::log(&process_output, output).unwrap();
+            process_output
+        } else {
+            panic!("No process to call wait on!");
+        }
     }
 
     pub fn spawn_with_args<I>(
         &mut self,
         makefile_directory: &std::path::Path,
-        output: &output::Output,
         args: I,
-    ) -> Result<std::process::Output, FsError>
+    ) -> Result<(), FsError>
     where
         I: std::iter::IntoIterator<Item = String>,
     {
         self.configs.extend(args);
-        self.spawn(makefile_directory, output)
+        self.spawn(makefile_directory)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn with_flag_test() {
-        let mut make = Make::default();
-        make.with_flag("-j", "10");
-        make.with_flag("-r", "debug");
-        assert_eq!(make.configs, ["-j", "10", "-r", "debug"]);
+#[derive(Debug)]
+struct Jobs(usize);
+
+impl Jobs {
+    fn calculate_heuristic() -> usize {
+        const HEURISTIC_MULTIPLIER: usize = 2;
+        HEURISTIC_MULTIPLIER * num_cpus::get()
+    }
+}
+
+impl std::default::Default for Jobs {
+    fn default() -> Self {
+        Self {
+            0: Jobs::calculate_heuristic(),
+        }
     }
 }

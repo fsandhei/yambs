@@ -1,4 +1,5 @@
 use crate::cache;
+use crate::parser::types;
 use crate::targets;
 use crate::YAMBS_MANIFEST_NAME;
 
@@ -10,10 +11,8 @@ pub struct Manifest {
 
 impl Manifest {
     pub fn new(directory: &std::path::Path) -> Self {
-        let metadata = std::fs::metadata(directory.join(YAMBS_MANIFEST_NAME)).expect(&format!(
-            "Could not fetch metadata from {}",
-            YAMBS_MANIFEST_NAME
-        ));
+        let metadata = std::fs::metadata(directory.join(YAMBS_MANIFEST_NAME))
+            .unwrap_or_else(|_| panic!("Could not fetch metadata from {}", YAMBS_MANIFEST_NAME));
         Self {
             directory: directory.to_path_buf(),
             modification_time: metadata
@@ -39,113 +38,103 @@ pub struct ManifestData {
     pub targets: Vec<targets::Target>,
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct RawManifestData {
-    #[serde(rename = "executable")]
-    pub executables: Option<std::collections::HashMap<String, targets::RawExecutableData>>,
-    #[serde(rename = "library")]
-    pub libraries: Option<std::collections::HashMap<String, targets::RawLibraryData>>,
+#[derive(thiserror::Error, Debug)]
+pub enum ParseManifestError {
+    #[error("Failed to parse dependency")]
+    FailedToParseDependency(#[source] targets::DependencyError),
+    #[error("Failed to canonicalize path")]
+    FailedToCanonicalizePath(#[source] std::io::Error),
 }
 
 impl ManifestData {
-    pub fn from_raw(contents: RawManifestData, manifest_dir: &std::path::Path) -> Self {
+    pub fn from_raw(
+        contents: types::RawManifestData,
+        manifest_dir: &std::path::Path,
+    ) -> Result<Self, ParseManifestError> {
         let mut targets = Vec::<targets::Target>::new();
         let mut executables = {
+            let mut target_executables = Vec::new();
             if let Some(executables) = contents.executables {
-                executables
-                    .into_iter()
-                    .map(|(name, data)| {
-                        let dependencies = data
-                            .common_raw
-                            .dependencies
-                            .iter()
-                            .map(|(name, data)| {
-                                let dependency =
-                                    targets::Dependency::new(&name, data, manifest_dir);
-                                match dependency.data {
-                                    targets::DependencyData::Source {
-                                        ref path,
-                                        ref origin,
-                                    } => {
-                                        log::debug!(
-                                            "Found dependency {} in path {} with origin {:?}",
-                                            dependency.name,
-                                            path.display(),
-                                            origin
-                                        );
-                                    }
-                                }
-                                dependency
-                            })
-                            .collect::<Vec<targets::Dependency>>();
-                        targets::Target::Executable(targets::Executable {
-                            name,
-                            main: crate::canonicalize_source(manifest_dir, &data.common_raw.main),
-                            sources: data
-                                .common_raw
-                                .sources
-                                .iter()
-                                .map(|source| crate::canonicalize_source(manifest_dir, &source))
-                                .collect::<Vec<std::path::PathBuf>>(),
-                            dependencies,
-                            compiler_flags: data.common_raw.compiler_flags,
-                        })
-                    })
-                    .collect::<Vec<targets::Target>>()
-            } else {
-                Vec::new()
+                for executable in executables {
+                    let name = executable.0;
+                    let data = executable.1;
+
+                    let dependencies = data.common_raw.dependencies;
+                    let mut parsed_dependencies = Vec::new();
+                    for dependency in dependencies {
+                        let dep_name = dependency.0;
+                        let dep_data = dependency.1;
+                        let parsed_dependency =
+                            targets::Dependency::new(&dep_name, &dep_data, manifest_dir)
+                                .map_err(ParseManifestError::FailedToParseDependency)?;
+                        parsed_dependencies.push(parsed_dependency);
+                    }
+                    let canonicalized_sources = {
+                        let mut canonicalized_sources = Vec::new();
+                        let sources = data.common_raw.sources;
+                        for source in sources {
+                            let canonicalized_source =
+                                crate::canonicalize_source(manifest_dir, &source)
+                                    .map_err(ParseManifestError::FailedToCanonicalizePath)?;
+                            canonicalized_sources.push(canonicalized_source);
+                        }
+                        Ok(canonicalized_sources)
+                    }?;
+                    let target_executable = targets::Target::Executable(targets::Executable {
+                        name,
+                        sources: canonicalized_sources,
+                        dependencies: parsed_dependencies,
+                        compiler_flags: data.common_raw.compiler_flags,
+                        defines: data.common_raw.defines,
+                    });
+                    target_executables.push(target_executable);
+                }
             }
-        };
+            Ok(target_executables)
+        }?;
         let mut libraries = {
+            let mut target_libraries = Vec::new();
             if let Some(libraries) = contents.libraries {
-                libraries
-                    .into_iter()
-                    .map(|(name, data)| {
-                        let dependencies = data
-                            .common_raw
-                            .dependencies
-                            .iter()
-                            .map(|(name, data)| {
-                                let dependency =
-                                    targets::Dependency::new(&name, data, manifest_dir);
-                                match dependency.data {
-                                    targets::DependencyData::Source {
-                                        ref path,
-                                        ref origin,
-                                    } => {
-                                        log::debug!(
-                                            "Found dependency {} in path {} with origin {:?}",
-                                            dependency.name,
-                                            path.display(),
-                                            origin
-                                        );
-                                    }
-                                }
-                                dependency
-                            })
-                            .collect::<Vec<targets::Dependency>>();
-                        targets::Target::Library(targets::Library {
-                            name,
-                            main: crate::canonicalize_source(manifest_dir, &data.common_raw.main),
-                            sources: data
-                                .common_raw
-                                .sources
-                                .iter()
-                                .map(|source| crate::canonicalize_source(manifest_dir, &source))
-                                .collect::<Vec<std::path::PathBuf>>(),
-                            dependencies,
-                            compiler_flags: data.common_raw.compiler_flags,
-                            lib_type: data.lib_type,
-                        })
-                    })
-                    .collect::<Vec<targets::Target>>()
-            } else {
-                Vec::new()
+                for library in libraries {
+                    let name = library.0;
+                    let data = library.1;
+
+                    let dependencies = data.common_raw.dependencies;
+                    let mut parsed_dependencies = Vec::new();
+                    for dependency in dependencies {
+                        let dep_name = dependency.0;
+                        let dep_data = dependency.1;
+                        let parsed_dependency =
+                            targets::Dependency::new(&dep_name, &dep_data, manifest_dir)
+                                .map_err(ParseManifestError::FailedToParseDependency)?;
+                        parsed_dependencies.push(parsed_dependency);
+                    }
+                    let canonicalized_sources = {
+                        let mut canonicalized_sources = Vec::new();
+                        let sources = data.common_raw.sources;
+                        for source in sources {
+                            let canonicalized_source =
+                                crate::canonicalize_source(manifest_dir, &source)
+                                    .map_err(ParseManifestError::FailedToCanonicalizePath)?;
+                            canonicalized_sources.push(canonicalized_source);
+                        }
+                        Ok(canonicalized_sources)
+                    }?;
+                    let target_library = targets::Target::Library(targets::Library {
+                        name,
+                        sources: canonicalized_sources,
+                        dependencies: parsed_dependencies,
+                        compiler_flags: data.common_raw.compiler_flags,
+                        lib_type: data.lib_type,
+                        defines: data.common_raw.defines,
+                    });
+                    target_libraries.push(target_library);
+                }
             }
-        };
+            Ok(target_libraries)
+        }?;
         targets.append(&mut executables);
         targets.append(&mut libraries);
-        Self { targets }
+        Ok(Self { targets })
     }
 }

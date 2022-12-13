@@ -1,4 +1,4 @@
-use crate::build_target::{BuildTarget, TargetNode, TargetType};
+use crate::build_target::{BuildTarget, TargetNode};
 use crate::cache;
 use crate::utility;
 // LEGG TIL TESTER
@@ -33,24 +33,6 @@ impl TargetRegistry {
 
     pub fn add_target(&mut self, target: TargetNode) {
         self.registry.push(target);
-    }
-
-    pub fn get_target(
-        &self,
-        path: &std::path::Path,
-        target_type: TargetType,
-    ) -> Option<TargetNode> {
-        for target in &self.registry {
-            let borrowed_target = target.try_borrow();
-            if let Ok(borrowed_target) = borrowed_target {
-                if borrowed_target.manifest.directory == *path
-                    && borrowed_target.target_type == target_type
-                {
-                    return Some(target.clone());
-                }
-            }
-        }
-        None
     }
 
     pub fn get_target_from_predicate<P>(&self, predicate: P) -> Option<TargetNode>

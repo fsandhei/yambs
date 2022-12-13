@@ -18,6 +18,12 @@ impl std::convert::From<std::path::PathBuf> for BuildDirectory {
     }
 }
 
+impl std::convert::From<&std::path::Path> for BuildDirectory {
+    fn from(f: &std::path::Path) -> Self {
+        Self { 0: f.to_path_buf() }
+    }
+}
+
 impl Default for BuildDirectory {
     fn default() -> Self {
         Self {

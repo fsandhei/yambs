@@ -1,6 +1,7 @@
 use crate::manifest;
 
 mod constants;
+pub mod types;
 
 // FIXME: Write tests!
 // FIXME: Vurdere variabel for filstier som settes av yambs for å hjelpe forkortelse av paths.
@@ -28,11 +29,9 @@ fn parse_toml(
     manifest_dir: &std::path::Path,
 ) -> Result<manifest::ManifestData, ParseTomlError> {
     let manifest_contents =
-        toml::from_str::<manifest::RawManifestData>(toml).map_err(ParseTomlError::FailedToParse)?;
-    Ok(manifest::ManifestData::from_raw(
-        manifest_contents,
-        manifest_dir,
-    ))
+        toml::from_str::<types::RawManifestData>(toml).map_err(ParseTomlError::FailedToParse)?;
+    manifest::ManifestData::from_raw(manifest_contents, manifest_dir)
+        .map_err(ParseTomlError::FailedToCreateManifestData)
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -43,15 +42,19 @@ pub enum ParseTomlError {
     FailedToRead(#[source] std::io::Error),
     #[error("Failed to convert UTF-8 bytes to string")]
     FailedToConvertUtf8(#[source] std::string::FromUtf8Error),
+    #[error("Failed to create manifest data")]
+    FailedToCreateManifestData(#[source] manifest::ParseManifestError),
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    use crate::flags::CompilerFlags;
     use crate::manifest::ManifestData;
-    use crate::targets::{
-        Dependency, DependencyData, Executable, IncludeSearchType, Library, LibraryType, Target,
+    use crate::targets::{Dependency, Executable, Library, Target};
+    use types::{
+        BinaryData, BinaryPath, DependencyData, IncludeSearchType, LibraryType, SourceData,
     };
 
     struct TestFixture {
@@ -65,7 +68,7 @@ mod tests {
             }
         }
 
-        pub fn create_dummy_file(&self, path_postfix: &std::path::PathBuf) -> std::path::PathBuf {
+        pub fn create_dummy_file(&self, path_postfix: &std::path::Path) -> std::path::PathBuf {
             let path = self.tempdir.path().join(path_postfix);
             std::fs::File::create(&path).unwrap();
             path
@@ -73,8 +76,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn parse_produces_manifest_with_executables() {
+    fn parse_produces_manifest_with_executable() {
         let fixture = TestFixture::new();
         let manifest_dir = fixture.tempdir.path().to_path_buf();
 
@@ -83,64 +85,23 @@ mod tests {
         fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
         fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
 
-        const TOML_RECIPE: &str = r#"
+        let input = r#"
     [executable.x]
-    main = "main.cpp"
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
     "#;
         {
-            let manifest = parse_toml(TOML_RECIPE, &manifest_dir).unwrap();
+            let manifest = parse_toml(input, &manifest_dir).unwrap();
             let executable = Executable {
                 name: "x".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 sources: vec![
                     manifest_dir.join(std::path::PathBuf::from("x.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("y.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
-                compiler_flags: None,
-            };
-            let expected = ManifestData {
-                targets: vec![Target::Executable(executable)],
-            };
-            assert_eq!(manifest, expected);
-        }
-        const TOML_WITH_REQUIRE_RECIPE: &str = r#"
-    [executable.x]
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
-    main = "main.cpp"
-    [executable.x.dependencies]
-    SomeProject = { path = "/some/path/SomeProject" }
-    SomeSecondProject = { path = "/some/path/SomeSecondProject" }
-    "#;
-        {
-            let manifest = parse_toml(TOML_WITH_REQUIRE_RECIPE, &manifest_dir).unwrap();
-            let executable = Executable {
-                name: "x".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("main.cpp")),
-                sources: vec![
-                    manifest_dir.join(std::path::PathBuf::from("x.cpp")),
-                    manifest_dir.join(std::path::PathBuf::from("y.cpp")),
-                    manifest_dir.join(std::path::PathBuf::from("z.cpp")),
-                ],
-                dependencies: vec![
-                    Dependency {
-                        name: "SomeProject".to_string(),
-                        data: DependencyData::Source {
-                            path: std::path::PathBuf::from("/some/path/SomeProject"),
-                            origin: IncludeSearchType::Include,
-                        },
-                    },
-                    Dependency {
-                        name: "SomeSecondProject".to_string(),
-                        data: DependencyData::Source {
-                            path: std::path::PathBuf::from("/some/path/SomeSecondProject"),
-                            origin: IncludeSearchType::Include,
-                        },
-                    },
-                ],
-                compiler_flags: None,
+                defines: Vec::new(),
+                compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
                 targets: vec![Target::Executable(executable)],
@@ -150,7 +111,48 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    fn parse_produces_manifest_with_executable_with_custom_cxxflags() {
+        let fixture = TestFixture::new();
+        let manifest_dir = fixture.tempdir.path().to_path_buf();
+
+        fixture.create_dummy_file(&std::path::PathBuf::from("main.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("x.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
+
+        let input = r#"
+    [executable.x]
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
+    cxxflags_append = ["-g", "-O2"]
+    "#;
+        {
+            let manifest = parse_toml(input, &manifest_dir).unwrap();
+            let executable = Executable {
+                name: "x".to_string(),
+                sources: vec![
+                    manifest_dir.join(std::path::PathBuf::from("x.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("y.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("main.cpp")),
+                ],
+                dependencies: Vec::new(),
+                defines: Vec::new(),
+                compiler_flags: crate::flags::CompilerFlags {
+                    cxx_flags: Some(crate::flags::CXXFlags::from_slice(&[
+                        "-g".to_string(),
+                        "-O2".to_string(),
+                    ])),
+                    cpp_flags: None,
+                },
+            };
+            let expected = ManifestData {
+                targets: vec![Target::Executable(executable)],
+            };
+            assert_eq!(manifest, expected);
+        }
+    }
+
+    #[test]
     fn parse_produces_manifest_with_multiple_executables() {
         let fixture = TestFixture::new();
         let manifest_dir = fixture.tempdir.path().to_path_buf();
@@ -162,55 +164,36 @@ mod tests {
 
         let input = r#"
     [executable.x]
-    main = "main.cpp"
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
 
     [executable.y]
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
-    main = "main.cpp"
-
-    [executable.y.dependencies]
-    SomeProject = { path = "/some/path/to/SomeProject" }
-    SomeSecondProject = { path = "/some/path/to/SomeSecondProject" }
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'main.cpp']
     "#;
         {
             let manifest = parse_toml(input, &manifest_dir).unwrap();
             let executable_x = Executable {
                 name: "x".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 sources: vec![
                     manifest_dir.join(std::path::PathBuf::from("x.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("y.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
                 dependencies: Vec::new(),
-                compiler_flags: None,
+                defines: Vec::new(),
+                compiler_flags: CompilerFlags::new(),
             };
             let executable_y = Executable {
                 name: "y".to_string(),
-                main: std::path::PathBuf::from("main.cpp"),
                 sources: vec![
-                    std::path::PathBuf::from("x.cpp"),
-                    std::path::PathBuf::from("y.cpp"),
-                    std::path::PathBuf::from("z.cpp"),
+                    manifest_dir.join(std::path::PathBuf::from("x.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("y.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("main.cpp")),
                 ],
-                dependencies: vec![
-                    Dependency {
-                        name: "SomeProject".to_string(),
-                        data: DependencyData::Source {
-                            path: std::path::PathBuf::from("/some/path/to/SomeProject"),
-                            origin: IncludeSearchType::Include,
-                        },
-                    },
-                    Dependency {
-                        name: "SomeSecondProject".to_string(),
-                        data: DependencyData::Source {
-                            path: std::path::PathBuf::from("/some/path/to/SomeSecondProject"),
-                            origin: IncludeSearchType::Include,
-                        },
-                    },
-                ],
-                compiler_flags: None,
+                dependencies: Vec::new(),
+                defines: Vec::new(),
+                compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
                 targets: vec![
@@ -223,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_produces_manifest_with_libraries() {
+    fn parse_produces_manifest_with_one_library() {
         let fixture = TestFixture::new();
         let manifest_dir = fixture.tempdir.path().to_path_buf();
 
@@ -232,38 +215,48 @@ mod tests {
         fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
         fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
 
-        const TOML_RECIPE: &str = r#"
+        let input = r#"
     [library.MyLibraryData]
-    main = "generator.cpp"
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'generator.cpp']
     "#;
-        {
-            let manifest = parse_toml(TOML_RECIPE, &manifest_dir).unwrap();
-            let library = Library {
-                name: "MyLibraryData".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
-                sources: vec![
-                    manifest_dir.join(std::path::PathBuf::from("x.cpp")),
-                    manifest_dir.join(std::path::PathBuf::from("y.cpp")),
-                    manifest_dir.join(std::path::PathBuf::from("z.cpp")),
-                ],
-                dependencies: Vec::new(),
-                compiler_flags: None,
-                lib_type: LibraryType::default(),
-            };
-            let expected = ManifestData {
-                targets: vec![Target::Library(library)],
-            };
-            assert_eq!(manifest, expected);
-        }
+
+        let manifest = parse_toml(input, &manifest_dir).unwrap();
+        let library = Library {
+            name: "MyLibraryData".to_string(),
+            sources: vec![
+                manifest_dir.join(std::path::PathBuf::from("x.cpp")),
+                manifest_dir.join(std::path::PathBuf::from("y.cpp")),
+                manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
+            ],
+            dependencies: Vec::new(),
+            defines: Vec::new(),
+            compiler_flags: CompilerFlags::new(),
+            lib_type: LibraryType::default(),
+        };
+        let expected = ManifestData {
+            targets: vec![Target::Library(library)],
+        };
+        assert_eq!(manifest, expected);
+    }
+
+    #[test]
+    fn parse_produces_manifest_with_library_with_dependency() {
+        let fixture = TestFixture::new();
+        let manifest_dir = fixture.tempdir.path().to_path_buf();
+
+        fixture.create_dummy_file(&std::path::PathBuf::from("generator.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("x.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
+
         let dep_project_path = fixture.create_dummy_file(&std::path::PathBuf::from("SomeProject"));
         let second_dep_project_path =
             fixture.create_dummy_file(&std::path::PathBuf::from("SomeSecondProject"));
         let toml_with_require_recipe = format!(
             r#"
     [library.MyLibraryData]
-    sources = ['x.cpp', 'y.cpp', 'z.cpp']
-    main = "generator.cpp"
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'generator.cpp']
 
     [library.MyLibraryData.dependencies]
     SomeProject = {{ path = "{}" }}
@@ -272,33 +265,171 @@ mod tests {
             dep_project_path.display(),
             second_dep_project_path.display()
         );
+
+        let manifest = parse_toml(&toml_with_require_recipe, &manifest_dir).unwrap();
+        let library = Library {
+            name: "MyLibraryData".to_string(),
+            sources: vec![
+                manifest_dir.join(std::path::PathBuf::from("x.cpp")),
+                manifest_dir.join(std::path::PathBuf::from("y.cpp")),
+                manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
+            ],
+            dependencies: vec![
+                Dependency {
+                    name: "SomeProject".to_string(),
+                    data: DependencyData::Source(SourceData {
+                        path: dep_project_path,
+                        origin: IncludeSearchType::Include,
+                    }),
+                },
+                Dependency {
+                    name: "SomeSecondProject".to_string(),
+                    data: DependencyData::Source(SourceData {
+                        path: second_dep_project_path,
+                        origin: IncludeSearchType::Include,
+                    }),
+                },
+            ],
+            defines: Vec::new(),
+            compiler_flags: CompilerFlags::new(),
+            lib_type: LibraryType::default(),
+        };
+        let expected = ManifestData {
+            targets: vec![Target::Library(library)],
+        };
+        assert_eq!(manifest, expected);
+    }
+
+    #[test]
+    fn parse_produces_manifest_with_library_with_prebuilt_dependency() {
+        let fixture = TestFixture::new();
+        let manifest_dir = fixture.tempdir.path().to_path_buf();
+
+        fixture.create_dummy_file(&std::path::PathBuf::from("generator.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("x.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
+
+        let dep_project_path = fixture.create_dummy_file(&std::path::PathBuf::from("SomeProject"));
+        let dep_project_include_dir = dep_project_path.parent().unwrap().join("include");
+        std::fs::create_dir(&dep_project_include_dir).unwrap();
+        let toml_with_require_recipe = format!(
+            r#"
+    [library.MyLibraryData]
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'generator.cpp']
+
+    [library.MyLibraryData.dependencies.SomeProject]
+    debug.binary_path = "{}"
+    release.binary_path = "{}"
+    include_directory = "{}"
+    "#,
+            dep_project_path.display(),
+            dep_project_path.display(),
+            dep_project_include_dir.display(),
+        );
         {
             let manifest = parse_toml(&toml_with_require_recipe, &manifest_dir).unwrap();
             let library = Library {
                 name: "MyLibraryData".to_string(),
-                main: manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
                 sources: vec![
                     manifest_dir.join(std::path::PathBuf::from("x.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("y.cpp")),
                     manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
+                ],
+                dependencies: vec![Dependency {
+                    name: "SomeProject".to_string(),
+                    data: DependencyData::Binary(BinaryData {
+                        debug_path_information: BinaryPath {
+                            path: dep_project_path.clone(),
+                        },
+                        release_path_information: BinaryPath {
+                            path: dep_project_path,
+                        },
+                        include_directory: dep_project_include_dir,
+                        search_type: IncludeSearchType::System,
+                    }),
+                }],
+                defines: Vec::new(),
+                compiler_flags: CompilerFlags::new(),
+                lib_type: LibraryType::default(),
+            };
+            let expected = ManifestData {
+                targets: vec![Target::Library(library)],
+            };
+            assert_eq!(manifest, expected);
+        }
+    }
+
+    #[test]
+    fn parse_produces_manifest_with_library_with_prebuilt_dependency_and_source_dependency() {
+        let fixture = TestFixture::new();
+        let manifest_dir = fixture.tempdir.path().to_path_buf();
+
+        fixture.create_dummy_file(&std::path::PathBuf::from("generator.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("x.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("y.cpp"));
+        fixture.create_dummy_file(&std::path::PathBuf::from("z.cpp"));
+
+        let dep_project_path = fixture.create_dummy_file(&std::path::PathBuf::from("SomeProject"));
+        let dep_project_include_dir = dep_project_path.parent().unwrap().join("include");
+        std::fs::create_dir(&dep_project_include_dir).unwrap();
+
+        let source_dep_project_path =
+            fixture.create_dummy_file(&std::path::PathBuf::from("SomeSourceProject"));
+        let toml_with_require_recipe = format!(
+            r#"
+    [library.MyLibraryData]
+    sources = ['x.cpp', 'y.cpp', 'z.cpp', 'generator.cpp']
+
+    [library.MyLibraryData.dependencies.SomeSourceProject]
+    path = "{}"
+
+    [library.MyLibraryData.dependencies.SomeProject]
+    debug.binary_path = "{}"
+    release.binary_path = "{}"
+    include_directory = "{}"
+    "#,
+            source_dep_project_path.display(),
+            dep_project_path.display(),
+            dep_project_path.display(),
+            dep_project_include_dir.display(),
+        );
+        {
+            let manifest = parse_toml(&toml_with_require_recipe, &manifest_dir).unwrap();
+            let library = Library {
+                name: "MyLibraryData".to_string(),
+                sources: vec![
+                    manifest_dir.join(std::path::PathBuf::from("x.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("y.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("z.cpp")),
+                    manifest_dir.join(std::path::PathBuf::from("generator.cpp")),
                 ],
                 dependencies: vec![
                     Dependency {
                         name: "SomeProject".to_string(),
-                        data: DependencyData::Source {
-                            path: dep_project_path.clone(),
-                            origin: IncludeSearchType::Include,
-                        },
+                        data: DependencyData::Binary(BinaryData {
+                            debug_path_information: BinaryPath {
+                                path: dep_project_path.clone(),
+                            },
+                            release_path_information: BinaryPath {
+                                path: dep_project_path,
+                            },
+                            include_directory: dep_project_include_dir,
+                            search_type: IncludeSearchType::System,
+                        }),
                     },
                     Dependency {
-                        name: "SomeSecondProject".to_string(),
-                        data: DependencyData::Source {
-                            path: second_dep_project_path.clone(),
+                        name: "SomeSourceProject".to_string(),
+                        data: DependencyData::Source(SourceData {
+                            path: source_dep_project_path.clone(),
                             origin: IncludeSearchType::Include,
-                        },
+                        }),
                     },
                 ],
-                compiler_flags: None,
+                defines: Vec::new(),
+                compiler_flags: CompilerFlags::new(),
                 lib_type: LibraryType::default(),
             };
             let expected = ManifestData {

@@ -4,7 +4,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 
 use crate::build_target::target_registry::TargetRegistry;
-use crate::build_target::TargetNode;
+use crate::build_target::{DependencySource, TargetNode, TargetSource};
 
 pub fn dottie(
     top: &TargetNode,
@@ -27,19 +27,36 @@ pub fn dottie(
         dottie_file.write_all(data.as_bytes())?;
     }
 
-    for requirement in &borrowed_top.dependencies {
-        data.push_str(&format!(
-            "\
-        {:?} -> {:?}\n\
-        ",
-            requirement.name, top_pretty_name
-        ));
-        dottie(
-            &requirement.to_build_target(&registry).unwrap(),
-            registry,
-            true,
-            data,
-        )?;
+    match borrowed_top.target_source {
+        TargetSource::FromSource(ref s) => {
+            for requirement in &s.dependencies {
+                match requirement.source {
+                    DependencySource::FromSource(ref ds) => {
+                        data.push_str(&format!(
+                            "\
+                            {:?} -> {:?}\n\
+                            ",
+                            ds.name, top_pretty_name
+                        ));
+                    }
+                    DependencySource::FromPrebuilt(ref b) => {
+                        data.push_str(&format!(
+                            "\
+                            {:?} -> {:?}\n\
+                            ",
+                            b.name, top_pretty_name
+                        ));
+                    }
+                }
+                dottie(
+                    &requirement.to_build_target(registry).unwrap(),
+                    registry,
+                    true,
+                    data,
+                )?;
+            }
+        }
+        TargetSource::FromPrebuilt(_) => {}
     }
     Ok(())
 }
@@ -63,7 +80,7 @@ fn create_dottie_file(first_run: bool) -> std::io::Result<File> {
 }
 
 fn dottie_file_exists() -> bool {
-    let current_dir = env::current_dir().expect("rsmake: Current path does not exist!");
+    let current_dir = env::current_dir().expect("Current path does not exist!");
     let dot_file_path = current_dir.join("dependency.gv");
     dot_file_path.exists()
 }

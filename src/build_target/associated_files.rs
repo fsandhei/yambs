@@ -11,7 +11,7 @@ impl SourceFiles {
         Ok(Self(
             sources
                 .iter()
-                .map(|source| SourceFile::new(&source))
+                .map(|source| SourceFile::new(source))
                 .collect::<Result<Vec<SourceFile>, AssociatedFileError>>()?,
         ))
     }
@@ -22,6 +22,10 @@ impl SourceFiles {
 
     pub fn iter(&self) -> std::slice::Iter<'_, SourceFile> {
         self.0.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -107,7 +111,7 @@ mod tests {
             file_type: FileType::Source,
             file: file.clone(),
         };
-        let actual = SourceFile::new(&std::path::PathBuf::from(file)).unwrap();
+        let actual = SourceFile::new(&file).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -120,7 +124,7 @@ mod tests {
             file_type: FileType::Header,
             file: file.clone(),
         };
-        let actual = SourceFile::new(&std::path::PathBuf::from(file)).unwrap();
+        let actual = SourceFile::new(&file).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -129,7 +133,7 @@ mod tests {
         let tempdir = tempdir::TempDir::new("test").unwrap();
         let file = tempdir.path().join("file.py");
         std::fs::File::create(&file).unwrap();
-        let actual = SourceFile::new(&std::path::PathBuf::from(file));
+        let actual = SourceFile::new(&file);
         assert!(matches!(
             actual.unwrap_err(),
             AssociatedFileError::CouldNotSpecifyFileType

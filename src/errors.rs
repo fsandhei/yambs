@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use log4rs::config::runtime::ConfigErrors;
 use thiserror;
 
@@ -7,27 +5,6 @@ use thiserror;
 pub enum AssociatedFileError {
     #[error("Could not specify file type")]
     CouldNotSpecifyFileType,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum CompilerError {
-    #[error("Environment variable CXX was not set. Please set it to a valid C++ compiler.")]
-    CXXEnvNotSet,
-    #[error("The compiler requested is an invalid compiler for RsMake.")]
-    InvalidCompiler,
-    #[error(
-        "\
-        Error occured when doing a sample compilation."
-    )]
-    FailedToCompileSample(#[source] FsError),
-    #[error("Failed to create sample main.cpp for compiler assertion")]
-    FailedToCreateSample(#[source] std::io::Error),
-    #[error("Failed to cache of compiler data")]
-    FailedToCache(#[source] CacheError),
-    #[error("Failed to retrieve compiler version")]
-    FailedToGetVersion(#[source] FsError),
-    #[error("Failed to find version pattern")]
-    FailedToFindVersionPattern,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -54,29 +31,9 @@ pub enum CommandLineError {
     #[error("address cannot be used together with thread. Pick only one.")]
     IllegalSanitizerCombination,
     #[error(transparent)]
-    Parse(#[from] ParseError),
-    #[error(transparent)]
     Fs(#[from] FsError),
 }
 
-#[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
-pub enum DependencyError {
-    #[error(transparent)]
-    Fs(#[from] FsError),
-    #[error(transparent)]
-    Parse(#[from] ParseError),
-    #[error("Failed to create cache of dependencies")]
-    FailedToCache(#[source] CacheError),
-    #[error("Dependency circulation! {0:?} depends on {1:?}, which depends on itself")]
-    Circulation(PathBuf, PathBuf),
-    #[error("Call on get_dependency when dependency is not set. Call on set_dependency must be done prior!")]
-    NotSet,
-    #[error("Error occured classifying associated file")]
-    AssociatedFile(#[source] AssociatedFileError),
-}
-
-#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum FsError {
     #[error("Error occured in creating directory {0:?}")]
@@ -137,39 +94,4 @@ pub enum LoggerError {
     FailedToCreateConfig(#[source] ConfigErrors),
     #[error(transparent)]
     FailedToSetLogger(#[from] log::SetLoggerError),
-}
-
-#[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
-pub enum ParseError {
-    #[error("{file}: {keyword} is not a valid MMK keyword!")]
-    InvalidKeyword {
-        file: std::path::PathBuf,
-        keyword: String,
-    },
-    #[error(
-        "{file}: Invalid spacing of arguments! Keep at least one line between each RsMake keyword."
-    )]
-    InvalidSpacing { file: std::path::PathBuf },
-    #[error(transparent)]
-    FileSystem(#[from] FsError),
-    #[error("{0:?} is not a valid RsMake filename! File must be named lib.mmk or run.mmk.")]
-    InvalidFilename(String),
-    #[error(transparent)]
-    Toolchain(#[from] ToolchainError),
-}
-
-#[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
-pub enum ToolchainError {
-    #[error("Could not find mymake directory and toolchain file from {0:?}")]
-    FileNotFound(PathBuf),
-    #[error("Key \"{0}\" could not not be found")]
-    KeyNotFound(String),
-    #[error("\"{0}\" is not allowed as keyword for toolchain.")]
-    InvalidKeyword(String),
-    #[error("{0} is not a valid name for toolchain file. It must be named toolchain.mmk")]
-    InvalidName(String),
-    #[error(transparent)]
-    FileSystem(#[from] FsError),
 }

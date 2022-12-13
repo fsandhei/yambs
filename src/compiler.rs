@@ -5,8 +5,29 @@ use serde::{Deserialize, Serialize};
 use textwrap::indent;
 
 use crate::cache::Cacher;
-use crate::errors::CompilerError;
+use crate::errors;
 use crate::utility;
+
+#[derive(Debug, thiserror::Error)]
+pub enum CompilerError {
+    #[error("Environment variable CXX was not set. Please set it to a valid C++ compiler.")]
+    CXXEnvNotSet,
+    #[error("The compiler requested is an invalid compiler.")]
+    InvalidCompiler,
+    #[error(
+        "\
+        Error occured when doing a sample compilation."
+    )]
+    FailedToCompileSample(#[source] errors::FsError),
+    #[error("Failed to create sample main.cpp for compiler assertion")]
+    FailedToCreateSample(#[source] std::io::Error),
+    #[error("Failed to cache of compiler data")]
+    FailedToCache(#[source] errors::CacheError),
+    #[error("Failed to retrieve compiler version")]
+    FailedToGetVersion(#[source] errors::FsError),
+    #[error("Failed to find version pattern")]
+    FailedToFindVersionPattern,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Compiler {

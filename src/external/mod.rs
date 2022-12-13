@@ -80,7 +80,7 @@ fn create_dottie_file(first_run: bool) -> std::io::Result<File> {
 }
 
 fn dottie_file_exists() -> bool {
-    let current_dir = env::current_dir().expect("rsmake: Current path does not exist!");
+    let current_dir = env::current_dir().expect("Current path does not exist!");
     let dot_file_path = current_dir.join("dependency.gv");
     dot_file_path.exists()
 }

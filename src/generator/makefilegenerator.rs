@@ -952,7 +952,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
         let data = indoc::formatdoc!(
             "\
         # Defines.mk\n\
-        # Contains a number of defines determined from MyMake configuration time.\n\
+        # Contains a number of defines determined from YAMBS configuration time.\n\
         \n\
         {compiler_conditional_flags}\n\
         CP := /usr/bin/cp\n\
@@ -2154,7 +2154,7 @@ mod tests {
             indoc::indoc!(
                 "\
     # Defines.mk\n\
-    # Contains a number of defines determined from MyMake configuration time.\n\
+    # Contains a number of defines determined from YAMBS configuration time.\n\
     \n\
     CXX_USES_GCC := true\n\
     CXX_USES_CLANG := false\n\

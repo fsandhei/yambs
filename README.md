@@ -64,10 +64,13 @@ build
 └── yambs_log.txt
 ```
 
-## Manifest syntax
+## Manifest
 The manifest is a TOML file that must contain targets. The targets can be executables or libraries.
 A target is defined as a map entry in TOML land.
 
+The manifest abides [TOML v0.5.0](https://toml.io/en/v0.5.0).
+
+### Syntax
 An executable is formed with the syntax:
 ```
 [executable.<name>]
@@ -79,8 +82,8 @@ Similarily, a library is formed with:
 
 A target accepts the following fields:
 * `sources`: An array of strings of file paths.
-* `cxx_flags`: An array of strings that passes additional CXX flags for that target.
-* `cpp_flags`: An array of strings that passes additional CPP flags for that target.
+* `cxxflags_append`: An array of strings that passes additional CXX flags for that target.
+* `cppflags_append`: An array of strings that passes additional CPP flags for that target.
 * `dependencies`: A table specifying the projects this target depends on.
    * Dependencies can be of two types
       * From source: Specify a dependency as a YAMBS project. Currently this is supported as a project on your filesystem.

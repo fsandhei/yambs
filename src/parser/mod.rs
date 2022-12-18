@@ -4,8 +4,6 @@ mod constants;
 pub mod types;
 
 // FIXME: Write tests!
-// FIXME: Vurdere variabel for filstier som settes av yambs for å hjelpe forkortelse av paths.
-// Bruke relativ path, kanskje?
 pub fn parse(manifest_path: &std::path::Path) -> Result<manifest::ParsedManifest, ParseTomlError> {
     let toml_content =
         String::from_utf8(std::fs::read(&manifest_path).map_err(ParseTomlError::FailedToRead)?)
@@ -54,7 +52,7 @@ mod tests {
     use crate::manifest::ManifestData;
     use crate::targets::{Dependency, Executable, Library, Target};
     use types::{
-        BinaryData, BinaryPath, DependencyData, IncludeSearchType, LibraryType, SourceData,
+        BinaryData, BinaryPath, Define, DependencyData, IncludeSearchType, LibraryType, SourceData,
     };
 
     struct TestFixture {
@@ -437,5 +435,92 @@ mod tests {
             };
             assert_eq!(manifest, expected);
         }
+    }
+
+    #[test]
+    fn parse_produces_manifest_with_executable_with_custom_defines() {
+        let fixture = TestFixture::new();
+        let manifest_dir = fixture.tempdir.path().to_path_buf();
+
+        fixture.create_dummy_file(&std::path::PathBuf::from("x.cpp"));
+
+        let input = r#"
+    [executable.x]
+    sources = ['x.cpp']
+    [[executable.x.defines]]
+    macro = 'MYMACRO'
+    value = '1'
+
+    [[executable.x.defines]]
+    macro = 'MYSECONDMACRO'
+    value = '0'
+    "#;
+        {
+            let manifest = parse_toml(input, &manifest_dir).unwrap();
+            let executable = Executable {
+                name: "x".to_string(),
+                sources: vec![manifest_dir.join(std::path::PathBuf::from("x.cpp"))],
+                dependencies: Vec::new(),
+                defines: vec![
+                    Define {
+                        macro_: "MYMACRO".to_string(),
+                        value: Some("1".to_string()),
+                    },
+                    Define {
+                        macro_: "MYSECONDMACRO".to_string(),
+                        value: Some("0".to_string()),
+                    },
+                ],
+                compiler_flags: CompilerFlags::new(),
+            };
+            let expected = ManifestData {
+                targets: vec![Target::Executable(executable)],
+            };
+            assert_eq!(manifest, expected);
+        }
+    }
+
+    #[test]
+    fn parse_produces_manifest_with_one_library_with_custom_defines() {
+        let fixture = TestFixture::new();
+        let manifest_dir = fixture.tempdir.path().to_path_buf();
+
+        fixture.create_dummy_file(&std::path::PathBuf::from("x.cpp"));
+
+        let input = r#"
+    [library.MyLibraryData]
+    sources = ['x.cpp']
+    
+    [[library.MyLibraryData.defines]]
+    macro = 'MYMACRO'
+    value = '1'
+
+    [[library.MyLibraryData.defines]]
+    macro = 'MYSECONDMACRO'
+    value = '0'
+    "#;
+
+        let manifest = parse_toml(input, &manifest_dir).unwrap();
+        let library = Library {
+            name: "MyLibraryData".to_string(),
+            sources: vec![manifest_dir.join(std::path::PathBuf::from("x.cpp"))],
+            dependencies: Vec::new(),
+            defines: vec![
+                Define {
+                    macro_: "MYMACRO".to_string(),
+                    value: Some("1".to_string()),
+                },
+                Define {
+                    macro_: "MYSECONDMACRO".to_string(),
+                    value: Some("0".to_string()),
+                },
+            ],
+            compiler_flags: CompilerFlags::new(),
+            lib_type: LibraryType::default(),
+        };
+        let expected = ManifestData {
+            targets: vec![Target::Library(library)],
+        };
+        assert_eq!(manifest, expected);
     }
 }

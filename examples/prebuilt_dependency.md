@@ -46,6 +46,12 @@ sources = ["test/PlanGeneratorTest.cpp", "test/Qgc_OutStreamTest.cpp"]
 
 # PlanGeneratorTest needs to know where the library it is going to test comes from.
 # See it as a "separate" library that you're using in your project.
+# Note that this dependency can also be written as the following:
+
+# [executable.PlanGeneratorTests.dependencies]
+# PlanGenerator = { path = "." }
+#
+# The second format is just for consistency here.
 [executable.PlanGeneratorTests.dependencies.PlanGenerator]
 path = "."
 

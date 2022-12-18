@@ -2,6 +2,18 @@
 
 YAMBS (Yet Another Meta Build System) is a command-line based meta build system for C++, written in Rust.
 
+## State of the project
+YAMBS is an ongoing project. It has bugs and needs better test coverage.
+
+This project begun just for fun and as a way for me to get familiarized in Rust and understand how meta build systems work.
+
+There might of course not be the best solutions for all things here.
+
+YAMBS is not intended to replace any of the popular systems that exist today.
+
+Any contribution to the project is welcome. Please create a PR with proper intent and description of what you are
+adding or modifying.
+
 ## Motivation
 It is intended to be a quick and easy build system for developers to easily maintain and manage their project.
 

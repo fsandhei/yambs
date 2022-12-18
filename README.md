@@ -14,12 +14,14 @@ build files for your project and then builds your project from that. That's it.
 
 By writing the minimal amount of boilerplate code, a user gets a well equipped build environment with easily modifiable runtime configurations.
 
-Diagram here of how a YAMBS hierarchical project tree should look like and so on...
+## Configurability
+YAMBS focuses on keeping it simple. That comes with a cost of configurability. YAMBS is not intended to be heavily configurated. It is meant to create
+build files for your projects in a simple and fast way, with minimal hassle.
 
 ## Getting started
 YAMBS requires a manifest file located in the root of the project. The manifest is a TOML file named `yambs.toml`.
 
-The simplest example of using YAMBS with a single C++ file, `main.cpp` that yields the executable `x` requires the following content
+The simplest example of using YAMBS with a single C++ file, `main.cpp`, that yields the executable `x`, requires the following content
 
 ```toml
 [executable.x]
@@ -29,7 +31,6 @@ sources = ["main.cpp"]
 Before building, YAMBS requires that the following environment variables are set:
 
 * CXX (supports clang++ and g++)
-* YAMBS_BUILD_SYSTEM_EXECUTABLE (only allowed value is the path to `make` for now)
 
 Finally, to build the project you invoke the meta build system like this:
 
@@ -57,12 +58,14 @@ build
 │   ├── default_make.mk
 │   ├── defines.mk
 │   ├── release.mk
-│   └── strict.mk
+│   └── warnings.mk
 ├── sample
 │   ├── a.out
 │   └── main.cpp
 └── yambs_log.txt
 ```
+
+Additional examples can be found in [examples](examples/)
 
 ## Manifest
 The manifest is a TOML file that must contain targets. The targets can be executables or libraries.
@@ -90,6 +93,6 @@ A target accepts the following fields:
       * From binary: Specify a binary to be used as a dependency.
 
 A library has an additional field:
-* `type`: String specifing if this library is a static or shared library.
+* `type`: String specifying this library as a static or shared library.
    * Allowed values: "shared", "static".
    * Default: "static"

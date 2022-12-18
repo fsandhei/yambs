@@ -59,6 +59,10 @@ impl IncludeDirectory {
                     },
                 }
             }
+            types::DependencyData::HeaderOnly(ref header_only_data) => IncludeDirectory {
+                include_type: IncludeType::System,
+                path: header_only_data.include_directory.to_path_buf(),
+            },
         };
         Some(include_directory)
     }

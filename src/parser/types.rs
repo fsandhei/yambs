@@ -101,10 +101,16 @@ pub struct BinaryData {
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct HeaderOnlyData {
+    pub include_directory: std::path::PathBuf,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum DependencyData {
     Source(SourceData),
     Binary(BinaryData),
+    HeaderOnly(HeaderOnlyData),
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]

@@ -34,6 +34,7 @@ pub struct DependencyPrebuiltData {
 pub enum DependencySource {
     FromSource(DependencySourceData),
     FromPrebuilt(DependencyPrebuiltData),
+    FromHeaderOnly(DependencyHeaderData),
 }
 
 impl DependencySource {
@@ -43,6 +44,10 @@ impl DependencySource {
             _ => None,
         }
     }
+}
+
+pub struct DependencyHeaderData {
+    pub include_directory: std::path::PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

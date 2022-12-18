@@ -93,6 +93,14 @@ impl Dependency {
                 );
                 dependency = Dependency::from_binary(name, binary_data, manifest_dir);
             }
+            types::DependencyData::HeaderOnly(ref header_only_data) => {
+                log::debug!(
+                    "Found header only dependency {} with include directory \"{}\"",
+                    name,
+                    header_only_data.include_directory.display()
+                );
+                dependency = Dependency::from_header_only(name, header_only_data, manifest_dir);
+            }
         }
         dependency
     }
@@ -160,6 +168,28 @@ impl Dependency {
             include_directory,
             search_type: binary_data.search_type.clone(),
         });
+        Ok(Self {
+            name: name.to_string(),
+            data: canonicalized_data,
+        })
+    }
+
+    fn from_header_only(
+        name: &str,
+        header_only_data: &types::HeaderOnlyData,
+        manifest_dir: &std::path::Path,
+    ) -> Result<Self, DependencyError> {
+        let include_directory =
+            crate::canonicalize_source(manifest_dir, &header_only_data.include_directory).map_err(
+                |err| {
+                    DependencyError::FailedToCanonicalizePath(
+                        header_only_data.include_directory.clone(),
+                        err,
+                    )
+                },
+            )?;
+        let canonicalized_data =
+            types::DependencyData::HeaderOnly(types::HeaderOnlyData { include_directory });
         Ok(Self {
             name: name.to_string(),
             data: canonicalized_data,

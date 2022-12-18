@@ -183,6 +183,7 @@ fn generate_prerequisites(
                                 .push_str(&format!("   {}", b.release_binary_path.display()));
                         }
                     },
+                    build_target::DependencySource::FromHeaderOnly(_) => {}
                 }
             }
         }
@@ -359,7 +360,8 @@ impl MakefileGenerator {
                     .iter()
                     .filter_map(|d| match d.source {
                         build_target::DependencySource::FromSource(ref ds) => Some(ds),
-                        build_target::DependencySource::FromPrebuilt(_) => None,
+                        build_target::DependencySource::FromPrebuilt(_)
+                        | build_target::DependencySource::FromHeaderOnly(_) => None,
                     })
                     .map(|ds| ds.name.to_owned())
                     .collect::<Vec<String>>(),
@@ -482,7 +484,8 @@ impl MakefileGenerator {
             let dependencies = &source_data.dependencies;
             for dependency in dependencies {
                 match dependency.source {
-                    build_target::DependencySource::FromPrebuilt(_) => {}
+                    build_target::DependencySource::FromPrebuilt(_)
+                    | build_target::DependencySource::FromHeaderOnly(_) => {}
                     build_target::DependencySource::FromSource(ref s) => {
                         log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
                             s.name,

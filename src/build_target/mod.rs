@@ -46,7 +46,9 @@ impl DependencySource {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DependencyHeaderData {
+    pub name: String,
     pub include_directory: std::path::PathBuf,
 }
 
@@ -193,6 +195,9 @@ impl BuildTarget {
                 }
                 DependencySource::FromPrebuilt(ref b) => {
                     log::debug!("Registering prebuilt target \"{}\"", b.name);
+                }
+                DependencySource::FromHeaderOnly(ref h) => {
+                    log::debug!("Registering header only target \"{}\"", h.name);
                 }
             }
             target_node.borrow_mut().add_target(target);
@@ -436,6 +441,7 @@ impl BuildTarget {
                         });
                     }
                 }
+                types::DependencyData::HeaderOnly(_) => {}
             }
         }
 

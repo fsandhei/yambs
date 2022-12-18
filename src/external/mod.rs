@@ -47,6 +47,14 @@ pub fn dottie(
                             b.name, top_pretty_name
                         ));
                     }
+                    DependencySource::FromHeaderOnly(ref h) => {
+                        data.push_str(&format!(
+                            "\
+                            {:?} -> {:?}\n\
+                            ",
+                            h.name, top_pretty_name
+                        ));
+                    }
                 }
                 dottie(
                     &requirement.to_build_target(registry).unwrap(),

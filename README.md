@@ -2,20 +2,8 @@
 
 `YAMBS` (Yet Another Meta Build System) is a command-line based meta build system for C++, written in Rust.
 
-## State of the project
-`YAMBS` is an ongoing project. It has bugs and needs better test coverage.
-
-This project begun just for fun and as a way for me to get familiarized in Rust and understand how meta build systems work.
-
-There might of course not be the best solutions for all things here.
-
-`YAMBS` is not intended to replace any of the popular systems that exist today.
-
-Any contribution to the project is welcome. Please create a PR with proper intent and description of what you are
-adding or modifying.
-
 ## Motivation
-It is intended to be a quick and easy build system for developers to easily maintain and manage their project.
+`YAMBS` is intended to be a quick and easy build system for developers to easily maintain and manage their C++ project.
 
 The idea is that development of a C++ project with `YAMBS` shall have focus on the C++ language, without the need of knowing a separate
 scripting language for maintaining your project.
@@ -30,10 +18,32 @@ By writing the minimal amount of boilerplate code, a user gets a well equipped b
 `YAMBS` focuses on keeping it simple. That comes with a cost of configurability. `YAMBS` is not intended to be heavily configurated. It is meant to create
 build files for your projects in a simple and fast way, with minimal hassle.
 
-## Build from source
+## Supported platforms
+* Linux (Tested on Manjaro (Kernel version 5.10.136-1-MANJARO))
+
+## State of the project
+`YAMBS` is an ongoing project. It has bugs and needs better test coverage.
+
+This project begun just for fun and as a way for me to get familiarized in Rust and understand how meta build systems work.
+
+There might of course not be the best solutions for all things here.
+
+`YAMBS` is not intended to replace any of the popular systems that exist today.
+
+Any contribution to the project is welcome. Please create a PR with proper intent and description of what you are
+adding or modifying.
+
+
+## How do I get it?
+Currently you can only get `YAMBS` from a source build. Once the project is at a stable state,
+binary distributions can be made.
+
+### Build from source
 `YAMBS` can be built using `cargo`:
 
 ```
+https://github.com/fredriksd/yambs.git
+cd yambs
 cargo build
 ```
 
@@ -96,7 +106,7 @@ Additional examples can be found in [examples](examples/)
 The manifest is a TOML file that must contain targets. The targets can be executables or libraries.
 A target is defined as a map entry in TOML land.
 
-The manifest abides [TOML v0.5.0](https://toml.io/en/v0.5.0).
+The manifest follows [TOML v0.5.0](https://toml.io/en/v0.5.0).
 
 ### Syntax
 An executable is formed with the syntax:

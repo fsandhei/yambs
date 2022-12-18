@@ -1,9 +1,12 @@
 use crate::build_target::{target_registry::TargetRegistry, TargetError};
 use crate::errors::FsError;
 
-mod makefilegenerator;
+pub mod makefile;
 
-pub use makefilegenerator::MakefileGenerator;
+pub use makefile::MakefileGenerator;
+
+pub(crate) const STATIC_LIBRARY_FILE_EXTENSION: &str = "a";
+pub(crate) const SHARED_LIBRARY_FILE_EXTENSION: &str = "so";
 
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]

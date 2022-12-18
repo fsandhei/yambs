@@ -57,6 +57,8 @@ pub enum FsError {
     FileDoesNotExist(std::path::PathBuf),
     #[error("Failed to canonicalize path")]
     Canonicalize(#[source] std::io::Error),
+    #[error("Could not find program {0}")]
+    CouldNotFindProgram(String),
     #[error("Failed to pop from path")]
     PopError,
     #[error("Failed to write to file")]

@@ -4,7 +4,27 @@ use std::vec::Vec;
 use crate::build_state_machine::filter;
 use crate::errors::FsError;
 use crate::output;
-use crate::YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV;
+
+lazy_static::lazy_static! {
+    static ref PROGRAM_ROOT_PATHS: Vec<std::path::PathBuf> = {
+        vec![
+            std::path::PathBuf::from("/usr/bin"),
+            std::path::PathBuf::from("/usr/.local/bin")
+        ]
+    };
+}
+
+fn find_program(program: &str) -> Option<std::path::PathBuf> {
+    for path in &*PROGRAM_ROOT_PATHS {
+        let executable_path = path.join(program);
+        log::debug!("Looking for {} in {}", program, path.display());
+        if executable_path.is_file() {
+            log::debug!("Found {} as {}", program, executable_path.display());
+            return Some(executable_path);
+        }
+    }
+    None
+}
 
 #[derive(Debug)]
 pub struct Make {
@@ -17,11 +37,8 @@ impl Make {
     pub fn new() -> Result<Self, FsError> {
         let jobs = Jobs::default();
         let configs = vec!["-j".to_string(), jobs.0.to_string()];
-        let executable = std::env::var(YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV)
-            .map(std::path::PathBuf::from)
-            .map_err(|e| {
-                FsError::EnvVariableNotSet(YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV.to_string(), e)
-            })?;
+        let executable =
+            find_program("make").ok_or_else(|| FsError::CouldNotFindProgram("make".to_string()))?;
 
         Ok(Self {
             configs,

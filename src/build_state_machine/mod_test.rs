@@ -9,39 +9,7 @@ use super::*;
 use crate::build_target::target_registry::TargetRegistry;
 use crate::cli::configurations;
 use crate::parser;
-use crate::{YAMBS_MANIFEST_DIR_ENV, YAMBS_MANIFEST_NAME};
-
-struct EnvLock {
-    mutex: std::sync::Mutex<()>,
-    env_var: Option<String>,
-    old_env_value: Option<String>,
-}
-
-impl EnvLock {
-    fn new() -> Self {
-        Self {
-            mutex: std::sync::Mutex::new(()),
-            env_var: None,
-            old_env_value: None,
-        }
-    }
-    fn lock(&mut self, env_var: &str, new_value: &str) {
-        let _lock = self.mutex.lock().unwrap();
-        self.old_env_value = std::env::var(env_var).ok();
-        self.env_var = Some(env_var.to_string());
-        std::env::set_var(&env_var, new_value);
-    }
-}
-
-impl Drop for EnvLock {
-    fn drop(&mut self) {
-        if let Some(ref env_var) = self.env_var {
-            if let Some(ref old_env_value) = self.old_env_value {
-                std::env::set_var(env_var, old_env_value);
-            }
-        }
-    }
-}
+use crate::YAMBS_MANIFEST_NAME;
 
 fn dummy_manifest(dir_name: &str) -> (TempDir, std::path::PathBuf) {
     let dir: TempDir = TempDir::new(dir_name).unwrap();
@@ -68,10 +36,8 @@ fn dummy_manifest(dir_name: &str) -> (TempDir, std::path::PathBuf) {
 fn parse_and_register_one_target() {
     let mut builder = BuildManager::new();
     let mut dep_registry = TargetRegistry::new();
-    let (dir, test_file_path) = dummy_manifest("example");
-    let mut lock = EnvLock::new();
+    let (_dir, test_file_path) = dummy_manifest("example");
     let manifest = parser::parse(&test_file_path).unwrap();
-    lock.lock(YAMBS_MANIFEST_DIR_ENV, &dir.path().display().to_string());
 
     builder
         .parse_and_register_dependencies(&mut dep_registry, &manifest)

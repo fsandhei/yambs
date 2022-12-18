@@ -19,12 +19,11 @@ use yambs::output;
 use yambs::output::Output;
 use yambs::parser;
 use yambs::progress;
-use yambs::{YambsEnvironmentVariables, YAMBS_MANIFEST_NAME};
+use yambs::YAMBS_MANIFEST_NAME;
 
 fn main() -> anyhow::Result<()> {
     let command_line = CommandLine::parse();
     let output = Output::new();
-    let _environment_variables = YambsEnvironmentVariables::from_command_line(&command_line);
 
     if let Some(subcommand) = command_line.subcommand {
         match subcommand {

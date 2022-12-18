@@ -15,12 +15,7 @@ pub mod progress;
 pub mod targets;
 pub mod utility;
 
-use cli::command_line::CommandLine;
-use cli::command_line::Subcommand;
-
 pub const YAMBS_MANIFEST_NAME: &str = "yambs.toml";
-pub const YAMBS_MANIFEST_DIR_ENV: &str = "YAMBS_MANIFEST_DIR";
-pub const YAMBS_BUILD_SYSTEM_EXECUTABLE_ENV: &str = "YAMBS_BUILD_SYSTEM_EXECUTABLE";
 
 // FIXME: Should have check for absolute path. Perhaps better check?
 pub fn canonicalize_source(
@@ -31,46 +26,6 @@ pub fn canonicalize_source(
         Ok(base_dir.to_path_buf())
     } else {
         base_dir.join(path).canonicalize()
-    }
-}
-
-pub struct YambsEnvironmentVariable(EnvironmentVariable);
-
-impl YambsEnvironmentVariable {
-    pub fn new(key: &str, value: &str) -> Self
-where {
-        std::env::set_var(key, value);
-        Self {
-            0: EnvironmentVariable(key.to_string()),
-        }
-    }
-}
-
-impl Drop for YambsEnvironmentVariable {
-    fn drop(&mut self) {
-        std::env::remove_var(&self.0 .0)
-    }
-}
-
-pub struct EnvironmentVariable(String);
-
-pub struct YambsEnvironmentVariables(std::vec::Vec<YambsEnvironmentVariable>);
-
-impl YambsEnvironmentVariables {
-    pub fn from_command_line(command_line: &CommandLine) -> Self {
-        let mut env_vars = vec![];
-        if let Some(ref subcommand) = command_line.subcommand {
-            match subcommand {
-                Subcommand::Build(ref build_opts) => {
-                    env_vars.push(YambsEnvironmentVariable::new(
-                        YAMBS_MANIFEST_DIR_ENV,
-                        &build_opts.manifest_dir.as_path().display().to_string(),
-                    ));
-                }
-                _ => (),
-            }
-        }
-        Self(env_vars)
     }
 }
 

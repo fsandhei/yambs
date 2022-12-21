@@ -42,7 +42,7 @@ binary distributions can be made.
 `YAMBS` can be built using `cargo`:
 
 ```
-https://github.com/fredriksd/yambs.git
+git clone https://github.com/fredriksd/yambs.git
 cd yambs
 cargo build
 ```

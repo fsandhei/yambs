@@ -24,14 +24,21 @@ build files for your projects in a simple and fast way, with minimal hassle.
 ## State of the project
 `YAMBS` is an ongoing project. It has bugs and needs better test coverage.
 
-This project begun just for fun and as a way for me to get familiarized in Rust and understand how meta build systems work.
+This project begun for fun and as a way for me to get familiarized in Rust and understand how meta build systems work.
 
 There might of course not be the best solutions for all things here.
 
 `YAMBS` is not intended to replace any of the popular systems that exist today.
+If however it proves to be something that people would like to use, more features can be added. Contributions are welcome!
 
 Any contribution to the project is welcome. Please create a PR with proper intent and description of what you are
 adding or modifying.
+
+### TODO
+* Support other platforms (Linux, MacOS, Windows)
+* Different generators (Make and possibly different flavors, Ninja, MSVC)
+* Better support for toolchain specifications
+* Support other package managers (conan, vcpkg, pkgbuild, ...)
 
 
 ## How do I get it?
@@ -131,3 +138,4 @@ A library has an additional field:
 * `type`: String specifying this library as a static or shared library.
    * Allowed values: "shared", "static".
    * Default: "static"
+

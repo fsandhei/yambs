@@ -1,9 +1,9 @@
 use std::process::Command;
 use std::vec::Vec;
 
-use crate::build_state_machine::filter;
 use crate::errors::FsError;
 use crate::output;
+use crate::output::filter;
 
 lazy_static::lazy_static! {
     static ref PROGRAM_ROOT_PATHS: Vec<std::path::PathBuf> = {

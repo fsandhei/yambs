@@ -4,13 +4,12 @@ use crate::cli::command_line::ConfigurationOpts;
 use crate::cli::configurations;
 use crate::cli::BuildDirectory;
 use crate::errors::{CacheError, FsError};
+use crate::generator;
 use crate::manifest;
 use crate::parser;
 use crate::YAMBS_MANIFEST_NAME;
 
-mod filter;
-mod make;
-use make::Make;
+pub mod executor;
 
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
@@ -42,8 +41,11 @@ impl BuildManager {
         }
     }
 
-    pub fn build(&self, args: Vec<String>) -> Result<Make, BuildManagerError> {
-        let mut make = Make::new()?;
+    pub fn build(
+        &self,
+        args: Vec<String>,
+    ) -> Result<generator::makefile::make::Make, BuildManagerError> {
+        let mut make = generator::makefile::make::Make::new()?;
         let makefile_directory = self.resolve_build_directory(self.top_build_directory.as_path());
         make.spawn_with_args(&makefile_directory, args)?;
 

@@ -1,5 +1,6 @@
 use colored::Colorize;
 
+pub mod filter;
 // TODO: Task - relatert text? Mulighet for å starte en task og avslutte den med en eller annen form
 // for statusmelding fra Text.
 

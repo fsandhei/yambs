@@ -2,6 +2,8 @@ use std::io::Write;
 
 use indoc;
 
+pub mod make;
+
 use crate::build_target;
 use crate::build_target::include_directories;
 use crate::build_target::{

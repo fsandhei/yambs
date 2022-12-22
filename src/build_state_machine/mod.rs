@@ -9,8 +9,6 @@ use crate::manifest;
 use crate::parser;
 use crate::YAMBS_MANIFEST_NAME;
 
-pub mod executor;
-
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum BuildManagerError {

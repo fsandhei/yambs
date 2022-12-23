@@ -12,8 +12,7 @@ use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, Remake
 use yambs::compiler;
 use yambs::external;
 use yambs::generator::{
-    makefile::make::Executor, makefile::Make, Generator, GeneratorInfo, GeneratorType,
-    MakefileGenerator,
+    makefile::Make, Generator, GeneratorInfo, GeneratorType, MakefileGenerator,
 };
 use yambs::logger;
 use yambs::manifest;
@@ -274,7 +273,7 @@ fn run_make(
     let make = Make::new(args)?;
 
     log::debug!("Running make in directory {}", makefile_directory.display());
-    let build_process = make.execute()?;
+    let build_process = make.run()?;
     Ok(build_process.wait_with_output(output))
 }
 

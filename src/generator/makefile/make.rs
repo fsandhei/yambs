@@ -36,10 +36,6 @@ impl BuildProcess {
     }
 }
 
-pub trait Executor {
-    fn execute(&self) -> Result<BuildProcess, FsError>;
-}
-
 #[derive(Debug)]
 struct MakeArgs(Vec<String>);
 
@@ -83,18 +79,6 @@ pub struct Make {
     executable: std::path::PathBuf,
 }
 
-impl Executor for Make {
-    fn execute(&self) -> Result<BuildProcess, FsError> {
-        let child = Command::new(&self.executable)
-            .args(&self.args)
-            .stderr(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|_| FsError::Spawn(Command::new(self.executable.display().to_string())))?;
-        Ok(BuildProcess(child))
-    }
-}
-
 impl Make {
     pub fn new(args: &[String]) -> Result<Self, FsError> {
         let args = MakeArgs::from_slice(args);
@@ -102,6 +86,16 @@ impl Make {
             find_program("make").ok_or_else(|| FsError::CouldNotFindProgram("make".to_string()))?;
 
         Ok(Self { args, executable })
+    }
+
+    pub fn run(&self) -> Result<BuildProcess, FsError> {
+        let child = Command::new(&self.executable)
+            .args(&self.args)
+            .stderr(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|_| FsError::Spawn(Command::new(self.executable.display().to_string())))?;
+        Ok(BuildProcess(child))
     }
 
     fn log(process_output: &std::process::Output, output: &output::Output) -> Result<(), FsError> {

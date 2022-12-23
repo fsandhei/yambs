@@ -2,8 +2,8 @@ use std::io::Write;
 
 use indoc;
 
+mod include_file_generator;
 pub mod make;
-pub use make::Make;
 
 use crate::build_target;
 use crate::build_target::include_directories;
@@ -24,10 +24,8 @@ use crate::generator::{
 use crate::parser::types;
 use crate::progress;
 use crate::utility;
-
-mod include_file_generator;
-
 use include_file_generator::IncludeFileGenerator;
+pub use make::Make;
 
 struct ExecutableTargetFactory;
 

@@ -240,7 +240,7 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 try_get_version(&compiler_exe).unwrap(),
-                semver::Version::parse("12.1.1").unwrap()
+                semver::Version::parse("12.2.0").unwrap()
             );
         }
     }

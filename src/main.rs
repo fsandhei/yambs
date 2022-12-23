@@ -80,11 +80,15 @@ fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path
     Ok(manifest_file)
 }
 
-pub fn from_build_opts(opts: &BuildOpts, cache: &Cache) -> anyhow::Result<Box<dyn Generator>> {
+pub fn generator_from_build_opts(
+    opts: &BuildOpts,
+    cache: &Cache,
+) -> anyhow::Result<Box<dyn Generator>> {
     let compiler = compiler::Compiler::new()?;
     evaluate_compiler(&compiler, &opts, &cache)?;
 
     let generator_type = &opts.configuration.generator_type;
+    log::info!("Using {:?} as generator.", generator_type);
     match generator_type {
         GeneratorType::GNUMakefiles => Ok(Box::new(MakefileGenerator::new(
             &opts.configuration,
@@ -140,7 +144,7 @@ fn do_build(opts: BuildOpts, output: &Output) -> anyhow::Result<()> {
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
 
-    let mut generator = from_build_opts(&opts, &cache)?;
+    let mut generator = generator_from_build_opts(&opts, &cache)?;
 
     let buildfile_directory =
         if try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none() {

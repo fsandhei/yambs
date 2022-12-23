@@ -246,7 +246,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
 }
 
 impl<'generator> UtilityGenerator<'generator> for IncludeFileGenerator<'generator> {
-    fn generate_makefiles(&'generator mut self) -> Result<(), GeneratorError> {
+    fn generate_build_files(&'generator mut self) -> Result<(), GeneratorError> {
         self.generate_warnings_mk()?;
         self.generate_debug_mk()?;
         self.generate_default_mk()?;

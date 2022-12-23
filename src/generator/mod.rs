@@ -2,11 +2,15 @@ use crate::build_target::{target_registry::TargetRegistry, TargetError};
 use crate::cache;
 use crate::errors::FsError;
 
+#[cfg(target_os = "linux")]
 pub mod makefile;
 
+#[cfg(target_os = "linux")]
 pub use makefile::MakefileGenerator;
 
+#[cfg(target_os = "linux")]
 pub(crate) const STATIC_LIBRARY_FILE_EXTENSION: &str = "a";
+#[cfg(target_os = "linux")]
 pub(crate) const SHARED_LIBRARY_FILE_EXTENSION: &str = "so";
 
 #[non_exhaustive]
@@ -22,6 +26,7 @@ pub enum GeneratorError {
 
 #[derive(clap::ValueEnum, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub enum GeneratorType {
+    #[cfg(target_os = "linux")]
     /// Use GNU Makefiles
     GNUMakefiles,
 }
@@ -49,7 +54,7 @@ pub trait Sanitizer {
 }
 
 pub trait UtilityGenerator<'config> {
-    fn generate_makefiles(&'config mut self) -> Result<(), GeneratorError>;
+    fn generate_build_files(&'config mut self) -> Result<(), GeneratorError>;
     fn add_cpp_version(&mut self, version: &'config str);
     fn print_cpp_version(&'config self) -> &'config str;
     fn generate_flags_sanitizer(&self) -> String;

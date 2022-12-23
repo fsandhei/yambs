@@ -640,7 +640,7 @@ impl MakefileGenerator {
         if let Some(sanitizer) = &self.configurations.sanitizer {
             include_file_generator.set_sanitizer(&sanitizer.to_string());
         }
-        include_file_generator.generate_makefiles()
+        include_file_generator.generate_build_files()
     }
 
     fn generate_object_rules(&self, writers: &mut Writers) {

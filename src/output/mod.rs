@@ -1,15 +1,6 @@
 use colored::Colorize;
 
 pub mod filter;
-// TODO: Task - relatert text? Mulighet for å starte en task og avslutte den med en eller annen form
-// for statusmelding fra Text.
-
-// Eks: Task - struct som gjør en oppgave og ved oppgavets slutt returnerer en statusmelding for det
-// som ved generering av makefiler.
-// ```
-//  text.task("Generating makefiles", || { builder.generate_makefiles() })
-//
-// Skal text - rammeverket ha forhold til logging?
 
 const YAMBS_PREFIX: &str = "yambs";
 

@@ -900,11 +900,13 @@ mod tests {
         let build_type = configurations::BuildType::Debug;
         let cxx_standard = configurations::CXXStandard::CXX17;
         let sanitizer = None;
+        let generator_type = generator::GeneratorType::GNUMakefiles;
 
         command_line::ConfigurationOpts {
             build_type,
             cxx_standard,
             sanitizer,
+            generator_type,
         }
     }
 

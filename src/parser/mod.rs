@@ -1,15 +1,14 @@
 use crate::manifest;
 
-mod constants;
 pub mod types;
 
 // FIXME: Write tests!
 pub fn parse(manifest_path: &std::path::Path) -> Result<manifest::ParsedManifest, ParseTomlError> {
     let toml_content =
-        String::from_utf8(std::fs::read(&manifest_path).map_err(ParseTomlError::FailedToRead)?)
+        String::from_utf8(std::fs::read(manifest_path).map_err(ParseTomlError::FailedToRead)?)
             .map_err(ParseTomlError::FailedToConvertUtf8)?;
     let metadata =
-        std::fs::metadata(&manifest_path).expect("Could not fetch metadata from yambs.json");
+        std::fs::metadata(manifest_path).expect("Could not fetch metadata from yambs.json");
     let manifest_directory = manifest_path.parent().unwrap();
     Ok(manifest::ParsedManifest {
         manifest: manifest::Manifest {
@@ -421,7 +420,7 @@ mod tests {
                     Dependency {
                         name: "SomeSourceProject".to_string(),
                         data: DependencyData::Source(SourceData {
-                            path: source_dep_project_path.clone(),
+                            path: source_dep_project_path,
                             origin: IncludeSearchType::Include,
                         }),
                     },

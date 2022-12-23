@@ -4,7 +4,7 @@ pub struct SourceFiles(std::vec::Vec<SourceFile>);
 
 impl SourceFiles {
     pub fn new() -> Self {
-        Self { 0: Vec::new() }
+        Self(Vec::new())
     }
 
     pub fn from_paths(sources: &[std::path::PathBuf]) -> Result<Self, AssociatedFileError> {

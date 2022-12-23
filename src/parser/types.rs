@@ -67,8 +67,8 @@ pub enum ParseDefineError {
 impl Define {
     pub fn from_cli(s: &str) -> Result<Self, ParseDefineError> {
         let (macro_, value) = s
-            .split_once("=")
-            .ok_or_else(|| ParseDefineError::IncorrectSyntax)?;
+            .split_once('=')
+            .ok_or(ParseDefineError::IncorrectSyntax)?;
         Ok(Self {
             macro_: macro_.to_string(),
             value: Some(value.to_string()),

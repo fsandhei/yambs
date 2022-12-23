@@ -45,9 +45,7 @@ impl std::str::FromStr for ManifestDirectory {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let canonicalized_path =
             cli::canonicalize_path(&std::path::PathBuf::from(s)).map_err(FsError::Canonicalize)?;
-        Ok(Self {
-            0: canonicalized_path,
-        })
+        Ok(Self(canonicalized_path))
     }
 }
 

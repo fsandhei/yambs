@@ -280,7 +280,7 @@ impl BuildTarget {
         };
 
         include_directories.add(include_directories::IncludeDirectory {
-            include_type: include_type.clone(),
+            include_type,
             path: binary_data.include_directory.clone(),
         });
 
@@ -346,7 +346,7 @@ impl BuildTarget {
                 types::DependencyData::Binary(ref dependency_binary_data) => {
                     let dependency_target = BuildTarget::target_node_from_binary(
                         &dependency.name,
-                        &dependency_binary_data,
+                        dependency_binary_data,
                         registry,
                     )?;
                     let dependency_source =
@@ -475,9 +475,7 @@ pub struct TargetNode(Rc<RefCell<BuildTarget>>);
 
 impl TargetNode {
     pub fn new(target: BuildTarget) -> Self {
-        Self {
-            0: Rc::new(RefCell::new(target)),
-        }
+        Self(Rc::new(RefCell::new(target)))
     }
 }
 

@@ -43,7 +43,7 @@ mod tests {
         pub fn lock(env_var: &str, new_value: &str) -> Self {
             let mutex_guard = ENV_LOCK_MUTEX.lock().unwrap();
             let old_env_value = std::env::var(env_var).ok();
-            std::env::set_var(&env_var, new_value);
+            std::env::set_var(env_var, new_value);
             Self {
                 _mutex_guard: mutex_guard,
                 env_var: env_var.to_string(),

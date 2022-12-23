@@ -75,7 +75,7 @@ where
 }
 
 pub fn create_file(file: &Path) -> Result<File, FsError> {
-    File::create(&file).map_err(|err| FsError::CreateFile(file.to_path_buf(), err))
+    File::create(file).map_err(|err| FsError::CreateFile(file.to_path_buf(), err))
 }
 
 // This should be separated into its own "Make" mod.
@@ -89,7 +89,7 @@ pub fn print_full_path(os: &mut String, dir: &str, filename: &str, no_newline: b
 }
 
 pub fn read_file(file_path: &Path) -> Result<String, FsError> {
-    std::fs::read_to_string(&file_path)
+    std::fs::read_to_string(file_path)
         .map_err(|err| FsError::ReadFromFile(file_path.to_path_buf(), err))
 }
 

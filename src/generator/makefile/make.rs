@@ -133,8 +133,6 @@ impl Jobs {
 
 impl std::default::Default for Jobs {
     fn default() -> Self {
-        Self {
-            0: Jobs::calculate_heuristic(),
-        }
+        Self(Jobs::calculate_heuristic())
     }
 }

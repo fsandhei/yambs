@@ -28,7 +28,7 @@ pub(crate) struct IncludeFileGenerator<'generator> {
 
 impl<'generator> IncludeFileGenerator<'generator> {
     pub fn new(output_directory: &std::path::Path, compiler: Compiler) -> Self {
-        utility::create_dir(&output_directory).unwrap();
+        utility::create_dir(output_directory).unwrap();
 
         let mut compiler_constants = HashMap::new();
         compiler_constants.insert("CXX_USES_CLANG", "false");

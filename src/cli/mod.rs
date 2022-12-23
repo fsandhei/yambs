@@ -14,21 +14,19 @@ impl BuildDirectory {
 
 impl std::convert::From<std::path::PathBuf> for BuildDirectory {
     fn from(f: std::path::PathBuf) -> Self {
-        Self { 0: f }
+        Self(f)
     }
 }
 
 impl std::convert::From<&std::path::Path> for BuildDirectory {
     fn from(f: &std::path::Path) -> Self {
-        Self { 0: f.to_path_buf() }
+        Self(f.to_path_buf())
     }
 }
 
 impl Default for BuildDirectory {
     fn default() -> Self {
-        Self {
-            0: std::env::current_dir().expect("Could not locate current directory."),
-        }
+        Self(std::env::current_dir().expect("Could not locate current directory."))
     }
 }
 
@@ -43,9 +41,7 @@ impl std::str::FromStr for BuildDirectory {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let canonicalized_path = canonicalize_path(&std::path::PathBuf::from(s))
             .map_err(crate::errors::FsError::Canonicalize)?;
-        Ok(Self {
-            0: canonicalized_path,
-        })
+        Ok(Self(canonicalized_path))
     }
 }
 

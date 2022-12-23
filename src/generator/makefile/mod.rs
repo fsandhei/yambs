@@ -18,8 +18,9 @@ use crate::compiler::Compiler;
 use crate::errors::FsError;
 use crate::generator;
 use crate::generator::{
-    targets::ObjectTarget, Generator, GeneratorError, Sanitizer, UtilityGenerator,
-    SHARED_LIBRARY_FILE_EXTENSION, STATIC_LIBRARY_FILE_EXTENSION,
+    targets::ObjectTarget, targets::ProgressDocument, targets::ProgressTrackingTarget, Generator,
+    GeneratorError, Sanitizer, UtilityGenerator, SHARED_LIBRARY_FILE_EXTENSION,
+    STATIC_LIBRARY_FILE_EXTENSION,
 };
 use crate::parser::types;
 use crate::progress;
@@ -163,7 +164,7 @@ fn generate_prerequisites(
                     .join(source_file.file_name().unwrap())
                     .with_extension("o");
                 formatted_string.push_str("\\\n");
-                formatted_string.push_str(&format!("   {}", object.display().to_string()));
+                formatted_string.push_str(&format!("   {}", object.display()));
             }
             for dependency in &source_data.dependencies {
                 formatted_string.push_str("\\\n");
@@ -272,9 +273,9 @@ fn generate_include_directories(
     let mut formatted_string = String::new();
     for include in include_directories {
         if include.include_type == IncludeType::System {
-            formatted_string.push_str(&format!("-isystem {}", include.path.display().to_string()))
+            formatted_string.push_str(&format!("-isystem {}", include.path.display()))
         } else {
-            formatted_string.push_str(&format!("-I{}", include.path.display().to_string()))
+            formatted_string.push_str(&format!("-I{}", include.path.display()))
         }
         formatted_string.push(' ');
     }
@@ -301,17 +302,12 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
     formatted_string
 }
 
-fn directory_from_build_configuration(
-    build_type: &configurations::BuildType,
-) -> std::path::PathBuf {
-    std::path::PathBuf::from(build_type.to_string())
-}
-
 pub struct MakefileGenerator {
     pub compiler: Compiler,
     pub configurations: command_line::ConfigurationOpts,
     pub build_directory: BuildDirectory,
     pub output_directory: std::path::PathBuf,
+    pub progress_document: ProgressDocument,
 }
 
 impl MakefileGenerator {
@@ -320,108 +316,30 @@ impl MakefileGenerator {
         build_directory: &BuildDirectory,
         compiler: Compiler,
     ) -> Result<Self, GeneratorError> {
-        utility::create_dir(&build_directory.as_path())?;
+        utility::create_dir(build_directory.as_path())?;
         Ok(Self {
             compiler,
             configurations: configurations.to_owned(),
             build_directory: build_directory.clone(),
             output_directory: build_directory.as_path().to_path_buf(),
+            progress_document: ProgressDocument::new(),
         })
     }
 
-    /// Create JSON progress document with similar hierarchical layout as the makefile targets:
-    /// There exists an all target which has dependencies to all of the other targets
-    /// Each target contains a list of object files tied to itself and a reference to an
-    /// existing target. This should be useful for when yambs is being called to build
-    /// a specific target.
-    fn populate_progress_document(
-        &self,
-        registry: &TargetRegistry,
-    ) -> Result<generator::targets::ProgressDocument, GeneratorError> {
-        let mut progress_document = generator::targets::ProgressDocument {
-            targets: Vec::new(),
-        };
-
-        let mut target_all = generator::targets::ProgressTrackingTarget {
+    fn generate_all_target_for_progress_document(&mut self, object_targets: &[ObjectTarget]) {
+        let mut target_all = ProgressTrackingTarget {
             target: "all".to_string(),
             object_files: Vec::new(),
             dependencies: Vec::new(),
         };
 
-        for target_node in &registry.registry {
-            let target_object_targets = self
-                .create_object_targets(target_node)
-                .iter()
-                .map(|o| o.object.to_path_buf())
-                .collect::<Vec<std::path::PathBuf>>();
-            let target_name = target_node.borrow().name();
-            let target_dependencies = match target_node.borrow().target_source {
-                build_target::TargetSource::FromSource(ref s) => s
-                    .dependencies
-                    .iter()
-                    .filter_map(|d| match d.source {
-                        build_target::DependencySource::FromSource(ref ds) => Some(ds),
-                        build_target::DependencySource::FromPrebuilt(_)
-                        | build_target::DependencySource::FromHeaderOnly(_) => None,
-                    })
-                    .map(|ds| ds.name.to_owned())
-                    .collect::<Vec<String>>(),
-                build_target::TargetSource::FromPrebuilt(_) => Vec::new(),
-            };
-
-            let target = generator::targets::ProgressTrackingTarget {
-                target: target_name.clone(),
-                object_files: target_object_targets.clone(),
-                dependencies: target_dependencies.clone(),
-            };
-            progress_document.targets.push(target);
-
-            target_all.dependencies.push(target_name);
-        }
-        progress_document.targets.push(target_all);
-        Ok(progress_document)
-    }
-
-    fn create_object_targets(&self, target: &TargetNode) -> Vec<ObjectTarget> {
-        let mut object_targets = Vec::new();
-        let borrowed_target = target.borrow();
-        let source_data = borrowed_target.target_source.from_source().unwrap();
-        let sources = source_data
-            .source_files
-            .iter()
-            .filter(|file| file.is_source());
-        let dependency_root_path = &source_data.manifest.directory;
-        let target_name = borrowed_target.name();
-
-        for source in sources {
-            let source_file = source.file();
-            let source_dir = source_file
-                .parent()
-                .and_then(|p| p.strip_prefix(dependency_root_path).ok());
-
-            if let Some(dir) = source_dir {
-                self.create_subdir(dir).unwrap();
+        for object_target in object_targets {
+            let target_name = object_target.target.clone();
+            if !target_all.dependencies.contains(&target_name) {
+                target_all.dependencies.push(target_name);
             }
-            let object = {
-                if let Some(dir) = source_dir {
-                    self.output_directory
-                        .join(dir)
-                        .join(source_file.file_name().unwrap())
-                } else {
-                    self.output_directory.join(source_file.file_name().unwrap())
-                }
-            }
-            .with_extension("o");
-            let object_target = ObjectTarget {
-                target: target_name.clone(),
-                object,
-                source: source_file,
-                include_directories: borrowed_target.include_directories.clone(),
-            };
-
-            object_targets.push(object_target);
         }
-        object_targets
+        self.progress_document.targets.push(target_all);
     }
 
     fn generate_makefile(
@@ -431,9 +349,12 @@ impl MakefileGenerator {
     ) -> Result<(), GeneratorError> {
         self.generate_header(&mut writers.makefile_writer, &registry.registry)?;
 
+        self.push_and_create_directory(std::path::Path::new("deps"))?;
         for target in &registry.registry {
             if target.borrow().state != TargetState::BuildFileMade {
                 let borrowed_target = target.borrow();
+                let dep_dir = format!("{}.dir", &borrowed_target.name());
+                self.push_and_create_directory(std::path::Path::new(&dep_dir))?;
                 match borrowed_target.target_source {
                     build_target::TargetSource::FromPrebuilt(_) => {}
                     build_target::TargetSource::FromSource(ref s) => {
@@ -442,34 +363,44 @@ impl MakefileGenerator {
                             target.borrow().name(),
                             s.manifest.directory.display()
                         );
+
                         self.generate_rule_declaration_for_target(writers, target);
+                        // Quick hack to allow each dependency / target to be placed in their own
+                        // folder, without it being a subfolder of a separate target.
+                        // FIXME: Need to figure out if there is a better way to solve this. It is
+                        // rather clunky.
+                        self.output_directory.pop();
                         self.generate_rule_for_dependencies_from_source_data(
                             writers,
                             &borrowed_target.name(),
                             s,
                             registry,
                         )?;
+                        self.push_and_create_directory(std::path::Path::new(&dep_dir))?;
 
-                        self.create_object_targets(target)
-                            .iter()
+                        let progress_tracking_target =
+                            ProgressTrackingTarget::from_target(target, &self.output_directory);
+                        self.progress_document
+                            .add_progress_tracking_target(progress_tracking_target);
+                        ObjectTarget::create_object_targets(target, &self.output_directory)
+                            .into_iter()
                             .for_each(|object_target| {
                                 if !writers
                                     .makefile_writer
                                     .object_targets
-                                    .contains(object_target)
+                                    .contains(&object_target)
                                 {
-                                    writers
-                                        .makefile_writer
-                                        .object_targets
-                                        .push(object_target.clone());
+                                    writers.makefile_writer.object_targets.push(object_target);
                                 }
                             });
                     }
                 }
+                self.output_directory.pop();
             }
             target.borrow_mut().state = TargetState::BuildFileMade;
         }
-        self.generate_object_rules(writers);
+        self.output_directory.pop();
+        self.generate_object_rules(writers)?;
         self.generate_depends_rules(&mut writers.makefile_writer);
         Ok(())
     }
@@ -493,14 +424,10 @@ impl MakefileGenerator {
                             s.manifest.directory.display(),
                             target_name,
                             source_data.manifest.directory.display());
-                        if s.manifest.directory != source_data.manifest.directory {
-                            let dep_dir = format!("{}.d", &s.name);
-                            self.push_and_create_directory(&std::path::Path::new(&dep_dir))?;
-                            self.generate_rule_for_dependency(writers, dependency, registry);
-                            self.output_directory.pop();
-                        } else {
-                            self.generate_rule_for_dependency(writers, dependency, registry);
-                        }
+                        let dep_dir = format!("{}.dir", &s.name);
+                        self.push_and_create_directory(std::path::Path::new(&dep_dir))?;
+                        self.generate_rule_for_dependency(writers, dependency, registry);
+                        self.output_directory.pop();
                     }
                 }
             }
@@ -509,13 +436,12 @@ impl MakefileGenerator {
     }
 
     fn generate_rule_for_dependency(
-        &self,
+        &mut self,
         writers: &mut Writers,
         dependency: &Dependency,
         registry: &TargetRegistry,
     ) {
         let dependency_target = dependency.to_build_target(registry).unwrap();
-
         if dependency_target.borrow().state != TargetState::BuildFileMade {
             generate_compiler_flags_for_target(&dependency_target, &mut writers.makefile_writer);
             writers.makefile_writer.data.push('\n');
@@ -524,7 +450,7 @@ impl MakefileGenerator {
                 &self.output_directory,
                 &self.configurations.build_type,
             );
-            self.create_object_targets(&dependency_target)
+            ObjectTarget::create_object_targets(&dependency_target, &self.output_directory)
                 .iter()
                 .for_each(|object_target| {
                     if !writers
@@ -539,6 +465,10 @@ impl MakefileGenerator {
                     }
                 });
             writers.makefile_writer.data.push_str(&rule);
+            let progress_tracking_target =
+                ProgressTrackingTarget::from_target(&dependency_target, &self.output_directory);
+            self.progress_document
+                .add_progress_tracking_target(progress_tracking_target);
             dependency_target.borrow_mut().state = TargetState::BuildFileMade;
         }
     }
@@ -567,7 +497,7 @@ impl MakefileGenerator {
     }
 
     fn create_subdir(&self, dir: &std::path::Path) -> Result<(), GeneratorError> {
-        utility::create_dir(&self.output_directory.join(dir)).map_err(GeneratorError::Fs)
+        utility::create_dir(self.output_directory.join(dir)).map_err(GeneratorError::Fs)
     }
 
     fn generate_default_all_target(&self, writer: &mut Writer, targets: &[TargetNode]) {
@@ -641,13 +571,22 @@ impl MakefileGenerator {
         include_file_generator.generate_build_files()
     }
 
-    fn generate_object_rules(&self, writers: &mut Writers) {
+    fn generate_object_rules(&self, writers: &mut Writers) -> Result<(), GeneratorError> {
         for object_target in &writers.makefile_writer.object_targets {
+            let object_dir = object_target
+                .object
+                .parent()
+                .and_then(|p| p.strip_prefix(&self.output_directory).ok());
+
+            if let Some(object_dir) = object_dir {
+                self.create_subdir(object_dir)?;
+            }
             writers
                 .makefile_writer
                 .data
                 .push_str(&generate_object_target(object_target))
         }
+        Ok(())
     }
 
     fn generate_depends_rules(&self, writer: &mut Writer) {
@@ -700,16 +639,18 @@ impl Generator for MakefileGenerator {
         registry: &TargetRegistry,
     ) -> Result<std::path::PathBuf, GeneratorError> {
         self.generate_include_files()?;
-        self.push_and_create_directory(&directory_from_build_configuration(
-            &self.configurations.build_type,
+        self.push_and_create_directory(&std::path::PathBuf::from(
+            &self.configurations.build_type.to_string(),
         ))?;
         let mut writers = Writers {
             makefile_writer: Writer::new(&self.output_directory.join("Makefile"))?,
             progress_writer: ProgressWriter::new(&self.output_directory)?,
         };
         self.generate_makefile(&mut writers, registry)?;
-        let progress_document = self.populate_progress_document(registry)?;
-        writers.progress_writer.write_document(&progress_document);
+        self.generate_all_target_for_progress_document(&writers.makefile_writer.object_targets);
+        writers
+            .progress_writer
+            .write_document(&self.progress_document);
         writers.makefile_writer.write()?;
         Ok(self.output_directory.clone())
     }
@@ -763,6 +704,7 @@ impl Writer {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
     use tempdir::TempDir;
 
     use crate::flags;
@@ -942,7 +884,7 @@ mod tests {
         build_target::TargetSource::FromSource(build_target::SourceBuildData {
             manifest: manifest.manifest,
             dependencies,
-            source_files: source_files.clone(),
+            source_files,
             defines: Vec::new(),
         })
     }
@@ -975,7 +917,7 @@ mod tests {
         let project_path = project_fixture.dir.path();
         let fixture = MakefileGeneratorTestFixture::new();
 
-        let generator = MakefileGenerator::new(
+        let mut generator = MakefileGenerator::new(
             &fixture.configuration_opts,
             &fixture.build_directory(),
             fixture.compiler.clone(),
@@ -997,19 +939,31 @@ mod tests {
             ))
             .with_include_directories(include_directories)
             .create();
+
+        let progress_tracking_target =
+            ProgressTrackingTarget::from_target(&target_node, &generator.output_directory);
+        generator
+            .progress_document
+            .add_progress_tracking_target(progress_tracking_target);
+        let progress_tracking_target_all = ProgressTrackingTarget {
+            target: "all".to_string(),
+            object_files: Vec::new(),
+            dependencies: vec!["myLib".to_string()],
+        };
+        generator
+            .progress_document
+            .add_progress_tracking_target(progress_tracking_target_all);
         project_fixture.target_registry.add_target(target_node);
 
-        let actual = generator
-            .populate_progress_document(&project_fixture.target_registry)
-            .unwrap();
+        let actual = generator.progress_document;
         let expected = generator::targets::ProgressDocument {
             targets: vec![
-                generator::targets::ProgressTrackingTarget {
+                ProgressTrackingTarget {
                     target: "myLib".to_string(),
                     object_files: object_files_paths,
                     dependencies: Vec::new(),
                 },
-                generator::targets::ProgressTrackingTarget {
+                ProgressTrackingTarget {
                     target: "all".to_string(),
                     object_files: Vec::new(),
                     dependencies: vec!["myLib".to_string()],
@@ -1025,7 +979,7 @@ mod tests {
         let project_path = project_fixture.dir.path();
         let fixture = MakefileGeneratorTestFixture::new();
 
-        let generator = MakefileGenerator::new(
+        let mut generator = MakefileGenerator::new(
             &fixture.configuration_opts,
             &fixture.build_directory(),
             fixture.compiler.clone(),
@@ -1058,14 +1012,23 @@ mod tests {
             ))
             .with_include_directories(include_directories)
             .create();
+
+        let progress_tracking_target =
+            ProgressTrackingTarget::from_target(&target_node, &generator.output_directory);
+        generator
+            .progress_document
+            .add_progress_tracking_target(progress_tracking_target);
+        let progress_tracking_target_all = ProgressTrackingTarget {
+            target: "all".to_string(),
+            object_files: Vec::new(),
+            dependencies: vec!["myLib".to_string()],
+        };
+        generator
+            .progress_document
+            .add_progress_tracking_target(progress_tracking_target_all);
         project_fixture.target_registry.add_target(target_node);
 
-        let actual = serde_json::to_string_pretty(
-            &generator
-                .populate_progress_document(&project_fixture.target_registry)
-                .unwrap(),
-        )
-        .unwrap();
+        let actual = serde_json::to_string_pretty(&generator.progress_document).unwrap();
         let expected = indoc::formatdoc!(
             r#"
             {{
@@ -1116,7 +1079,7 @@ mod tests {
         let fixture = MakefileGeneratorTestFixture::new();
         let build_path = fixture.build_dir.path();
         let source_directory = project_path.join("src");
-        std::fs::create_dir(&source_directory).unwrap();
+        std::fs::create_dir(source_directory).unwrap();
 
         let manifest = ManifestStub::new(project_path);
         let source_files = build_target::associated_files::SourceFiles::new();
@@ -1124,7 +1087,7 @@ mod tests {
         let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
             manifest: manifest.manifest,
             dependencies,
-            source_files: source_files.clone(),
+            source_files,
             defines: Vec::new(),
         });
 
@@ -1148,7 +1111,7 @@ mod tests {
 
         let build_type = configurations::BuildType::Debug;
 
-        let actual = TargetRuleFactory::create_rule(&target_node, &build_path, &build_type);
+        let actual = TargetRuleFactory::create_rule(&target_node, build_path, &build_type);
         let expected = indoc::formatdoc!(
             "
         {target_name} : \
@@ -1162,7 +1125,7 @@ mod tests {
 ",
             target_name = target_name,
             target = target_node.borrow().name(),
-            object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+            object_files_string = generate_prerequisites(&target_node, build_path, &build_type),
         );
         assert_eq!(actual, expected);
     }
@@ -1174,7 +1137,7 @@ mod tests {
         let fixture = MakefileGeneratorTestFixture::new();
         let build_path = fixture.build_dir.path();
         let source_directory = project_path.join("src");
-        std::fs::create_dir(&source_directory).unwrap();
+        std::fs::create_dir(source_directory).unwrap();
 
         let manifest = ManifestStub::new(project_path);
         let source_files = build_target::associated_files::SourceFiles::new();
@@ -1182,7 +1145,7 @@ mod tests {
         let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
             manifest: manifest.manifest,
             dependencies,
-            source_files: source_files.clone(),
+            source_files,
             defines: Vec::new(),
         });
 
@@ -1206,7 +1169,7 @@ mod tests {
 
         let build_type = configurations::BuildType::Debug;
 
-        let actual = TargetRuleFactory::create_rule(&target_node, &build_path, &build_type);
+        let actual = TargetRuleFactory::create_rule(&target_node, build_path, &build_type);
         let expected = indoc::formatdoc!(
                     "\
                 {target_name} : \
@@ -1221,7 +1184,7 @@ mod tests {
                     target_name = target_name,
                     target_name_capitalized = target_node.borrow().name().to_uppercase(),
                     target = target_node.borrow().name(),
-                    object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+                    object_files_string = generate_prerequisites(&target_node, build_path, &build_type),
                     dependencies = generate_search_directories(&target_node),
                 );
         assert_eq!(actual, expected);
@@ -1234,7 +1197,7 @@ mod tests {
         let fixture = MakefileGeneratorTestFixture::new();
         let build_path = fixture.build_dir.path();
         let source_directory = project_path.join("src");
-        std::fs::create_dir(&source_directory).unwrap();
+        std::fs::create_dir(source_directory).unwrap();
 
         let manifest = ManifestStub::new(project_path);
         let source_files = build_target::associated_files::SourceFiles::new();
@@ -1242,7 +1205,7 @@ mod tests {
         let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
             manifest: manifest.manifest,
             dependencies,
-            source_files: source_files.clone(),
+            source_files: source_files,
             defines: Vec::new(),
         });
 
@@ -1262,7 +1225,7 @@ mod tests {
         let build_type = configurations::BuildType::Debug;
         let target_name = target_node.borrow().name();
 
-        let actual = TargetRuleFactory::create_rule(&target_node, &build_path, &build_type);
+        let actual = TargetRuleFactory::create_rule(&target_node, build_path, &build_type);
         let expected = indoc::formatdoc!(
             "
         {target_name} : \
@@ -1271,7 +1234,7 @@ mod tests {
 ",
             target_name = target_name,
             target_name_capitalized = target_name.to_uppercase(),
-            object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+            object_files_string = generate_prerequisites(&target_node, build_path, &build_type),
             dependencies = generate_search_directories(&target_node),
         );
         assert_eq!(actual, expected);
@@ -1284,7 +1247,7 @@ mod tests {
         let mut fixture = MakefileGeneratorTestFixture::new();
         let build_path = fixture.build_dir.path();
         let source_directory = project_path.join("src");
-        std::fs::create_dir(&source_directory).unwrap();
+        std::fs::create_dir(source_directory).unwrap();
         let generator = MakefileGenerator::new(
             &fixture.configuration_opts,
             &fixture.build_directory(),
@@ -1298,7 +1261,7 @@ mod tests {
         let target_source = build_target::TargetSource::FromSource(build_target::SourceBuildData {
             manifest: manifest.manifest,
             dependencies,
-            source_files: source_files.clone(),
+            source_files,
             defines: Vec::new(),
         });
 
@@ -1341,7 +1304,7 @@ mod tests {
 ",
             target_name = target_name,
             target_name_capitalized = target_name.to_uppercase(),
-            object_files_string = generate_prerequisites(&target_node, &build_path, &build_type),
+            object_files_string = generate_prerequisites(&target_node, build_path, &build_type),
             dependencies = generate_search_directories(&target_node),
         );
         assert_eq!(actual, expected);
@@ -1387,18 +1350,22 @@ mod tests {
             .target_registry
             .add_target(target_node.clone());
 
-        let object_targets = generator.create_object_targets(&target_node);
+        let object_targets =
+            ObjectTarget::create_object_targets(&target_node, &generator.output_directory);
         fixture
             .writers
             .makefile_writer
             .object_targets
             .extend_from_slice(&object_targets);
-        generator.generate_object_rules(&mut fixture.writers);
+        generator
+            .generate_object_rules(&mut fixture.writers)
+            .unwrap();
         let actual = fixture.writers.makefile_writer.data;
 
         let expected = {
             let mut formatted_string = String::new();
-            let object_targets = generator.create_object_targets(&target_node);
+            let object_targets =
+                ObjectTarget::create_object_targets(&target_node, &generator.output_directory);
             for object_target in object_targets {
                 let object = object_target.object;
                 formatted_string.push_str(&indoc::formatdoc!(
@@ -1426,7 +1393,7 @@ mod tests {
         let mut project_fixture = ProjectTestFixture::new();
         let project_path = project_fixture.dir.path();
         let mut fixture = MakefileGeneratorTestFixture::new();
-        let build_path = fixture.build_dir.path();
+        let build_path = fixture.build_dir.path().join("deps/x.dir");
         let source_directory = project_path.join("src");
         std::fs::create_dir(&source_directory).unwrap();
         let mut generator = MakefileGenerator::new(
@@ -1466,12 +1433,15 @@ mod tests {
             .generate_makefile(&mut fixture.writers, &project_fixture.target_registry)
             .unwrap();
         let actual = fixture.writers.makefile_writer.data;
-        let object_targets = generator.create_object_targets(&target_node);
+        let object_targets = ObjectTarget::create_object_targets(
+            &target_node,
+            &generator.output_directory.join("deps/x.dir"),
+        );
         let object_target_rules = {
             let mut formatted_string = String::new();
 
             for object_target in &object_targets {
-                formatted_string.push_str(&generate_object_target(&object_target));
+                formatted_string.push_str(&generate_object_target(object_target));
             }
             formatted_string
         };

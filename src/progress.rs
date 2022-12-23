@@ -13,7 +13,7 @@ impl Progress {
     pub fn new(path: &std::path::Path, target: Option<String>) -> std::io::Result<Self> {
         let progress_file = path.join(PROGRESS_FILE_NAME);
 
-        let fh = std::fs::File::open(&progress_file)?;
+        let fh = std::fs::File::open(progress_file)?;
         let reader = std::io::BufReader::new(fh);
 
         let progress_document: generator::targets::ProgressDocument =
@@ -64,7 +64,7 @@ impl Progress {
             let target_dependency = targets.iter().find(|t| t.target == *dependency).unwrap();
 
             for object_file in &target_dependency.object_files {
-                if !object_files.contains(&object_file) {
+                if !object_files.contains(object_file) {
                     object_files.push(object_file.to_owned());
                 }
             }

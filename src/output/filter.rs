@@ -4,18 +4,17 @@ use regex::Regex;
 
 use crate::output;
 
-fn filter_string_regex(input: &str, pattern: Regex) -> String {
-    pattern.replace(input, "").trim_start().to_string()
-}
-
 pub fn filter_string(input: &str) -> String {
     let pattern_ar = Regex::new(r"^ar.*\n+").unwrap();
     let pattern_ar_second = Regex::new(r"\nar:.*").unwrap();
     let pattern_ar_open = Regex::new(r".*ar:.*").unwrap();
 
-    filter_string_regex(input, pattern_ar);
-    filter_string_regex(input, pattern_ar_second);
-    filter_string_regex(input, pattern_ar_open)
+    input
+        .lines()
+        .filter(|line| !pattern_ar.is_match(line))
+        .filter(|line| !pattern_ar_second.is_match(line))
+        .filter(|line| !pattern_ar_open.is_match(line))
+        .collect::<String>()
 }
 
 fn is_warning_message(input: &str) -> bool {
@@ -31,11 +30,11 @@ fn is_error_message(input: &str) -> bool {
 pub fn println_colored(input: &str, output: &output::Output) {
     input.lines().for_each(|line| {
         if is_warning_message(line) {
-            output.warning_without_prefix(&line.to_string());
+            output.warning_without_prefix(line);
         } else if is_error_message(line) {
-            output.error_without_prefix(&line.to_string());
+            output.error_without_prefix(line);
         } else {
-            output.status_without_prefix(&line.to_string());
+            output.status_without_prefix(line);
         }
     });
 }
@@ -46,22 +45,26 @@ mod tests {
     #[test]
     fn filter_string_remove_ar_test() {
         let input = String::from(
-            "ar: asdfsadfsadf \n
-                                        /sdadfsadfasfsf/",
+            "ar: asdfsadfsadf \n\
+            /sdadfsadfasfsf/",
         );
         let expected_output = "/sdadfsadfasfsf/";
-        let pattern = Regex::new(r"^ar.*\n+");
 
-        assert_eq!(
-            expected_output,
-            filter_string_regex(&input, pattern.unwrap())
-        );
+        assert_eq!(expected_output, filter_string(&input));
     }
 
     #[test]
     fn filter_string_nothing_to_filter_test() {
         let input = String::from("This is a string with nothing to be filtered.");
         let expected_output = input.clone();
+        assert_eq!(expected_output, filter_string(&input));
+    }
+
+    #[test]
+    fn fno_newlineilter_string_remove_ar_creating_test_multiple_lines() {
+        let input = String::from("ar: creating visitorlibrary.a");
+        let expected_output = "";
+
         assert_eq!(expected_output, filter_string(&input));
     }
 

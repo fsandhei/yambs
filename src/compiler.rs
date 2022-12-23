@@ -66,7 +66,7 @@ impl Compiler {
     fn create_sample_compile_args(&self, destination_dir: &std::path::Path) -> Vec<String> {
         match self.compiler_type {
             Type::Gcc | Type::Clang => vec![
-                format!("-I{}", destination_dir.display().to_string()),
+                format!("-I{}", destination_dir.display()),
                 "-o".to_string(),
                 destination_dir.join("a.out").display().to_string(),
             ],
@@ -143,7 +143,7 @@ fn parse_version(compiler_exe: &std::path::Path) -> Result<String, CompilerError
 }
 
 fn compiler_version_raw(compiler_exe: &std::path::Path) -> Result<String, CompilerError> {
-    utility::shell::execute_get_stdout(compiler_exe, &["--version"])
+    utility::shell::execute_get_stdout(compiler_exe, ["--version"])
         .map_err(CompilerError::FailedToGetVersion)
 }
 

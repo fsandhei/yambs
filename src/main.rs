@@ -84,7 +84,7 @@ pub fn generator_from_build_opts(
     cache: &Cache,
 ) -> anyhow::Result<Box<dyn Generator>> {
     let compiler = compiler::Compiler::new()?;
-    evaluate_compiler(&compiler, &opts, &cache)?;
+    evaluate_compiler(&compiler, opts, cache)?;
 
     let generator_type = &opts.configuration.generator_type;
     log::info!("Using {:?} as generator.", generator_type);

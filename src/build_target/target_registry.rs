@@ -42,7 +42,7 @@ impl TargetRegistry {
         for target in &self.registry {
             let borrowed_target = target.try_borrow();
             if let Ok(borrowed_target) = borrowed_target {
-                if predicate(&*borrowed_target) {
+                if predicate(&borrowed_target) {
                     return Some(target.clone());
                 }
             }

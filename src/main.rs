@@ -80,6 +80,20 @@ fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path
     Ok(manifest_file)
 }
 
+pub fn from_build_opts(opts: &BuildOpts, cache: &Cache) -> anyhow::Result<Box<dyn Generator>> {
+    let compiler = compiler::Compiler::new()?;
+    evaluate_compiler(&compiler, &opts, &cache)?;
+
+    let generator_type = &opts.configuration.generator_type;
+    match generator_type {
+        GeneratorType::GNUMakefiles => Ok(Box::new(MakefileGenerator::new(
+            &opts.configuration,
+            &opts.build_directory,
+            compiler,
+        )?) as Box<dyn Generator>),
+    }
+}
+
 fn try_cached_manifest(
     cache: &Cache,
     dep_registry: &mut TargetRegistry,
@@ -121,37 +135,33 @@ fn do_build(opts: BuildOpts, output: &Output) -> anyhow::Result<()> {
     log::trace!("do_build");
 
     let cache = Cache::new(opts.build_directory.as_path())?;
-    let compiler = compiler::Compiler::new()?;
 
     let mut dependency_registry = TargetRegistry::new();
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
 
-    evaluate_compiler(&compiler, &opts, &cache)?;
+    let mut generator = from_build_opts(&opts, &cache)?;
 
-    let mut generator =
-        MakefileGenerator::new(&opts.configuration, &opts.build_directory, compiler)?;
+    let buildfile_directory =
+        if try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none() {
+            log::debug!("Did not find a cached manifest that suited. Making a new one.");
+            parse_and_register_dependencies(&cache, &manifest, output, &mut dependency_registry)
+                .with_context(|| "An error occured when registering project dependencies")?;
 
-    let buildfile_directory = if try_cached_manifest(&cache, &mut dependency_registry, &manifest)
-        .is_none()
-    {
-        log::debug!("Did not find a cached manifest that suited. Making a new one.");
-        parse_and_register_dependencies(&cache, &manifest, output, &mut dependency_registry)
-            .with_context(|| "An error occured when registering project dependencies")?;
+            let buildfile_directory =
+                generate_build_files(&mut generator, &dependency_registry, &opts)?;
 
-        let buildfile_directory = generate_makefiles(&mut generator, &dependency_registry, &opts)?;
-
-        cache.cache(&GeneratorInfo {
-            type_: GeneratorType::GNUMakefile,
-            buildfile_directory: buildfile_directory.clone(),
-        })?;
-        buildfile_directory
-    } else {
-        let cached_generator_info = cache
-            .from_cache::<GeneratorInfo>()
-            .ok_or_else(|| anyhow::anyhow!("Could not retrieve generator cache"))?;
-        cached_generator_info.buildfile_directory
-    };
+            cache.cache(&GeneratorInfo {
+                type_: GeneratorType::GNUMakefiles,
+                buildfile_directory: buildfile_directory.clone(),
+            })?;
+            buildfile_directory
+        } else {
+            let cached_generator_info = cache
+                .from_cache::<GeneratorInfo>()
+                .ok_or_else(|| anyhow::anyhow!("Could not retrieve generator cache"))?;
+            cached_generator_info.buildfile_directory
+        };
 
     // FIXME: This most likely does not work anymore...
     if opts.create_dottie_graph {
@@ -182,12 +192,12 @@ fn do_remake(opts: &RemakeOpts) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn generate_makefiles(
-    generator: &mut dyn Generator,
+fn generate_build_files(
+    generator: &mut Box<dyn Generator>,
     registry: &TargetRegistry,
     opts: &BuildOpts,
 ) -> anyhow::Result<std::path::PathBuf> {
-    log::trace!("generate_makefiles");
+    log::trace!("generate_build_files");
     let buildfile_directory = generator.generate(registry)?;
     log::debug!(
         "Build files generated in {}",

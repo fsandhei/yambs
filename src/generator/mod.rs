@@ -20,9 +20,10 @@ pub enum GeneratorError {
     CreateRule,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(clap::ValueEnum, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub enum GeneratorType {
-    GNUMakefile,
+    /// Use GNU Makefiles
+    GNUMakefiles,
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]

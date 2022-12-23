@@ -1,6 +1,7 @@
 use crate::cli;
 use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
+use crate::generator::GeneratorType;
 
 // TODO: Need to add tests for C++ validation and sanitizer validation
 // TODO: Add default values that correctly correspond for 'configuration' when not all options are
@@ -99,6 +100,8 @@ pub struct ConfigurationOpts {
           long = "std",
           value_parser = clap::builder::ValueParser::new(configurations::CXXStandard::parse))]
     pub cxx_standard: configurations::CXXStandard,
+    #[arg(default_value_t = GeneratorType::GNUMakefiles, short = 'g', value_enum)]
+    pub generator_type: GeneratorType,
     /// Enable sanitizers
     #[arg(long = "sanitizer")]
     pub sanitizer: Option<configurations::Sanitizer>,

@@ -26,25 +26,82 @@ fn find_program(program: &str) -> Option<std::path::PathBuf> {
     None
 }
 
+pub struct BuildProcess(std::process::Child);
+
+impl BuildProcess {
+    pub fn wait_with_output(self, output: &output::Output) -> std::process::Output {
+        let process_output = self.0.wait_with_output().unwrap();
+        Make::log(&process_output, output).unwrap();
+        process_output
+    }
+}
+
+pub trait Executor {
+    fn execute(&self) -> Result<BuildProcess, FsError>;
+}
+
+#[derive(Debug)]
+struct MakeArgs(Vec<String>);
+
+impl MakeArgs {
+    fn from_slice(slice: &[String]) -> Self {
+        let mut args = Self::default();
+        args.0.extend_from_slice(slice);
+        args
+    }
+}
+
+impl std::default::Default for MakeArgs {
+    fn default() -> Self {
+        let jobs = Jobs::default();
+        let jobs_as_args = jobs_to_args(jobs);
+        Self(jobs_as_args.to_vec())
+    }
+}
+
+impl std::iter::IntoIterator for MakeArgs {
+    type Item = String;
+    type IntoIter = std::vec::IntoIter<String>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> std::iter::IntoIterator for &'a MakeArgs {
+    type Item = &'a String;
+    type IntoIter = std::slice::Iter<'a, String>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 #[derive(Debug)]
 pub struct Make {
-    configs: Vec<String>,
+    args: MakeArgs,
     executable: std::path::PathBuf,
-    process: Option<std::process::Child>,
+}
+
+impl Executor for Make {
+    fn execute(&self) -> Result<BuildProcess, FsError> {
+        let child = Command::new(&self.executable)
+            .args(&self.args)
+            .stderr(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|_| FsError::Spawn(Command::new(self.executable.display().to_string())))?;
+        Ok(BuildProcess(child))
+    }
 }
 
 impl Make {
-    pub fn new() -> Result<Self, FsError> {
-        let jobs = Jobs::default();
-        let configs = vec!["-j".to_string(), jobs.0.to_string()];
+    pub fn new(args: &[String]) -> Result<Self, FsError> {
+        let args = MakeArgs::from_slice(args);
         let executable =
             find_program("make").ok_or_else(|| FsError::CouldNotFindProgram("make".to_string()))?;
 
-        Ok(Self {
-            configs,
-            executable,
-            process: None,
-        })
+        Ok(Self { args, executable })
     }
 
     fn log(process_output: &std::process::Output, output: &output::Output) -> Result<(), FsError> {
@@ -64,46 +121,10 @@ impl Make {
         }
         Ok(())
     }
+}
 
-    pub fn spawn(&mut self, makefile_directory: &std::path::Path) -> Result<(), FsError> {
-        std::env::set_current_dir(makefile_directory).map_err(FsError::AccessDirectory)?;
-        log::debug!(
-            "Running \"{} {}\" in directory {}",
-            self.executable.display(),
-            self.configs.join(" "),
-            makefile_directory.display()
-        );
-        let child = Command::new(&self.executable)
-            .args(&self.configs)
-            .stderr(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|_| FsError::Spawn(Command::new("/usr/bin/make")))?;
-        self.process = Some(child);
-        Ok(())
-    }
-
-    pub fn wait_with_output(&mut self, output: &output::Output) -> std::process::Output {
-        if let Some(process) = self.process.take() {
-            let process_output = process.wait_with_output().unwrap();
-            Make::log(&process_output, output).unwrap();
-            process_output
-        } else {
-            panic!("No process to call wait on!");
-        }
-    }
-
-    pub fn spawn_with_args<I>(
-        &mut self,
-        makefile_directory: &std::path::Path,
-        args: I,
-    ) -> Result<(), FsError>
-    where
-        I: std::iter::IntoIterator<Item = String>,
-    {
-        self.configs.extend(args);
-        self.spawn(makefile_directory)
-    }
+fn jobs_to_args(jobs: Jobs) -> [String; 2] {
+    ["-j".to_string(), jobs.0.to_string()]
 }
 
 #[derive(Debug)]

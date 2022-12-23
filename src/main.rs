@@ -6,13 +6,15 @@ use clap::Parser;
 use colored::Colorize;
 use regex::Regex;
 
-use yambs::build_state_machine::BuildManager;
-use yambs::build_target::target_registry::TargetRegistry;
+use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
 use yambs::cache::Cache;
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
 use yambs::compiler;
 use yambs::external;
-use yambs::generator::{Generator, MakefileGenerator};
+use yambs::generator::{
+    makefile::make::Executor, makefile::Make, Generator, GeneratorInfo, GeneratorType,
+    MakefileGenerator,
+};
 use yambs::logger;
 use yambs::manifest;
 use yambs::output;
@@ -129,35 +131,34 @@ fn do_build(opts: BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     let mut generator =
         MakefileGenerator::new(&opts.configuration, &opts.build_directory, compiler)?;
-    let build_manager = std::sync::Arc::new(std::sync::RwLock::new(BuildManager::new()));
 
+    let buildfile_directory = if try_cached_manifest(&cache, &mut dependency_registry, &manifest)
+        .is_none()
     {
-        let mut bm_lock = build_manager.write().unwrap();
-        bm_lock
-            .configure(&opts)
-            .context("An error occured when configuring the project.")?;
-
-        if try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none() {
-            log::debug!("Did not find a cached manifest that suited. Making a new one.");
-            parse_and_register_dependencies(
-                &mut bm_lock,
-                &cache,
-                &manifest,
-                output,
-                &mut dependency_registry,
-            )
+        log::debug!("Did not find a cached manifest that suited. Making a new one.");
+        parse_and_register_dependencies(&cache, &manifest, output, &mut dependency_registry)
             .with_context(|| "An error occured when registering project dependencies")?;
 
-            generate_makefiles(&mut generator, &dependency_registry, &opts)?;
-        }
+        let buildfile_directory = generate_makefiles(&mut generator, &dependency_registry, &opts)?;
 
-        // FIXME: This most likely does not work anymore...
-        if opts.create_dottie_graph {
-            return create_dottie_graph(&dependency_registry, output);
-        }
+        cache.cache(&GeneratorInfo {
+            type_: GeneratorType::GNUMakefile,
+            buildfile_directory: buildfile_directory.clone(),
+        })?;
+        buildfile_directory
+    } else {
+        let cached_generator_info = cache
+            .from_cache::<GeneratorInfo>()
+            .ok_or_else(|| anyhow::anyhow!("Could not retrieve generator cache"))?;
+        cached_generator_info.buildfile_directory
+    };
+
+    // FIXME: This most likely does not work anymore...
+    if opts.create_dottie_graph {
+        return create_dottie_graph(&dependency_registry, output);
     }
 
-    build_project(build_manager, output, &opts, &logger)?;
+    build_project(&buildfile_directory, output, &opts, &logger)?;
     cache.cache(&dependency_registry)?;
     Ok(())
 }
@@ -185,25 +186,45 @@ fn generate_makefiles(
     generator: &mut dyn Generator,
     registry: &TargetRegistry,
     opts: &BuildOpts,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<std::path::PathBuf> {
     log::trace!("generate_makefiles");
-    generator.generate(registry)?;
+    let buildfile_directory = generator.generate(registry)?;
     log::debug!(
         "Build files generated in {}",
         opts.build_directory.as_path().display()
     );
-    Ok(())
+    Ok(buildfile_directory)
 }
 
 fn parse_and_register_dependencies(
-    build_manager: &mut BuildManager,
     cache: &Cache,
     manifest: &manifest::ParsedManifest,
     output: &Output,
     dep_registry: &mut TargetRegistry,
 ) -> anyhow::Result<()> {
     log::trace!("parse_and_register_dependencies");
-    build_manager.parse_and_register_dependencies(dep_registry, manifest)?;
+    let manifest_path = manifest.manifest.directory.join(YAMBS_MANIFEST_NAME);
+    for build_target in &manifest.data.targets {
+        if let Some(lib) = build_target.library() {
+            log::debug!(
+                "Creating build target for library {} in manifest {}",
+                lib.name,
+                manifest_path.display()
+            );
+        }
+        if let Some(exe) = build_target.executable() {
+            log::debug!(
+                "Creating build target for executable {} in manifest {}",
+                exe.name,
+                manifest_path.display()
+            );
+        }
+        BuildTarget::target_node_from_source(
+            &manifest.manifest.directory,
+            build_target,
+            dep_registry,
+        )?;
+    }
     cache
         .cache(manifest)
         .with_context(|| "Failed to cache manifest file")?;
@@ -225,15 +246,34 @@ fn create_dottie_graph(registry: &TargetRegistry, output: &Output) -> anyhow::Re
     Ok(())
 }
 
+fn run_make(
+    args: &[String],
+    makefile_directory: &std::path::Path,
+    output: &Output,
+) -> anyhow::Result<std::process::Output> {
+    std::env::set_current_dir(makefile_directory).with_context(|| {
+        format!(
+            "Could not access directory {}",
+            makefile_directory.display()
+        )
+    })?;
+    let make = Make::new(args)?;
+
+    log::debug!("Running make in directory {}", makefile_directory.display());
+    let build_process = make.execute()?;
+    Ok(build_process.wait_with_output(output))
+}
+
 fn build_project(
-    build_manager: std::sync::Arc<std::sync::RwLock<BuildManager>>,
+    buildfile_directory: &std::path::Path,
     output: &Output,
     opts: &BuildOpts,
     logger: &logger::Logger,
 ) -> anyhow::Result<()> {
     log::trace!("build_project");
     let output_clone = output.clone();
-    let bm_clone = build_manager.clone();
+    let progress_path = buildfile_directory.to_path_buf();
+    let owned_buildfile_directory = buildfile_directory.to_path_buf();
     let mut make_args = opts.make_args.clone();
     if let Some(ref target) = opts.target {
         log::debug!("Found specified target. \"{}\" will be built.", target);
@@ -242,15 +282,9 @@ fn build_project(
     let target = opts.target.clone();
 
     let make_thread = std::thread::spawn(move || {
-        let lock = build_manager.write().unwrap();
-        let mut make = lock.build(make_args)?;
-        let process_output = make.wait_with_output(&output_clone);
+        let process_output = run_make(&make_args, &owned_buildfile_directory, &output_clone)?;
         Ok::<std::process::Output, anyhow::Error>(process_output)
     });
-    let progress_path = {
-        let read_lock = bm_clone.read().unwrap();
-        read_lock.resolve_build_directory(opts.build_directory.as_path())
-    };
 
     let mut progress = progress::Progress::new(&progress_path, target)?;
 

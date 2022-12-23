@@ -3,6 +3,7 @@ use std::io::Write;
 use indoc;
 
 pub mod make;
+pub use make::Make;
 
 use crate::build_target;
 use crate::build_target::include_directories;
@@ -696,7 +697,10 @@ impl MakefileGenerator {
 }
 
 impl Generator for MakefileGenerator {
-    fn generate(&mut self, registry: &TargetRegistry) -> Result<(), GeneratorError> {
+    fn generate(
+        &mut self,
+        registry: &TargetRegistry,
+    ) -> Result<std::path::PathBuf, GeneratorError> {
         self.generate_include_files()?;
         self.push_and_create_directory(&directory_from_build_configuration(
             &self.configurations.build_type,
@@ -709,7 +713,7 @@ impl Generator for MakefileGenerator {
         let progress_document = self.populate_progress_document(registry)?;
         writers.progress_writer.write_document(&progress_document);
         writers.makefile_writer.write()?;
-        Ok(())
+        Ok(self.output_directory.clone())
     }
 }
 

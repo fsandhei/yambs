@@ -1,4 +1,5 @@
 use crate::build_target::{target_registry::TargetRegistry, TargetError};
+use crate::cache;
 use crate::errors::FsError;
 
 pub mod makefile;
@@ -19,8 +20,27 @@ pub enum GeneratorError {
     CreateRule,
 }
 
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub enum GeneratorType {
+    GNUMakefile,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct GeneratorInfo {
+    #[serde(rename = "type")]
+    pub type_: GeneratorType,
+    pub buildfile_directory: std::path::PathBuf,
+}
+
+impl cache::Cacher for GeneratorInfo {
+    const CACHE_FILE_NAME: &'static str = "generator_info";
+}
+
 pub trait Generator {
-    fn generate(&mut self, registry: &TargetRegistry) -> Result<(), GeneratorError>;
+    /// Generate build files based on the information from the target registry.
+    /// Returns the directory of the main build file.
+    fn generate(&mut self, registry: &TargetRegistry)
+        -> Result<std::path::PathBuf, GeneratorError>;
 }
 
 pub trait Sanitizer {

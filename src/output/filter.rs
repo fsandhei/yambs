@@ -14,6 +14,11 @@ pub fn filter_string(input: &str) -> String {
         .filter(|line| !pattern_ar.is_match(line))
         .filter(|line| !pattern_ar_second.is_match(line))
         .filter(|line| !pattern_ar_open.is_match(line))
+        .map(|line| {
+            let mut line_string = line.to_string();
+            line_string.push('\n');
+            line_string
+        })
         .collect::<String>()
 }
 

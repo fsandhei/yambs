@@ -13,7 +13,9 @@ fn evaluate_compiler(
     compiler_constants: &mut std::collections::HashMap<&str, &str>,
     compiler: &Compiler,
 ) {
-    match *compiler.compiler_type() {
+    // FIXME: This should be changed. The generator already knows at this stage which
+    // compiler is used so there is no need for make to be evaluating conditionals.
+    match compiler.compiler_info.compiler_type {
         Type::Gcc => compiler_constants.insert("CXX_USES_GCC", "true"),
         Type::Clang => compiler_constants.insert("CXX_USES_CLANG", "true"),
     };

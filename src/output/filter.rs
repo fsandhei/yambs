@@ -15,9 +15,13 @@ pub fn filter_string(input: &str) -> String {
         .filter(|line| !pattern_ar_second.is_match(line))
         .filter(|line| !pattern_ar_open.is_match(line))
         .map(|line| {
-            let mut line_string = line.to_string();
-            line_string.push('\n');
-            line_string
+            if !line.ends_with('\n') {
+                let mut line_string = line.to_string();
+                line_string.push('\n');
+                line_string
+            } else {
+                line.to_string()
+            }
         })
         .collect::<String>()
 }
@@ -53,14 +57,14 @@ mod tests {
             "ar: asdfsadfsadf \n\
             /sdadfsadfasfsf/",
         );
-        let expected_output = "/sdadfsadfasfsf/";
+        let expected_output = "/sdadfsadfasfsf/\n";
 
         assert_eq!(expected_output, filter_string(&input));
     }
 
     #[test]
     fn filter_string_nothing_to_filter_test() {
-        let input = String::from("This is a string with nothing to be filtered.");
+        let input = String::from("This is a string with nothing to be filtered.\n");
         let expected_output = input.clone();
         assert_eq!(expected_output, filter_string(&input));
     }
@@ -76,7 +80,7 @@ mod tests {
     #[test]
     fn filter_string_remove_ar_creating_test() {
         let input = String::from("\nar: creating /home/fredrik/Documents/Tests/AStarPathFinder/PlanGenerator/googletest/");
-        let expected_output = "";
+        let expected_output = "\n";
 
         assert_eq!(expected_output, filter_string(&input));
     }

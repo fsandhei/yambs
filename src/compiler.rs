@@ -23,17 +23,38 @@ pub enum CompilerError {
     FailedToCreateSample(#[source] std::io::Error),
     #[error("Failed to cache of compiler data")]
     FailedToCache(#[source] errors::CacheError),
-    #[error("Failed to retrieve compiler version")]
-    FailedToGetVersion(#[source] errors::FsError),
+    #[error(
+        "Failed to retrieve compiler version from\n\
+        \n\
+        \t{0} --version"
+    )]
+    FailedToGetVersion(std::path::PathBuf, #[source] errors::FsError),
     #[error("Failed to find version pattern")]
     FailedToFindVersionPattern,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CompilerInfo {
+    pub compiler_type: Type,
+    pub compiler_version: String,
+}
+
+impl CompilerInfo {
+    pub fn new(compiler_exe: &std::path::PathBuf) -> Result<Self, CompilerError> {
+        let compiler_type = Type::new(compiler_exe)?;
+        let compiler_version = parse_version(compiler_exe)?;
+
+        Ok(Self {
+            compiler_type,
+            compiler_version,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Compiler {
-    compiler_exe: std::path::PathBuf,
-    compiler_type: Type,
-    compiler_version: String,
+    pub compiler_exe: std::path::PathBuf,
+    pub compiler_info: CompilerInfo,
 }
 
 impl Compiler {
@@ -41,12 +62,10 @@ impl Compiler {
         let compiler_exe = std::env::var_os("CXX")
             .map(std::path::PathBuf::from)
             .ok_or(CompilerError::CXXEnvNotSet)?;
-        let compiler_type = Compiler::evaluate_compiler_type(&compiler_exe)?;
-        let compiler_version = parse_version(&compiler_exe)?;
+        let compiler_info = CompilerInfo::new(&compiler_exe)?;
         Ok(Self {
             compiler_exe,
-            compiler_type,
-            compiler_version,
+            compiler_info,
         })
     }
 
@@ -59,12 +78,8 @@ impl Compiler {
         Ok(())
     }
 
-    pub fn compiler_type(&self) -> &Type {
-        &self.compiler_type
-    }
-
     fn create_sample_compile_args(&self, destination_dir: &std::path::Path) -> Vec<String> {
-        match self.compiler_type {
+        match self.compiler_info.compiler_type {
             Type::Gcc | Type::Clang => vec![
                 format!("-I{}", destination_dir.display()),
                 "-o".to_string(),
@@ -83,28 +98,6 @@ impl Compiler {
             std::iter::once(input_file.display().to_string()).chain(compiler_args.into_iter());
         utility::shell::execute(&self.compiler_exe, args)
             .map_err(CompilerError::FailedToCompileSample)
-    }
-
-    fn evaluate_compiler_type(compiler_exe: &std::path::Path) -> Result<Type, CompilerError> {
-        if let Some(exe) = compiler_exe.file_name() {
-            let gcc_pattern =
-                Regex::new(r"g\+\+.*|gcc.*").expect("Could not compile regular expression");
-            let clang_pattern =
-                Regex::new(r"clang.*").expect("Could not compile regular expression");
-            return exe
-                .to_str()
-                .and_then(|exe_str| {
-                    if gcc_pattern.is_match(exe_str) {
-                        Some(Type::Gcc)
-                    } else if clang_pattern.is_match(exe_str) {
-                        Some(Type::Clang)
-                    } else {
-                        None
-                    }
-                })
-                .ok_or(CompilerError::InvalidCompiler);
-        }
-        Err(CompilerError::CXXEnvNotSet)
     }
 }
 
@@ -144,7 +137,7 @@ fn parse_version(compiler_exe: &std::path::Path) -> Result<String, CompilerError
 
 fn compiler_version_raw(compiler_exe: &std::path::Path) -> Result<String, CompilerError> {
     utility::shell::execute_get_stdout(compiler_exe, ["--version"])
-        .map_err(CompilerError::FailedToGetVersion)
+        .map_err(|e| CompilerError::FailedToGetVersion(compiler_exe.to_path_buf(), e))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -152,6 +145,21 @@ fn compiler_version_raw(compiler_exe: &std::path::Path) -> Result<String, Compil
 pub enum Type {
     Gcc,
     Clang,
+}
+
+impl Type {
+    pub fn new(compiler_exe: &std::path::Path) -> Result<Self, CompilerError> {
+        let version_output_raw = compiler_version_raw(compiler_exe)?;
+        let gcc_pattern = Regex::new(r"GCC|gcc").expect("Could not compile regular expression");
+        let clang_pattern = Regex::new(r"clang").expect("Could not compile regular expression");
+        if gcc_pattern.is_match(&version_output_raw) {
+            return Ok(Type::Gcc);
+        } else if clang_pattern.is_match(&version_output_raw) {
+            return Ok(Type::Clang);
+        } else {
+            return Err(CompilerError::InvalidCompiler);
+        }
+    }
 }
 
 impl Cacher for Compiler {
@@ -170,12 +178,14 @@ mod tests {
     use crate::tests::EnvLock;
 
     #[test]
-    fn evaluate_compiler_fails_when_cxx_is_not_set() {
+    fn evaluate_compiler_fails_when_cxx_is_empty() {
         let _lock = EnvLock::lock("CXX", "");
         let result = Compiler::new();
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Environment variable CXX was not set. Please set it to a valid C++ compiler."
+            "Failed to retrieve compiler version from\n\
+            \n\
+            \t --version"
         );
     }
 
@@ -184,12 +194,12 @@ mod tests {
         {
             let _lock = EnvLock::lock("CXX", "gcc-9");
             let compiler = Compiler::new().unwrap();
-            assert!(matches!(compiler.compiler_type(), &Type::Gcc));
+            assert!(matches!(compiler.compiler_info.compiler_type, Type::Gcc));
         }
         {
             let _lock = EnvLock::lock("CXX", "gcc");
             let compiler = Compiler::new().unwrap();
-            assert!(matches!(compiler.compiler_type(), &Type::Gcc));
+            assert!(matches!(compiler.compiler_info.compiler_type, Type::Gcc));
         }
     }
 
@@ -198,12 +208,12 @@ mod tests {
         {
             let _lock = EnvLock::lock("CXX", "clang");
             let compiler = Compiler::new().unwrap();
-            assert!(matches!(compiler.compiler_type(), &Type::Clang));
+            assert!(matches!(compiler.compiler_info.compiler_type, Type::Clang));
         }
         {
             let _lock = EnvLock::lock("CXX", "clang-14");
             let compiler = Compiler::new().unwrap();
-            assert!(matches!(compiler.compiler_type(), &Type::Clang));
+            assert!(matches!(compiler.compiler_info.compiler_type, Type::Clang));
         }
     }
 

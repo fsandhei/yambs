@@ -48,7 +48,7 @@ impl Output {
 
     pub fn error_without_prefix(&self, text: &str) {
         self.inner
-            .print(text, OutputType::Warning, PrefixPolicy::NoPrefix);
+            .print(text, OutputType::Error, PrefixPolicy::NoPrefix);
         log::error!("{}", text);
     }
 }

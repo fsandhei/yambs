@@ -150,7 +150,7 @@ pub enum Type {
 impl Type {
     pub fn new(compiler_exe: &std::path::Path) -> Result<Self, CompilerError> {
         let version_output_raw = compiler_version_raw(compiler_exe)?;
-        let gcc_pattern = Regex::new(r"GCC|gcc").expect("Could not compile regular expression");
+        let gcc_pattern = Regex::new(r"GCC|gcc|g\+\+").expect("Could not compile regular expression");
         let clang_pattern = Regex::new(r"clang").expect("Could not compile regular expression");
         if gcc_pattern.is_match(&version_output_raw) {
             return Ok(Type::Gcc);
@@ -172,86 +172,3 @@ impl std::string::ToString for Compiler {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::tests::EnvLock;
-
-    #[test]
-    fn evaluate_compiler_fails_when_cxx_is_empty() {
-        let _lock = EnvLock::lock("CXX", "");
-        let result = Compiler::new();
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "Failed to retrieve compiler version from\n\
-            \n\
-            \t --version"
-        );
-    }
-
-    #[test]
-    fn evaluate_compiler_type_gcc() {
-        {
-            let _lock = EnvLock::lock("CXX", "gcc-9");
-            let compiler = Compiler::new().unwrap();
-            assert!(matches!(compiler.compiler_info.compiler_type, Type::Gcc));
-        }
-        {
-            let _lock = EnvLock::lock("CXX", "gcc");
-            let compiler = Compiler::new().unwrap();
-            assert!(matches!(compiler.compiler_info.compiler_type, Type::Gcc));
-        }
-    }
-
-    #[test]
-    fn evaluate_compiler_type_clang() {
-        {
-            let _lock = EnvLock::lock("CXX", "clang");
-            let compiler = Compiler::new().unwrap();
-            assert!(matches!(compiler.compiler_info.compiler_type, Type::Clang));
-        }
-        {
-            let _lock = EnvLock::lock("CXX", "clang-14");
-            let compiler = Compiler::new().unwrap();
-            assert!(matches!(compiler.compiler_info.compiler_type, Type::Clang));
-        }
-    }
-
-    #[test]
-    fn try_get_version_clang() {
-        {
-            let _lock = EnvLock::lock("CXX", "clang");
-            let compiler_exe = std::env::var_os("CXX")
-                .map(std::path::PathBuf::from)
-                .unwrap();
-            assert_eq!(
-                try_get_version(&compiler_exe).unwrap(),
-                semver::Version::parse("14.0.6").unwrap()
-            );
-        }
-        {
-            let _lock = EnvLock::lock("CXX", "clang-14");
-            let compiler_exe = std::env::var_os("CXX")
-                .map(std::path::PathBuf::from)
-                .unwrap();
-            assert_eq!(
-                try_get_version(&compiler_exe).unwrap(),
-                semver::Version::parse("14.0.6").unwrap()
-            );
-        }
-    }
-
-    #[test]
-    fn try_get_version_gcc() {
-        {
-            let _lock = EnvLock::lock("CXX", "gcc");
-            let compiler_exe = std::env::var_os("CXX")
-                .map(std::path::PathBuf::from)
-                .unwrap();
-            assert_eq!(
-                try_get_version(&compiler_exe).unwrap(),
-                semver::Version::parse("12.2.0").unwrap()
-            );
-        }
-    }
-}

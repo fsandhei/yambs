@@ -1,8 +1,15 @@
 use crate::flags::CompilerFlags;
 
+use crate::cli::configurations::CXXStandard;
+
+#[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub struct ProjectConfiguration {
+    pub cxx_std: Option<CXXStandard>,
+}
+
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
 pub struct RawManifestData {
+    pub project_configuration: Option<ProjectConfiguration>,
     #[serde(rename = "executable")]
     pub executables: Option<std::collections::BTreeMap<String, RawExecutableData>>,
     #[serde(rename = "library")]
@@ -39,7 +46,6 @@ pub struct RawLibraryData {
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
 pub struct RawCommonData {
     pub sources: Vec<std::path::PathBuf>,
     #[serde(default)]
@@ -66,9 +72,7 @@ pub enum ParseDefineError {
 
 impl Define {
     pub fn from_cli(s: &str) -> Result<Self, ParseDefineError> {
-        let (macro_, value) = s
-            .split_once('=')
-            .ok_or(ParseDefineError::IncorrectSyntax)?;
+        let (macro_, value) = s.split_once('=').ok_or(ParseDefineError::IncorrectSyntax)?;
         Ok(Self {
             macro_: macro_.to_string(),
             value: Some(value.to_string()),

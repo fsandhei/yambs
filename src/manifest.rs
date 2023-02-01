@@ -35,6 +35,7 @@ impl cache::Cacher for ParsedManifest {
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct ManifestData {
+    pub project_configuration: Option<types::ProjectConfiguration>,
     pub targets: Vec<targets::Target>,
 }
 
@@ -135,6 +136,10 @@ impl ManifestData {
         }?;
         targets.append(&mut executables);
         targets.append(&mut libraries);
-        Ok(Self { targets })
+        let project_configuration = contents.project_configuration;
+        Ok(Self {
+            project_configuration,
+            targets,
+        })
     }
 }

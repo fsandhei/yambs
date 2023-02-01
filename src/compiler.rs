@@ -1,11 +1,13 @@
+use std::default::Default;
 use std::io::Write;
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use textwrap::indent;
 
-use crate::cache::Cacher;
+use crate::cache::{Cache, Cacher};
 use crate::errors;
+use crate::toolchain::ToolchainCXXData;
 use crate::utility;
 
 #[derive(Debug, thiserror::Error)]
@@ -33,13 +35,34 @@ pub enum CompilerError {
     FailedToFindVersionPattern,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct CompilerInfo {
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Linker {
+    Ld,
+    Gold,
+    LLD,
+    Inferred,
+}
+
+impl Linker {
+    pub fn new() -> Self {
+        Linker::Inferred
+    }
+}
+
+impl Default for Linker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+pub struct CXXCompilerInfo {
     pub compiler_type: Type,
     pub compiler_version: String,
 }
 
-impl CompilerInfo {
+impl CXXCompilerInfo {
     pub fn new(compiler_exe: &std::path::PathBuf) -> Result<Self, CompilerError> {
         let compiler_type = Type::new(compiler_exe)?;
         let compiler_version = parse_version(compiler_exe)?;
@@ -51,21 +74,67 @@ impl CompilerInfo {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Compiler {
-    pub compiler_exe: std::path::PathBuf,
-    pub compiler_info: CompilerInfo,
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+pub enum StdLibCXX {
+    #[serde(rename = "libstdc++")]
+    LibStdCXX,
+    #[serde(rename = "libc++")]
+    LibCXX,
 }
 
-impl Compiler {
+impl Default for StdLibCXX {
+    fn default() -> Self {
+        Self::LibStdCXX
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+pub struct CXXCompiler {
+    pub compiler_exe: std::path::PathBuf,
+    pub compiler_info: CXXCompilerInfo,
+    pub linker: Linker,
+    #[serde(default)]
+    pub stdlib: StdLibCXX,
+}
+
+impl CXXCompiler {
     pub fn new() -> Result<Self, CompilerError> {
         let compiler_exe = std::env::var_os("CXX")
             .map(std::path::PathBuf::from)
             .ok_or(CompilerError::CXXEnvNotSet)?;
-        let compiler_info = CompilerInfo::new(&compiler_exe)?;
+        let compiler_info = CXXCompilerInfo::new(&compiler_exe)?;
+        let linker = Linker::new();
+        let stdlib = StdLibCXX::default();
+
+        log::debug!("Registered CXX = {}", compiler_exe.display());
         Ok(Self {
             compiler_exe,
             compiler_info,
+            linker,
+            stdlib,
+        })
+    }
+
+    pub fn from_cache(cache: &Cache) -> Option<Self> {
+        cache.from_cache::<Self>()
+    }
+
+    pub fn from_toolchain_cxx_data(data: &ToolchainCXXData) -> Result<Self, CompilerError> {
+        let compiler_exe = data.compiler.clone();
+        let compiler_info = CXXCompilerInfo::new(&compiler_exe)?;
+        let linker = data.linker.clone().unwrap_or_else(|| {
+            log::debug!(
+                "Linker not specified. Linker is inferred by the settings the compiler has."
+            );
+            Linker::Inferred
+        });
+        let stdlib = data.stdlib.clone();
+
+        Ok(Self {
+            compiler_exe,
+            compiler_info,
+            linker,
+            stdlib,
         })
     }
 
@@ -136,11 +205,15 @@ fn parse_version(compiler_exe: &std::path::Path) -> Result<String, CompilerError
 }
 
 fn compiler_version_raw(compiler_exe: &std::path::Path) -> Result<String, CompilerError> {
+    log::debug!(
+        "Fetching compiler version with '{} --version'",
+        compiler_exe.display()
+    );
     utility::shell::execute_get_stdout(compiler_exe, ["--version"])
         .map_err(|e| CompilerError::FailedToGetVersion(compiler_exe.to_path_buf(), e))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
 #[allow(non_camel_case_types)]
 pub enum Type {
     Gcc,
@@ -150,7 +223,8 @@ pub enum Type {
 impl Type {
     pub fn new(compiler_exe: &std::path::Path) -> Result<Self, CompilerError> {
         let version_output_raw = compiler_version_raw(compiler_exe)?;
-        let gcc_pattern = Regex::new(r"GCC|gcc|g\+\+").expect("Could not compile regular expression");
+        let gcc_pattern =
+            Regex::new(r"GCC|gcc|g\+\+").expect("Could not compile regular expression");
         let clang_pattern = Regex::new(r"clang").expect("Could not compile regular expression");
         if gcc_pattern.is_match(&version_output_raw) {
             return Ok(Type::Gcc);
@@ -162,13 +236,21 @@ impl Type {
     }
 }
 
-impl Cacher for Compiler {
+impl ToString for Type {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Gcc => "gcc".to_string(),
+            Self::Clang => "clang".to_string(),
+        }
+    }
+}
+
+impl Cacher for CXXCompiler {
     const CACHE_FILE_NAME: &'static str = "compiler";
 }
 
-impl std::string::ToString for Compiler {
+impl std::string::ToString for CXXCompiler {
     fn to_string(&self) -> String {
         self.compiler_exe.display().to_string()
     }
 }
-

@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -42,7 +43,7 @@ impl std::string::ToString for BuildType {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
 pub enum CXXStandard {
     CXX98,
     CXX03,

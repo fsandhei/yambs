@@ -1,4 +1,5 @@
 use std::io::BufRead;
+use std::path::Path;
 
 use anyhow::Context;
 use clap::CommandFactory;
@@ -20,6 +21,7 @@ use yambs::output;
 use yambs::output::Output;
 use yambs::parser;
 use yambs::progress;
+use yambs::toolchain::{Toolchain, TOOLCHAIN_FILE_NAME};
 use yambs::YAMBS_MANIFEST_NAME;
 
 fn main() -> anyhow::Result<()> {
@@ -28,7 +30,7 @@ fn main() -> anyhow::Result<()> {
 
     if let Some(subcommand) = command_line.subcommand {
         match subcommand {
-            Subcommand::Build(build_opts) => do_build(build_opts, &output)?,
+            Subcommand::Build(mut build_opts) => do_build(&mut build_opts, &output)?,
             Subcommand::Remake(ref remake_opts) => do_remake(remake_opts)?,
         }
     } else {
@@ -52,7 +54,7 @@ fn log_invoked_command() {
 }
 
 fn evaluate_compiler(
-    compiler: &compiler::Compiler,
+    compiler: &compiler::CXXCompiler,
     opts: &BuildOpts,
     cache: &Cache,
 ) -> anyhow::Result<()> {
@@ -65,6 +67,33 @@ fn evaluate_compiler(
         log::debug!("Evaluating compiler by doing a sample build... done");
     }
     Ok(())
+}
+
+fn detect_toolchain_file(toolchain_file: &Path, cache: &Cache) -> anyhow::Result<Toolchain> {
+    if !toolchain_file.exists() {
+        log::debug!("Toolchain file does not exist. Using default setup found on system.");
+        if let Some(toolchain) = Toolchain::from_cache(cache) {
+            return Ok(toolchain);
+        } else {
+            return Toolchain::new().with_context(|| "Error occured when parsing toolchain");
+        }
+    }
+    log::debug!(
+        "Using toolchain file located at {}",
+        toolchain_file.display()
+    );
+    let toolchain = Toolchain::from_file(toolchain_file)
+        .with_context(|| "Error occured when parsing toolchain file")?;
+    if let Some(cached_toolchain) = cache.from_cache::<Toolchain>() {
+        log::debug!("Found cached toolchain. Checking for equality.");
+        if toolchain != cached_toolchain {
+            anyhow::bail!("Cached toolchain is not the same as the current toolchain, invalidating the next build. Clean the build directory and run yambs again.");
+        }
+        Ok(cached_toolchain)
+    } else {
+        cache.cache(&toolchain)?;
+        Ok(toolchain)
+    }
 }
 
 fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path::PathBuf> {
@@ -83,8 +112,20 @@ pub fn generator_from_build_opts(
     opts: &BuildOpts,
     cache: &Cache,
 ) -> anyhow::Result<Box<dyn Generator>> {
-    let compiler = compiler::Compiler::new()?;
-    evaluate_compiler(&compiler, opts, cache)?;
+    let toolchain = detect_toolchain_file(
+        &opts
+            .manifest_dir
+            .as_path()
+            .join(".yambs")
+            .join(TOOLCHAIN_FILE_NAME),
+        cache,
+    ).with_context(|| "
+    Failed to get information about toolchain.
+    A toolchain has to be provided to yambs in order to work.
+    It is recommended to specify it through a file located in .yambs/toolchain.toml.
+
+    At the very minimum you can set CXX, and yambs will attempt to find minimum other settings required.")?;
+    evaluate_compiler(&toolchain.cxx_compiler, opts, cache)?;
 
     let generator_type = &opts.configuration.generator_type;
     log::info!("Using {:?} as generator.", generator_type);
@@ -92,7 +133,7 @@ pub fn generator_from_build_opts(
         GeneratorType::GNUMakefiles => Ok(Box::new(MakefileGenerator::new(
             &opts.configuration,
             &opts.build_directory,
-            compiler,
+            toolchain,
         )?) as Box<dyn Generator>),
     }
 }
@@ -132,7 +173,7 @@ fn check_dependencies_for_up_to_date(cache: &Cache) -> Option<()> {
     Some(())
 }
 
-fn do_build(opts: BuildOpts, output: &Output) -> anyhow::Result<()> {
+fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
     log::trace!("do_build");
@@ -142,6 +183,16 @@ fn do_build(opts: BuildOpts, output: &Output) -> anyhow::Result<()> {
     let mut dependency_registry = TargetRegistry::new();
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
+
+    // override the command line settings if there are configurations set in the manifest
+    if let Some(cxx_standard) = manifest
+        .data
+        .project_configuration
+        .as_ref()
+        .and_then(|pc| pc.cxx_std.clone())
+    {
+        opts.configuration.cxx_standard = cxx_standard;
+    }
 
     let mut generator = generator_from_build_opts(&opts, &cache)?;
 

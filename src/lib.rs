@@ -12,6 +12,7 @@ pub mod output;
 pub mod parser;
 pub mod progress;
 pub mod targets;
+pub mod toolchain;
 pub mod utility;
 
 pub const YAMBS_MANIFEST_NAME: &str = "yambs.toml";

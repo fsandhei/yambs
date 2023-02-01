@@ -4,44 +4,30 @@ use std::io::Write;
 
 use indoc;
 
-use crate::compiler::{Compiler, Type};
+use crate::compiler::Linker;
+use crate::compiler::StdLibCXX;
+use crate::compiler::Type;
 use crate::errors::FsError;
 use crate::generator::{GeneratorError, Sanitizer, UtilityGenerator};
+use crate::toolchain::Toolchain;
 use crate::utility;
-
-fn evaluate_compiler(
-    compiler_constants: &mut std::collections::HashMap<&str, &str>,
-    compiler: &Compiler,
-) {
-    // FIXME: This should be changed. The generator already knows at this stage which
-    // compiler is used so there is no need for make to be evaluating conditionals.
-    match compiler.compiler_info.compiler_type {
-        Type::Gcc => compiler_constants.insert("CXX_USES_GCC", "true"),
-        Type::Clang => compiler_constants.insert("CXX_USES_CLANG", "true"),
-    };
-}
 
 pub(crate) struct IncludeFileGenerator<'generator> {
     file: Option<File>,
     output_directory: std::path::PathBuf,
     args: HashMap<&'generator str, String>,
-    compiler_constants: HashMap<&'generator str, &'generator str>,
+    toolchain: &'generator Toolchain,
 }
 
 impl<'generator> IncludeFileGenerator<'generator> {
-    pub fn new(output_directory: &std::path::Path, compiler: Compiler) -> Self {
+    pub fn new(output_directory: &std::path::Path, toolchain: &'generator Toolchain) -> Self {
         utility::create_dir(output_directory).unwrap();
-
-        let mut compiler_constants = HashMap::new();
-        compiler_constants.insert("CXX_USES_CLANG", "false");
-        compiler_constants.insert("CXX_USES_GCC", "false");
-        evaluate_compiler(&mut compiler_constants, &compiler);
 
         IncludeFileGenerator {
             file: None,
             output_directory: output_directory.to_path_buf(),
             args: HashMap::new(),
-            compiler_constants,
+            toolchain,
         }
     }
 
@@ -65,6 +51,59 @@ impl<'generator> IncludeFileGenerator<'generator> {
         self.output_directory.to_str().unwrap()
     }
 
+    fn warnings_from_compiler_type(&self) -> Vec<&str> {
+        let compiler = &self.toolchain.cxx_compiler;
+
+        let mut warning_flags = vec![
+            "-Wall",
+            "-Wextra",
+            "-Wshadow",
+            "-Wnon-virtual-dtor",
+            "-Wold-style-cast",
+            "-Wcast-align",
+            "-Wunused",
+            "-Woverloaded-virtual",
+            "-Wpedantic",
+            "-Wconversion",
+            "-Wsign-conversion",
+            "-Wnull-dereference",
+            "-Wdouble-promotion",
+        ];
+
+        match compiler.compiler_info.compiler_type {
+            Type::Gcc => warning_flags.extend_from_slice(&[
+                "-Wmisleading-indentation",
+                "-Wduplicated-cond",
+                "-Wduplicated-branches",
+                "-Wlogical-op",
+                "-Wuseless-cast",
+            ]),
+            Type::Clang => (),
+        }
+        warning_flags
+    }
+
+    fn select_stdlib_impl(&self) -> String {
+        let stdlib = &self.toolchain.cxx_compiler.stdlib;
+        match stdlib {
+            StdLibCXX::LibStdCXX => "".to_string(),
+            StdLibCXX::LibCXX => "-stdlib=libc++".to_string(),
+        }
+    }
+
+    fn generate_linker_selection(&self) -> String {
+        let compiler = &self.toolchain.cxx_compiler;
+        let linker = &compiler.linker;
+
+        let linker_statement = match linker {
+            Linker::Gold => "LDFLAGS += -fuse-ld=gold".to_string(),
+            Linker::Ld => "LDFLAGS += -fuse-ld=ld".to_string(),
+            Linker::LLD => "LDFLAGS += -fuse-ld=lld".to_string(),
+            _ => "LDFLAGS += ".to_string(),
+        };
+        linker_statement
+    }
+
     fn generate_warnings_mk(&mut self) -> Result<(), GeneratorError> {
         self.create_mk_file("warnings");
         let data = indoc::formatdoc!("\
@@ -72,37 +111,11 @@ impl<'generator> IncludeFileGenerator<'generator> {
 
         include {def_directory}/defines.mk
 
+        # Warning flags generated for compiler type {compiler_type}
+        CXXFLAGS += \\
+        {warnings}
 
-        GLINUX_WARNINGS := -Wall \\
-                          -Wextra \\
-                          -Wshadow \\
-                          -Wnon-virtual-dtor \\
-                          -Wold-style-cast \\
-                          -Wcast-align \\
-                          -Wunused \\
-                          -Woverloaded-virtual \\
-                          -Wpedantic \\
-                          -Wconversion \\
-                          -Wsign-conversion \\
-                          -Wnull-dereference \\
-                          -Wdouble-promotion \\
-                          -Wformat=2
-
-
-        ifeq ($(CXX_USES_GCC), true)
-            CXXFLAGS += $(GLINUX_WARNINGS) \\
-                        -Wmisleading-indentation \\
-                        -Wduplicated-cond \\
-                        -Wduplicated-branches \\
-                        -Wlogical-op \\
-                        -Wuseless-cast
-
-
-       else ifeq ($(CXX_USES_CLANG), true)
-            CXXFLAGS += $(GLINUX_WARNINGS)
-       endif
-
-       CXXFLAGS += {cpp_version}
+        CXXFLAGS += {cpp_version}
 
         #-Wall                     # Reasonable and standard
         #-Wextra                   # Warn if indentation implies blocks where blocks do not exist.
@@ -123,7 +136,10 @@ impl<'generator> IncludeFileGenerator<'generator> {
         #-Wformat=2                # warn on security issues around functions that format output (ie printf)
         ", 
         cpp_version = self.print_cpp_version(),
-        def_directory = self.print_build_directory());
+        def_directory = self.print_build_directory(),
+        warnings = self.warnings_from_compiler_type().join("\\\n"),
+        compiler_type = self.toolchain.cxx_compiler.compiler_info.compiler_type.to_string(),
+        );
         self.file
             .as_ref()
             .unwrap()
@@ -213,10 +229,19 @@ impl<'generator> IncludeFileGenerator<'generator> {
         \n\
         {compiler_conditional_flags}\n\
         CP := /usr/bin/cp\n\
-        CP_FORCE := -f\n\
+        CP_FORCE := -f
+
+        # Select linker if any specified in the toolchain file
+        {linker_selection}
+
+        # Select stdlibc++ implementation based on toolchain file.
+        # Will be empty if not specified.
+        CXXFLAGS += {stdlib}
         \n\
         ",
-            compiler_conditional_flags = self.compiler_conditional_flags()
+            compiler_conditional_flags = self.generate_toolchain_defines(),
+            linker_selection = self.generate_linker_selection(),
+            stdlib = self.select_stdlib_impl(),
         );
         self.file
             .as_ref()
@@ -226,24 +251,18 @@ impl<'generator> IncludeFileGenerator<'generator> {
         Ok(())
     }
 
-    fn compiler_conditional_flags(&mut self) -> String {
-        let (gcc_key, gcc_value) = self
-            .get_makefile_constant("CXX_USES_GCC")
-            .unwrap_or((&"CXX_USES_GCC", &"true"));
-
-        let (clang_key, clang_value) = self
-            .get_makefile_constant("CXX_USES_CLANG")
-            .unwrap_or((&"CXX_USES_CLANG", &"true"));
-
-        format!(
-            "{} := {}\n\
-             {} := {}\n",
-            gcc_key, gcc_value, clang_key, clang_value
+    fn generate_toolchain_defines(&self) -> String {
+        let compiler_path = &self.toolchain.cxx_compiler.compiler_exe;
+        let archiver_path = self.toolchain.archiver.path.clone();
+        indoc::formatdoc!(
+            "
+        # Toolchain definitions\n
+        CXX := {}
+        AR := {}
+        ",
+            compiler_path.display(),
+            archiver_path.display(),
         )
-    }
-
-    fn get_makefile_constant(&self, key: &str) -> Option<(&&str, &&str)> {
-        self.compiler_constants.get_key_value(key)
     }
 }
 
@@ -655,54 +674,5 @@ mod tests {
             fs::read_to_string(file_name.to_str().unwrap()).unwrap()
         );
         Ok(())
-    }
-
-    #[test]
-    fn evaluate_compiler_with_gcc_results_in_gcc_set() {
-        let output_directory = produce_include_path(TempDir::new("example").unwrap());
-
-        {
-            let _lock = EnvLock::lock("CXX", "gcc");
-            let gen = construct_generator(&output_directory);
-            assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
-            assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
-        }
-
-        {
-            let _lock = EnvLock::lock("CXX", "/usr/bin/gcc");
-            let gen = construct_generator(&output_directory);
-            assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
-            assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
-        }
-
-        {
-            let _lock = EnvLock::lock("CXX", "g++");
-            let gen = construct_generator(&output_directory);
-            assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
-            assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
-        }
-        {
-            let _lock = EnvLock::lock("CXX", "/usr/bin/g++");
-            let gen = construct_generator(&output_directory);
-            assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "true");
-            assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "false");
-        }
-    }
-
-    #[test]
-    fn evaluate_compiler_with_clang_results_in_clang_set() {
-        let output_directory = produce_include_path(TempDir::new("example").unwrap());
-        {
-            let _lock = EnvLock::lock("CXX", "clang");
-            let gen = construct_generator(&output_directory);
-            assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
-            assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "true");
-        }
-        {
-            let _lock = EnvLock::lock("CXX", "/usr/bin/clang");
-            let gen = construct_generator(&output_directory);
-            assert_eq!(gen.compiler_constants["CXX_USES_GCC"], "false");
-            assert_eq!(gen.compiler_constants["CXX_USES_CLANG"], "true");
-        }
     }
 }

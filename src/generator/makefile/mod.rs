@@ -14,7 +14,6 @@ use crate::build_target::{
 use crate::cli::command_line;
 use crate::cli::configurations;
 use crate::cli::BuildDirectory;
-use crate::compiler::Compiler;
 use crate::errors::FsError;
 use crate::generator;
 use crate::generator::{
@@ -24,7 +23,9 @@ use crate::generator::{
 };
 use crate::parser::types;
 use crate::progress;
+use crate::toolchain::Toolchain;
 use crate::utility;
+
 use include_file_generator::IncludeFileGenerator;
 pub use make::Make;
 
@@ -303,7 +304,7 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
 }
 
 pub struct MakefileGenerator {
-    pub compiler: Compiler,
+    pub toolchain: Toolchain,
     pub configurations: command_line::ConfigurationOpts,
     pub build_directory: BuildDirectory,
     pub output_directory: std::path::PathBuf,
@@ -314,11 +315,11 @@ impl MakefileGenerator {
     pub fn new(
         configurations: &command_line::ConfigurationOpts,
         build_directory: &BuildDirectory,
-        compiler: Compiler,
+        toolchain: Toolchain,
     ) -> Result<Self, GeneratorError> {
         utility::create_dir(build_directory.as_path())?;
         Ok(Self {
-            compiler,
+            toolchain,
             configurations: configurations.to_owned(),
             build_directory: build_directory.clone(),
             output_directory: build_directory.as_path().to_path_buf(),
@@ -561,7 +562,7 @@ impl MakefileGenerator {
     fn generate_include_files(&self) -> Result<(), GeneratorError> {
         let include_output_directory = self.output_directory.join("make_include");
         let mut include_file_generator =
-            IncludeFileGenerator::new(&include_output_directory, self.compiler.clone());
+            IncludeFileGenerator::new(&include_output_directory, &self.toolchain);
 
         let cxx_standard = &self.configurations.cxx_standard.to_string();
         include_file_generator.add_cpp_version(cxx_standard);
@@ -803,7 +804,7 @@ mod tests {
     struct MakefileGeneratorTestFixture {
         build_dir: TempDir,
         configuration_opts: command_line::ConfigurationOpts,
-        compiler: Compiler,
+        compiler: CXXCompiler,
         writers: Writers,
     }
 
@@ -831,9 +832,9 @@ mod tests {
         }
     }
 
-    fn create_compiler() -> Compiler {
+    fn create_compiler() -> CXXCompiler {
         let _lock = EnvLock::lock("CXX", "gcc");
-        Compiler::new().unwrap()
+        CXXCompiler::new().unwrap()
     }
 
     fn create_configuration_opts() -> command_line::ConfigurationOpts {

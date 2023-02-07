@@ -56,9 +56,9 @@ pub struct RawCommonData {
     pub compiler_flags: CompilerFlags,
     #[serde(default)]
     pub defines: Vec<Define>,
-    #[serde(rename = "include_directories_append", default = "Vec::new")]
+    #[serde(rename = "append_include_directories", default = "Vec::new")]
     pub include_directories: Vec<PathBuf>,
-    #[serde(rename = "system_include_directories_append", default = "Vec::new")]
+    #[serde(rename = "append_system_include_directories", default = "Vec::new")]
     pub system_include_directories: Vec<PathBuf>,
 }
 

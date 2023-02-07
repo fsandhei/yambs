@@ -314,6 +314,20 @@ impl BuildTarget {
             path: manifest_dir_path.to_path_buf().join("include"),
         });
 
+        for include_directory in &library.additional_include_directories {
+            include_directories.add(include_directories::IncludeDirectory {
+                include_type: include_directories::IncludeType::Include,
+                path: include_directory.to_path_buf(),
+            });
+        }
+
+        for include_directory in &library.additional_system_include_directories {
+            include_directories.add(include_directories::IncludeDirectory {
+                include_type: include_directories::IncludeType::System,
+                path: include_directory.to_path_buf(),
+            });
+        }
+
         let target_source = TargetSource::FromSource(SourceBuildData {
             manifest: manifest::Manifest::new(manifest_dir_path),
             dependencies: Vec::new(),

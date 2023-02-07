@@ -47,7 +47,7 @@ impl IncludeDirectory {
                 }
             }
             types::DependencyData::Binary(ref binary_data) => {
-                let include_path = IncludeDirectory::find(&binary_data.include_directory)?;
+                let include_path = binary_data.include_directory.clone();
                 match binary_data.search_type {
                     types::IncludeSearchType::Include => IncludeDirectory {
                         include_type: IncludeType::Include,

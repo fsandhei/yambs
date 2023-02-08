@@ -11,18 +11,10 @@ pub fn filter_string(input: &str) -> String {
 
     input
         .lines()
+        .filter(|line| !line.is_empty())
         .filter(|line| !pattern_ar.is_match(line))
         .filter(|line| !pattern_ar_second.is_match(line))
         .filter(|line| !pattern_ar_open.is_match(line))
-        .map(|line| {
-            if !line.ends_with('\n') {
-                let mut line_string = line.to_string();
-                line_string.push('\n');
-                line_string
-            } else {
-                line.to_string()
-            }
-        })
         .collect::<String>()
 }
 
@@ -37,15 +29,13 @@ fn is_error_message(input: &str) -> bool {
 }
 
 pub fn println_colored(input: &str, output: &output::Output) {
-    input.lines().for_each(|line| {
-        if is_warning_message(line) {
-            output.warning_without_prefix(line);
-        } else if is_error_message(line) {
-            output.error_without_prefix(line);
-        } else {
-            output.status_without_prefix(line);
-        }
-    });
+    if is_warning_message(input) {
+        output.warning_without_prefix(input);
+    } else if is_error_message(input) {
+        output.error_without_prefix(input);
+    } else {
+        output.status_without_prefix(input);
+    }
 }
 
 #[cfg(test)]

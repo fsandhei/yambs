@@ -1,4 +1,5 @@
-use std::process::Command;
+use std::io::{BufRead, BufReader};
+use std::process::{Command, ExitStatus};
 use std::vec::Vec;
 
 use crate::errors::FsError;
@@ -29,10 +30,36 @@ fn find_program(program: &str) -> Option<std::path::PathBuf> {
 pub struct BuildProcess(std::process::Child);
 
 impl BuildProcess {
-    pub fn wait_with_output(self, output: &output::Output) -> std::process::Output {
-        let process_output = self.0.wait_with_output().unwrap();
-        Make::log(&process_output, output).unwrap();
-        process_output
+    pub fn wait_and_log(&mut self, output: &output::Output) -> Option<ExitStatus> {
+        let stdout = self.0.stdout.take().unwrap();
+        let stderr = self.0.stderr.take().unwrap();
+
+        let stdout_thread = std::thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            reader
+                .lines()
+                .filter_map(|line| line.ok())
+                .for_each(|line| log::debug!("{}", line));
+        });
+        let output_clone = output.clone();
+        let stderr_thread = std::thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            reader
+                .lines()
+                .filter_map(|line| line.ok())
+                .map(|line| filter::filter_string(&line))
+                .filter(|line| !line.is_empty())
+                .for_each(|line| {
+                    filter::println_colored(&line, &output_clone);
+                    log::debug!("{}", line);
+                });
+        });
+
+        let exit_status = self.0.wait().ok();
+
+        stdout_thread.join().unwrap();
+        stderr_thread.join().unwrap();
+        exit_status
     }
 }
 
@@ -96,24 +123,6 @@ impl Make {
             .spawn()
             .map_err(|_| FsError::Spawn(Command::new(self.executable.display().to_string())))?;
         Ok(BuildProcess(child))
-    }
-
-    fn log(process_output: &std::process::Output, output: &output::Output) -> Result<(), FsError> {
-        let stderr = String::from_utf8(process_output.stderr.clone()).unwrap();
-        let stdout = String::from_utf8(process_output.stdout.clone()).unwrap();
-
-        let stderr_filtered = filter::filter_string(&stderr);
-        if stderr_filtered != *"" {
-            filter::println_colored(&stderr_filtered, output);
-        }
-
-        if !stdout.is_empty() {
-            log::debug!("{}", stdout);
-        }
-        if !stderr.is_empty() {
-            log::debug!("{}", stderr);
-        }
-        Ok(())
     }
 }
 

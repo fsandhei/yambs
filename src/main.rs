@@ -13,7 +13,8 @@ use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, Remake
 use yambs::compiler;
 use yambs::external;
 use yambs::generator::{
-    makefile::Make, Generator, GeneratorInfo, GeneratorType, MakefileGenerator,
+    makefile::make::BuildProcess, makefile::Make, Generator, GeneratorInfo, GeneratorType,
+    MakefileGenerator,
 };
 use yambs::logger;
 use yambs::manifest;
@@ -310,11 +311,7 @@ fn create_dottie_graph(registry: &TargetRegistry, output: &Output) -> anyhow::Re
     Ok(())
 }
 
-fn run_make(
-    args: &[String],
-    makefile_directory: &std::path::Path,
-    output: &Output,
-) -> anyhow::Result<std::process::Output> {
+fn run_make(args: &[String], makefile_directory: &std::path::Path) -> anyhow::Result<BuildProcess> {
     std::env::set_current_dir(makefile_directory).with_context(|| {
         format!(
             "Could not access directory {}",
@@ -325,7 +322,7 @@ fn run_make(
 
     log::debug!("Running make in directory {}", makefile_directory.display());
     let build_process = make.run()?;
-    Ok(build_process.wait_with_output(output))
+    Ok(build_process)
 }
 
 fn build_project(
@@ -346,8 +343,9 @@ fn build_project(
     let target = opts.target.clone();
 
     let make_thread = std::thread::spawn(move || {
-        let process_output = run_make(&make_args, &owned_buildfile_directory, &output_clone)?;
-        Ok::<std::process::Output, anyhow::Error>(process_output)
+        let mut build_process = run_make(&make_args, &owned_buildfile_directory).unwrap();
+        let exit_status = build_process.wait_and_log(&output_clone);
+        exit_status
     });
 
     let mut progress = progress::Progress::new(&progress_path, target)?;
@@ -363,8 +361,8 @@ fn build_project(
         joinable = make_thread.is_finished();
     }
 
-    let process_output = make_thread.join().unwrap()?;
-    let process_code = process_output.status.code();
+    let exit_status = make_thread.join().unwrap().unwrap();
+    let process_code = exit_status.code();
     match process_code {
         Some(0) => {
             let msg = format!("{}", "Build SUCCESS".green());

@@ -1,12 +1,16 @@
 use crate::manifest;
 
+pub mod preprocessor;
 pub mod types;
+
+use preprocessor::{Preprocessor, PreprocessorError};
 
 // FIXME: Write tests!
 pub fn parse(manifest_path: &std::path::Path) -> Result<manifest::ParsedManifest, ParseTomlError> {
     let toml_content =
         String::from_utf8(std::fs::read(manifest_path).map_err(ParseTomlError::FailedToRead)?)
             .map_err(ParseTomlError::FailedToConvertUtf8)?;
+    let preprocessor = Preprocessor::parse(&toml_content).map_err(ParseTomlError::Preprocessor)?;
     let metadata =
         std::fs::metadata(manifest_path).expect("Could not fetch metadata from yambs.json");
     let manifest_directory = manifest_path.parent().unwrap();
@@ -17,7 +21,7 @@ pub fn parse(manifest_path: &std::path::Path) -> Result<manifest::ParsedManifest
                 .modified()
                 .expect("Could not fetch last modified time of manifest"),
         },
-        data: parse_toml(&toml_content, manifest_directory)?,
+        data: parse_toml(&preprocessor.manifest_content, manifest_directory)?,
     })
 }
 
@@ -41,6 +45,8 @@ pub enum ParseTomlError {
     FailedToConvertUtf8(#[source] std::string::FromUtf8Error),
     #[error("Failed to create manifest data")]
     FailedToCreateManifestData(#[source] manifest::ParseManifestError),
+    #[error("Preprocessor failed")]
+    Preprocessor(#[source] PreprocessorError),
 }
 
 #[cfg(test)]

@@ -23,6 +23,7 @@ use yambs::parser;
 use yambs::progress;
 use yambs::toolchain::{Toolchain, TOOLCHAIN_FILE_NAME};
 use yambs::YAMBS_MANIFEST_NAME;
+use yambs::{YAMBS_BUILD_DIR_VAR, YAMBS_BUILD_TYPE, YAMBS_MANIFEST_DIR};
 
 fn main() -> anyhow::Result<()> {
     let command_line = CommandLine::parse();
@@ -51,6 +52,19 @@ fn log_invoked_command() {
             })
             .collect::<String>()
     )
+}
+
+fn initialize_preset_variables(opts: &BuildOpts) -> anyhow::Result<()> {
+    YAMBS_BUILD_DIR_VAR
+        .set(opts.build_directory.clone())
+        .map_err(|_| anyhow::anyhow!("Error occured fetching build directory"))?;
+    YAMBS_MANIFEST_DIR
+        .set(opts.manifest_dir.clone())
+        .map_err(|_| anyhow::anyhow!("Error occurred fetching manifest directory"))?;
+    YAMBS_BUILD_TYPE
+        .set(opts.configuration.build_type.clone())
+        .map_err(|_| anyhow::anyhow!("Error occured fetching build type"))?;
+    Ok(())
 }
 
 fn evaluate_compiler(
@@ -176,6 +190,8 @@ fn check_dependencies_for_up_to_date(cache: &Cache) -> Option<()> {
 fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
+
+    initialize_preset_variables(&opts)?;
     log::trace!("do_build");
 
     let cache = Cache::new(opts.build_directory.as_path())?;

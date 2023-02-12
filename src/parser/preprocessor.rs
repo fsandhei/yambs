@@ -2,26 +2,33 @@
 // with "yambs_"
 // Environment variables: Allow environment variables from the calling shell be detected in yambs
 // User defined variables?
-//
 
 use std::env;
 use std::ffi::OsString;
 
 use regex::Regex;
 
+use crate::YAMBS_BUILD_DIR_VAR;
+use crate::YAMBS_BUILD_TYPE;
+use crate::YAMBS_MANIFEST_DIR;
+
+lazy_static::lazy_static! {
+    static ref ENV_VAR_REGEX: Regex = Regex::new(r"\$\{env:(?P<env>.*)\}").unwrap();
+    static ref VAR_REGEX: Regex = Regex::new(r"\$\{(?P<var>.*)\}").unwrap();
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum PreprocessorError {
     #[error("Failed to parse environment variable")]
     EnvVar(#[source] ParseEnvError),
+    #[error("No such preset variable exists: {0}")]
+    NoSuchPreset(String),
 }
 
 pub struct Preprocessor {
     pub manifest_content: String,
     pub registered_env_vars: Vec<EnvironmentVariable>,
-}
-
-lazy_static::lazy_static! {
-    static ref ENV_VAR_REGEX: Regex = Regex::new(r"\$\{env:(?P<env>.*)\}").unwrap();
+    pub yambs_variables: [Variable; 3],
 }
 
 impl Preprocessor {
@@ -44,13 +51,55 @@ impl Preprocessor {
             }
         }
 
+        if let Some(var_captures) = VAR_REGEX.captures(manifest_content) {
+            let var = var_captures.name("var").unwrap().as_str();
+            let preset_var = preprocessor
+                .yambs_variables
+                .iter()
+                .find(|pvar| pvar.key == var)
+                .ok_or_else(|| PreprocessorError::NoSuchPreset(var.to_string()))?;
+
+            let total_capture = var_captures.get(0).unwrap().as_str();
+            *manifest_content = manifest_content.replace(total_capture, &preset_var.value);
+        }
+
         Ok(preprocessor)
     }
 
+    // TODO: Need to figure out if it is possible to globally initialize the preset yambs variables
+    // so it is easily passable down to the other dependencies.
+    // I don't want to always pass the build opts, but only once to the main manifest.
+    // OnceCell can globally initialize values once, but where should it be done?
+    // If done in main, then the preprocessor just needs to reference to the values of those static
+    // variables.
     fn new(manifest_content: &str) -> Self {
-        Self {
-            manifest_content: manifest_content.to_string(),
-            registered_env_vars: Vec::new(),
+        unsafe {
+            Self {
+                manifest_content: manifest_content.to_string(),
+                registered_env_vars: Vec::new(),
+                yambs_variables: [
+                    Variable {
+                        key: "YAMBS_BUILD_DIR".to_string(),
+                        value: YAMBS_BUILD_DIR_VAR
+                            .get_unchecked()
+                            .as_path()
+                            .display()
+                            .to_string(),
+                    },
+                    Variable {
+                        key: "YAMBS_MANIFEST_DIR".to_string(),
+                        value: YAMBS_MANIFEST_DIR
+                            .get_unchecked()
+                            .as_path()
+                            .display()
+                            .to_string(),
+                    },
+                    Variable {
+                        key: "YAMBS_BUILD_TYPE".to_string(),
+                        value: YAMBS_BUILD_TYPE.get_unchecked().to_string(),
+                    },
+                ],
+            }
         }
     }
 }
@@ -73,4 +122,9 @@ impl EnvironmentVariable {
         let value = env::var_os(s).ok_or_else(|| ParseEnvError::EnvIsEmpty(key.clone()))?;
         Ok(Self { key, value })
     }
+}
+
+pub struct Variable {
+    pub key: String,
+    pub value: String,
 }

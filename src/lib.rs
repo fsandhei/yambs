@@ -15,7 +15,16 @@ pub mod targets;
 pub mod toolchain;
 pub mod utility;
 
+use once_cell::sync::OnceCell;
+
+use crate::cli::command_line::ManifestDirectory;
+use crate::cli::configurations::BuildType;
+use crate::cli::BuildDirectory;
+
 pub const YAMBS_MANIFEST_NAME: &str = "yambs.toml";
+pub static YAMBS_BUILD_DIR_VAR: OnceCell<BuildDirectory> = OnceCell::new();
+pub static YAMBS_MANIFEST_DIR: OnceCell<ManifestDirectory> = OnceCell::new();
+pub static YAMBS_BUILD_TYPE: OnceCell<BuildType> = OnceCell::new();
 
 // FIXME: Should have check for absolute path. Perhaps better check?
 pub fn canonicalize_source(

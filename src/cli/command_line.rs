@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+
+use crate::cache::Cacher;
 use crate::cli;
 use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
@@ -88,7 +91,7 @@ pub struct BuildOpts {
     pub make_args: Vec<String>,
 }
 
-#[derive(clap::Args, Debug, Clone)]
+#[derive(clap::Args, Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct ConfigurationOpts {
     /// Build configuration to use
     #[arg(default_value_t, long = "build-type")]
@@ -103,6 +106,10 @@ pub struct ConfigurationOpts {
     /// Enable sanitizers
     #[arg(long = "sanitizer")]
     pub sanitizer: Option<configurations::Sanitizer>,
+}
+
+impl Cacher for ConfigurationOpts {
+    const CACHE_FILE_NAME: &'static str = "config";
 }
 
 #[derive(clap::Args, Debug)]

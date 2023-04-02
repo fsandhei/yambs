@@ -24,7 +24,7 @@ pub enum GeneratorError {
     CreateRule,
 }
 
-#[derive(clap::ValueEnum, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(clap::ValueEnum, Debug, Clone, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum GeneratorType {
     #[cfg(target_os = "linux")]
     /// Use GNU Makefiles

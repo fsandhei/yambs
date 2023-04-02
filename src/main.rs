@@ -8,7 +8,9 @@ use std::path::Path;
 
 use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
 use yambs::cache::Cache;
-use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
+use yambs::cli::command_line::{
+    BuildOpts, CommandLine, ConfigurationOpts, ManifestDirectory, RemakeOpts, Subcommand,
+};
 use yambs::compiler;
 use yambs::external;
 use yambs::generator::{
@@ -187,6 +189,15 @@ fn check_dependencies_for_up_to_date(cache: &Cache) -> Option<()> {
     Some(())
 }
 
+fn check_config_cache(cache: &Cache, config: &ConfigurationOpts) -> Option<()> {
+    if let Some(cached_config) = cache.from_cache::<ConfigurationOpts>() {
+        if &cached_config == config {
+            return Some(());
+        }
+    }
+    None
+}
+
 fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
@@ -212,26 +223,27 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     let mut generator = generator_from_build_opts(&opts, &cache)?;
 
-    let buildfile_directory =
-        if try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none() {
-            log::debug!("Did not find a cached manifest that suited. Making a new one.");
-            parse_and_register_dependencies(&cache, &manifest, output, &mut dependency_registry)
-                .with_context(|| "An error occured when registering project dependencies")?;
+    let buildfile_directory = if check_config_cache(&cache, &opts.configuration).is_none()
+        || try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none()
+    {
+        log::debug!("Did not find a cached manifest that suited. Making a new one.");
+        parse_and_register_dependencies(&cache, &manifest, output, &mut dependency_registry)
+            .with_context(|| "An error occured when registering project dependencies")?;
 
-            let buildfile_directory =
-                generate_build_files(&mut generator, &dependency_registry, &opts)?;
+        let buildfile_directory =
+            generate_build_files(&mut generator, &dependency_registry, &opts)?;
 
-            cache.cache(&GeneratorInfo {
-                type_: GeneratorType::GNUMakefiles,
-                buildfile_directory: buildfile_directory.clone(),
-            })?;
-            buildfile_directory
-        } else {
-            let cached_generator_info = cache
-                .from_cache::<GeneratorInfo>()
-                .ok_or_else(|| anyhow::anyhow!("Could not retrieve generator cache"))?;
-            cached_generator_info.buildfile_directory
-        };
+        cache.cache(&GeneratorInfo {
+            type_: GeneratorType::GNUMakefiles,
+            buildfile_directory: buildfile_directory.clone(),
+        })?;
+        buildfile_directory
+    } else {
+        let cached_generator_info = cache
+            .from_cache::<GeneratorInfo>()
+            .ok_or_else(|| anyhow::anyhow!("Could not retrieve generator cache"))?;
+        cached_generator_info.buildfile_directory
+    };
 
     // FIXME: This most likely does not work anymore...
     if opts.create_dottie_graph {
@@ -240,6 +252,7 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     build_project(&buildfile_directory, output, &opts, &logger)?;
     cache.cache(&dependency_registry)?;
+    cache.cache(&opts.configuration)?;
     Ok(())
 }
 

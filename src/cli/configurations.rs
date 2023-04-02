@@ -11,7 +11,7 @@ pub enum ConfigurationError {
     InvalidSanitizerOption(String),
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum BuildType {
     Debug,
     Release,
@@ -87,7 +87,7 @@ impl std::string::ToString for CXXStandard {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Sanitizer {
     Address,
     Thread,

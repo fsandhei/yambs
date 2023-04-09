@@ -7,15 +7,11 @@ use std::io::BufRead;
 use std::path::Path;
 
 use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
-use yambs::cache::Cache;
-use yambs::cli::command_line::{
-    BuildOpts, CommandLine, ConfigurationOpts, ManifestDirectory, RemakeOpts, Subcommand,
-};
+use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
 use yambs::compiler;
 use yambs::external;
 use yambs::generator::{
-    makefile::make::BuildProcess, makefile::Make, Generator, GeneratorInfo, GeneratorType,
-    MakefileGenerator,
+    makefile::make::BuildProcess, makefile::Make, Generator, GeneratorType, MakefileGenerator,
 };
 use yambs::logger;
 use yambs::manifest;
@@ -69,47 +65,23 @@ fn initialize_preset_variables(opts: &BuildOpts) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn evaluate_compiler(
-    compiler: &compiler::CXXCompiler,
-    opts: &BuildOpts,
-    cache: &Cache,
-) -> anyhow::Result<()> {
+fn evaluate_compiler(compiler: &compiler::CXXCompiler, opts: &BuildOpts) -> anyhow::Result<()> {
     log::trace!("evaluate_compiler");
-    if !cache.detect_change(compiler) {
-        let test_dir = opts.build_directory.as_path().join("sample");
-        log::debug!("Evaluating compiler by doing a sample build...");
-        compiler.evaluate(&test_dir)?;
-        cache.cache(compiler)?;
-        log::debug!("Evaluating compiler by doing a sample build... done");
-    }
+    let test_dir = opts.build_directory.as_path().join("sample");
+    log::debug!("Evaluating compiler by doing a sample build...");
+    compiler.evaluate(&test_dir)?;
+    log::debug!("Evaluating compiler by doing a sample build... done");
     Ok(())
 }
 
-fn detect_toolchain_file(toolchain_file: &Path, cache: &Cache) -> anyhow::Result<Toolchain> {
-    if !toolchain_file.exists() {
-        log::debug!("Toolchain file does not exist. Using default setup found on system.");
-        if let Some(toolchain) = Toolchain::from_cache(cache) {
-            return Ok(toolchain);
-        } else {
-            return Toolchain::new().with_context(|| "Error occured when parsing toolchain");
-        }
-    }
+fn detect_toolchain_file(toolchain_file: &Path) -> anyhow::Result<Toolchain> {
     log::debug!(
         "Using toolchain file located at {}",
         toolchain_file.display()
     );
     let toolchain = Toolchain::from_file(toolchain_file)
         .with_context(|| "Error occured when parsing toolchain file")?;
-    if let Some(cached_toolchain) = cache.from_cache::<Toolchain>() {
-        log::debug!("Found cached toolchain. Checking for equality.");
-        if toolchain != cached_toolchain {
-            anyhow::bail!("Cached toolchain is not the same as the current toolchain, invalidating the next build. Clean the build directory and run yambs again.");
-        }
-        Ok(cached_toolchain)
-    } else {
-        cache.cache(&toolchain)?;
-        Ok(toolchain)
-    }
+    Ok(toolchain)
 }
 
 fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path::PathBuf> {
@@ -124,24 +96,20 @@ fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path
     Ok(manifest_file)
 }
 
-pub fn generator_from_build_opts(
-    opts: &BuildOpts,
-    cache: &Cache,
-) -> anyhow::Result<Box<dyn Generator>> {
+pub fn generator_from_build_opts(opts: &BuildOpts) -> anyhow::Result<Box<dyn Generator>> {
     let toolchain = detect_toolchain_file(
         &opts
             .manifest_dir
             .as_path()
             .join(".yambs")
             .join(TOOLCHAIN_FILE_NAME),
-        cache,
     ).with_context(|| "
     Failed to get information about toolchain.
     A toolchain has to be provided to yambs in order to work.
     It is recommended to specify it through a file located in .yambs/toolchain.toml.
 
     At the very minimum you can set CXX, and yambs will attempt to find minimum other settings required.")?;
-    evaluate_compiler(&toolchain.cxx_compiler, opts, cache)?;
+    evaluate_compiler(&toolchain.cxx_compiler, opts)?;
 
     let generator_type = &opts.configuration.generator_type;
     log::info!("Using {:?} as generator.", generator_type);
@@ -154,58 +122,12 @@ pub fn generator_from_build_opts(
     }
 }
 
-fn try_cached_manifest(
-    cache: &Cache,
-    dep_registry: &mut TargetRegistry,
-    manifest: &manifest::ParsedManifest,
-) -> Option<manifest::ParsedManifest> {
-    log::trace!("try_cached_manifest");
-    log::debug!("Checking for cache of manifest.");
-    if let Some(cached_manifest) = cache.from_cache::<manifest::ParsedManifest>() {
-        log::debug!("Found cached manifest. Checking if it is up to date.");
-        if manifest.manifest.modification_time <= cached_manifest.manifest.modification_time {
-            check_dependencies_for_up_to_date(cache)?;
-            log::debug!("Cached manifest is up to date! Using it for this build.");
-            let cached_registry = TargetRegistry::from_cache(cache)?;
-            *dep_registry = cached_registry;
-            return Some(cached_manifest);
-        }
-        log::debug!("Cached manifest is older than latest manifest. Discarding cached.");
-    }
-    None
-}
-
-fn check_dependencies_for_up_to_date(cache: &Cache) -> Option<()> {
-    let test_target_registry = TargetRegistry::from_cache(cache)?;
-    for target in test_target_registry.registry {
-        if let Some(source_data) = target.borrow().target_source.from_source() {
-            let manifest_compare = manifest::Manifest::new(&source_data.manifest.directory);
-            if source_data.manifest.modification_time < manifest_compare.modification_time {
-                return None;
-            }
-            log::debug!("{} is up to date", target.borrow().name());
-        }
-    }
-    Some(())
-}
-
-fn check_config_cache(cache: &Cache, config: &ConfigurationOpts) -> Option<()> {
-    if let Some(cached_config) = cache.from_cache::<ConfigurationOpts>() {
-        if &cached_config == config {
-            return Some(());
-        }
-    }
-    None
-}
-
 fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
 
     initialize_preset_variables(&opts)?;
     log::trace!("do_build");
-
-    let cache = Cache::new(opts.build_directory.as_path())?;
 
     let mut dependency_registry = TargetRegistry::new();
     let manifest_path = locate_manifest(&opts.manifest_dir)?;
@@ -221,28 +143,15 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
         opts.configuration.cxx_standard = cxx_standard;
     }
 
-    let mut generator = generator_from_build_opts(&opts, &cache)?;
+    let mut generator = generator_from_build_opts(&opts)?;
 
-    let buildfile_directory = if check_config_cache(&cache, &opts.configuration).is_none()
-        || try_cached_manifest(&cache, &mut dependency_registry, &manifest).is_none()
-    {
-        log::debug!("Did not find a cached manifest that suited. Making a new one.");
-        parse_and_register_dependencies(&cache, &manifest, output, &mut dependency_registry)
+    let buildfile_directory = {
+        parse_and_register_dependencies(&manifest, output, &mut dependency_registry)
             .with_context(|| "An error occured when registering project dependencies")?;
 
         let buildfile_directory =
             generate_build_files(&mut generator, &dependency_registry, &opts)?;
-
-        cache.cache(&GeneratorInfo {
-            type_: GeneratorType::GNUMakefiles,
-            buildfile_directory: buildfile_directory.clone(),
-        })?;
         buildfile_directory
-    } else {
-        let cached_generator_info = cache
-            .from_cache::<GeneratorInfo>()
-            .ok_or_else(|| anyhow::anyhow!("Could not retrieve generator cache"))?;
-        cached_generator_info.buildfile_directory
     };
 
     // FIXME: This most likely does not work anymore...
@@ -251,8 +160,6 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     }
 
     build_project(&buildfile_directory, output, &opts, &logger)?;
-    cache.cache(&dependency_registry)?;
-    cache.cache(&opts.configuration)?;
     Ok(())
 }
 
@@ -290,7 +197,6 @@ fn generate_build_files(
 }
 
 fn parse_and_register_dependencies(
-    cache: &Cache,
     manifest: &manifest::ParsedManifest,
     output: &Output,
     dep_registry: &mut TargetRegistry,
@@ -318,9 +224,6 @@ fn parse_and_register_dependencies(
             dep_registry,
         )?;
     }
-    cache
-        .cache(manifest)
-        .with_context(|| "Failed to cache manifest file")?;
     let number_of_targets = dep_registry.number_of_targets();
     output.status(&format!("Registered {} build targets", number_of_targets));
     Ok(())

@@ -1,5 +1,4 @@
 use crate::build_target::{target_registry::TargetRegistry, TargetError};
-use crate::cache;
 use crate::errors::FsError;
 
 #[cfg(target_os = "linux")]
@@ -36,10 +35,6 @@ pub struct GeneratorInfo {
     #[serde(rename = "type")]
     pub type_: GeneratorType,
     pub buildfile_directory: std::path::PathBuf,
-}
-
-impl cache::Cacher for GeneratorInfo {
-    const CACHE_FILE_NAME: &'static str = "generator_info";
 }
 
 pub trait Generator {

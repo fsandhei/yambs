@@ -5,7 +5,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use textwrap::indent;
 
-use crate::cache::{Cache, Cacher};
 use crate::errors;
 use crate::toolchain::ToolchainCXXData;
 use crate::utility;
@@ -23,8 +22,6 @@ pub enum CompilerError {
     FailedToCompileSample(#[source] errors::FsError),
     #[error("Failed to create sample main.cpp for compiler assertion")]
     FailedToCreateSample(#[source] std::io::Error),
-    #[error("Failed to cache of compiler data")]
-    FailedToCache(#[source] errors::CacheError),
     #[error(
         "Failed to retrieve compiler version from\n\
         \n\
@@ -113,10 +110,6 @@ impl CXXCompiler {
             linker,
             stdlib,
         })
-    }
-
-    pub fn from_cache(cache: &Cache) -> Option<Self> {
-        cache.from_cache::<Self>()
     }
 
     pub fn from_toolchain_cxx_data(data: &ToolchainCXXData) -> Result<Self, CompilerError> {
@@ -243,10 +236,6 @@ impl ToString for Type {
             Self::Clang => "clang".to_string(),
         }
     }
-}
-
-impl Cacher for CXXCompiler {
-    const CACHE_FILE_NAME: &'static str = "compiler";
 }
 
 impl std::string::ToString for CXXCompiler {

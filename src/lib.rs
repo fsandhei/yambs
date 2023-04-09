@@ -1,5 +1,4 @@
 pub mod build_target;
-pub mod cache;
 pub mod cli;
 pub mod compiler;
 pub mod errors;

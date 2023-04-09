@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::cache::Cacher;
 use crate::cli;
 use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
@@ -106,10 +105,6 @@ pub struct ConfigurationOpts {
     /// Enable sanitizers
     #[arg(long = "sanitizer")]
     pub sanitizer: Option<configurations::Sanitizer>,
-}
-
-impl Cacher for ConfigurationOpts {
-    const CACHE_FILE_NAME: &'static str = "config";
 }
 
 #[derive(clap::Args, Debug)]

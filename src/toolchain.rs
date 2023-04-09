@@ -2,11 +2,9 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::compiler::{CXXCompiler, CompilerError, Linker, StdLibCXX};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use crate::cache::{Cache, Cacher};
-use crate::compiler::{CXXCompiler, CompilerError, Linker, StdLibCXX};
 
 pub const TOOLCHAIN_FILE_NAME: &str = "toolchain.toml";
 
@@ -147,10 +145,6 @@ pub struct Toolchain {
     pub archiver: Archiver,
 }
 
-impl Cacher for Toolchain {
-    const CACHE_FILE_NAME: &'static str = "toolchain";
-}
-
 #[derive(Debug, Error)]
 pub enum ToolchainError {
     #[error("Error occured with locating archiver")]
@@ -179,13 +173,6 @@ impl Toolchain {
         Ok(Self {
             cxx_compiler: CXXCompiler::new().map_err(ToolchainError::CouldNotGetCompiler)?,
             archiver: Archiver::new().map_err(ToolchainError::Archiver)?,
-        })
-    }
-
-    pub fn from_cache(cache: &Cache) -> Option<Self> {
-        Some(Self {
-            cxx_compiler: CXXCompiler::from_cache(cache)?,
-            archiver: Archiver::new().ok()?,
         })
     }
 

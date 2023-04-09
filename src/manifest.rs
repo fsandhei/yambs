@@ -1,4 +1,3 @@
-use crate::cache;
 use crate::parser::types;
 use crate::targets;
 use crate::YAMBS_MANIFEST_NAME;
@@ -27,10 +26,6 @@ pub struct ParsedManifest {
     #[serde(flatten)]
     pub manifest: Manifest,
     pub data: ManifestData,
-}
-
-impl cache::Cacher for ParsedManifest {
-    const CACHE_FILE_NAME: &'static str = "manifest";
 }
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]

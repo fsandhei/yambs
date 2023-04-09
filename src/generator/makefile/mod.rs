@@ -18,8 +18,7 @@ use crate::errors::FsError;
 use crate::generator;
 use crate::generator::{
     targets::ObjectTarget, targets::ProgressDocument, targets::ProgressTrackingTarget, Generator,
-    GeneratorError, Sanitizer, UtilityGenerator, SHARED_LIBRARY_FILE_EXTENSION,
-    STATIC_LIBRARY_FILE_EXTENSION,
+    GeneratorError, UtilityGenerator, SHARED_LIBRARY_FILE_EXTENSION, STATIC_LIBRARY_FILE_EXTENSION,
 };
 use crate::parser::types;
 use crate::progress;
@@ -319,11 +318,11 @@ impl MakefileGenerator {
     ) -> Result<Self, GeneratorError> {
         utility::create_dir(build_directory.as_path())?;
         Ok(Self {
-            toolchain,
             configurations: configurations.to_owned(),
             build_directory: build_directory.clone(),
             output_directory: build_directory.as_path().to_path_buf(),
             progress_document: ProgressDocument::new(),
+            toolchain,
         })
     }
 
@@ -566,9 +565,6 @@ impl MakefileGenerator {
 
         let cxx_standard = &self.configurations.cxx_standard.to_string();
         include_file_generator.add_cpp_version(cxx_standard);
-        if let Some(sanitizer) = &self.configurations.sanitizer {
-            include_file_generator.set_sanitizer(&sanitizer.to_string());
-        }
         include_file_generator.generate_build_files()
     }
 

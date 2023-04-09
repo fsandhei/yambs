@@ -44,15 +44,10 @@ pub trait Generator {
         -> Result<std::path::PathBuf, GeneratorError>;
 }
 
-pub trait Sanitizer {
-    fn set_sanitizer(&mut self, sanitizer: &str);
-}
-
 pub trait UtilityGenerator<'config> {
     fn generate_build_files(&'config mut self) -> Result<(), GeneratorError>;
     fn add_cpp_version(&mut self, version: &'config str);
     fn print_cpp_version(&'config self) -> &'config str;
-    fn generate_flags_sanitizer(&self) -> String;
 }
 
 pub mod targets {

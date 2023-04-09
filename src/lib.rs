@@ -2,7 +2,6 @@ pub mod build_target;
 pub mod cli;
 pub mod compiler;
 pub mod errors;
-pub mod external;
 pub mod flags;
 pub mod generator;
 pub mod logger;

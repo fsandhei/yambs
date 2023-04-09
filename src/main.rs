@@ -9,7 +9,6 @@ use std::path::Path;
 use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
 use yambs::compiler;
-use yambs::external;
 use yambs::generator::{
     makefile::make::BuildProcess, makefile::Make, Generator, GeneratorType, MakefileGenerator,
 };
@@ -144,21 +143,12 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     }
 
     let mut generator = generator_from_build_opts(&opts)?;
+    parse_and_register_dependencies(&manifest, output, &mut dependency_registry)
+        .with_context(|| "An error occured when registering project dependencies")?;
 
-    let buildfile_directory = {
-        parse_and_register_dependencies(&manifest, output, &mut dependency_registry)
-            .with_context(|| "An error occured when registering project dependencies")?;
-
-        let buildfile_directory =
-            generate_build_files(&mut generator, &dependency_registry, &opts)?;
-        buildfile_directory
-    };
+    let buildfile_directory = generate_build_files(&mut generator, &dependency_registry, &opts)?;
 
     // FIXME: This most likely does not work anymore...
-    if opts.create_dottie_graph {
-        return create_dottie_graph(&dependency_registry, output);
-    }
-
     build_project(&buildfile_directory, output, &opts, &logger)?;
     Ok(())
 }
@@ -226,19 +216,6 @@ fn parse_and_register_dependencies(
     }
     let number_of_targets = dep_registry.number_of_targets();
     output.status(&format!("Registered {} build targets", number_of_targets));
-    Ok(())
-}
-
-fn create_dottie_graph(registry: &TargetRegistry, output: &Output) -> anyhow::Result<()> {
-    let mut dottie_buffer = String::new();
-    for target in &registry.registry {
-        if external::dottie(target, registry, false, &mut dottie_buffer).is_ok() {
-            output.status(&format!(
-                "Created dottie file dependency-{}.gv",
-                target.borrow().name()
-            ));
-        }
-    }
     Ok(())
 }
 

@@ -77,9 +77,6 @@ pub struct BuildOpts {
         value_parser
     )]
     pub build_directory: cli::BuildDirectory,
-    /// Create dottie graph of build tree and exit.
-    #[arg(long = "dottie-graph")]
-    pub create_dottie_graph: bool,
     /// Toggles verbose output.
     #[arg(short = 'v', long = "verbose")]
     pub verbose: bool,

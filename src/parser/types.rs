@@ -5,8 +5,16 @@ use crate::flags::CompilerFlags;
 use crate::cli::configurations::CXXStandard;
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub enum Language {
+    #[serde(rename = "C++")]
+    CXX,
+    C,
+}
+
+#[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct ProjectConfiguration {
     pub cxx_std: Option<CXXStandard>,
+    pub language: Option<Language>,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]

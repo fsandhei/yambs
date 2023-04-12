@@ -18,7 +18,7 @@ use yambs::output;
 use yambs::output::Output;
 use yambs::parser;
 use yambs::progress;
-use yambs::toolchain::{Toolchain, TOOLCHAIN_FILE_NAME};
+use yambs::toolchain::{NormalizedToolchain, TOOLCHAIN_FILE_NAME};
 use yambs::YAMBS_MANIFEST_NAME;
 use yambs::{YAMBS_BUILD_DIR_VAR, YAMBS_BUILD_TYPE, YAMBS_MANIFEST_DIR};
 
@@ -73,12 +73,12 @@ fn evaluate_compiler(compiler: &compiler::CXXCompiler, opts: &BuildOpts) -> anyh
     Ok(())
 }
 
-fn detect_toolchain_file(toolchain_file: &Path) -> anyhow::Result<Toolchain> {
+fn detect_toolchain_file(toolchain_file: &Path) -> anyhow::Result<NormalizedToolchain> {
     log::debug!(
         "Using toolchain file located at {}",
         toolchain_file.display()
     );
-    let toolchain = Toolchain::from_file(toolchain_file)
+    let toolchain = NormalizedToolchain::from_file(toolchain_file)
         .with_context(|| "Error occured when parsing toolchain file")?;
     Ok(toolchain)
 }
@@ -108,7 +108,7 @@ pub fn generator_from_build_opts(opts: &BuildOpts) -> anyhow::Result<Box<dyn Gen
     It is recommended to specify it through a file located in .yambs/toolchain.toml.
 
     At the very minimum you can set CXX, and yambs will attempt to find minimum other settings required.")?;
-    evaluate_compiler(&toolchain.cxx_compiler, opts)?;
+    evaluate_compiler(&toolchain.cxx.compiler, opts)?;
 
     let generator_type = &opts.configuration.generator_type;
     log::info!("Using {:?} as generator.", generator_type);

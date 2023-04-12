@@ -93,15 +93,45 @@ pub struct ToolchainCXXData {
     pub stdlib: StdLibCXX,
 }
 
+#[derive(PartialEq, Eq, Debug)]
+pub struct ToolchainCXX {
+    pub compiler: CXXCompiler,
+    pub linker: Linker,
+}
+
+impl ToolchainCXX {
+    pub fn new() -> Result<Self, ToolchainError> {
+        Ok(Self {
+            compiler: CXXCompiler::new().map_err(ToolchainError::CouldNotGetCompiler)?,
+            linker: Linker::new(),
+        })
+    }
+
+    pub fn from_toolchain_cxx_data(
+        toolchain_cxx_data: &ToolchainCXXData,
+    ) -> Result<Self, ToolchainError> {
+        let linker = if let Some(ref linker) = toolchain_cxx_data.linker {
+            linker.clone()
+        } else {
+            Linker::default()
+        };
+        Ok(Self {
+            compiler: CXXCompiler::from_toolchain_cxx_data(&toolchain_cxx_data)
+                .map_err(ToolchainError::CouldNotGetCompiler)?,
+            linker,
+        })
+    }
+}
+
 #[derive(PartialEq, Eq, Debug, Deserialize)]
-struct RawToolchain {
+struct Toolchain {
     #[serde(rename = "CXX")]
     pub cxx: ToolchainCXXData,
     #[serde(rename = "AR")]
     pub archiver: Option<PathBuf>,
 }
 
-impl RawToolchain {
+impl Toolchain {
     fn new(path: &Path) -> Result<Self, ToolchainError> {
         if !path.is_file() {
             return Err(ToolchainError::NotAFile);
@@ -120,9 +150,7 @@ impl RawToolchain {
         }
     }
 
-    fn to_toolchain(&self) -> Result<Toolchain, ToolchainError> {
-        let cxx_compiler = CXXCompiler::from_toolchain_cxx_data(&self.cxx)
-            .map_err(ToolchainError::CouldNotGetCompiler)?;
+    fn to_toolchain(&self) -> Result<NormalizedToolchain, ToolchainError> {
         let archiver = {
             if let Some(ref archiver) = self.archiver {
                 Archiver::from_path(archiver)
@@ -132,17 +160,32 @@ impl RawToolchain {
         }
         .map_err(ToolchainError::Archiver)?;
 
-        Ok(Toolchain {
-            cxx_compiler,
+        Ok(NormalizedToolchain {
+            cxx: ToolchainCXX::from_toolchain_cxx_data(&self.cxx)?,
             archiver,
         })
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Deserialize, Serialize)]
-pub struct Toolchain {
-    pub cxx_compiler: CXXCompiler,
+#[derive(PartialEq, Eq, Debug)]
+pub struct NormalizedToolchain {
+    pub cxx: ToolchainCXX,
     pub archiver: Archiver,
+}
+
+impl NormalizedToolchain {
+    pub fn new() -> Result<Self, ToolchainError> {
+        Ok(Self {
+            cxx: ToolchainCXX::new()?,
+            archiver: Archiver::new().map_err(ToolchainError::Archiver)?,
+        })
+    }
+
+    pub fn from_file(path: &Path) -> Result<Self, ToolchainError> {
+        log::debug!("Parsing toolchain at {}", path.display());
+        let raw_toolchain = Toolchain::new(path)?;
+        raw_toolchain.to_toolchain()
+    }
 }
 
 #[derive(Debug, Error)]
@@ -166,19 +209,4 @@ pub enum ToolchainError {
     FailedToParseToolchainFile(#[source] toml::de::Error),
     #[error("Failed to convert UTF-8 bytes to string")]
     FailedToConvertUtf8(#[source] std::string::FromUtf8Error),
-}
-
-impl Toolchain {
-    pub fn new() -> Result<Self, ToolchainError> {
-        Ok(Self {
-            cxx_compiler: CXXCompiler::new().map_err(ToolchainError::CouldNotGetCompiler)?,
-            archiver: Archiver::new().map_err(ToolchainError::Archiver)?,
-        })
-    }
-
-    pub fn from_file(path: &Path) -> Result<Self, ToolchainError> {
-        log::debug!("Parsing toolchain at {}", path.display());
-        let raw_toolchain = RawToolchain::new(path)?;
-        raw_toolchain.to_toolchain()
-    }
 }

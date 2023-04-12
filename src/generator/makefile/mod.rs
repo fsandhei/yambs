@@ -22,7 +22,7 @@ use crate::generator::{
 };
 use crate::parser::types;
 use crate::progress;
-use crate::toolchain::Toolchain;
+use crate::toolchain::NormalizedToolchain;
 use crate::utility;
 
 use include_file_generator::IncludeFileGenerator;
@@ -303,7 +303,7 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
 }
 
 pub struct MakefileGenerator {
-    pub toolchain: Toolchain,
+    pub toolchain: NormalizedToolchain,
     pub configurations: command_line::ConfigurationOpts,
     pub build_directory: BuildDirectory,
     pub output_directory: std::path::PathBuf,
@@ -314,7 +314,7 @@ impl MakefileGenerator {
     pub fn new(
         configurations: &command_line::ConfigurationOpts,
         build_directory: &BuildDirectory,
-        toolchain: Toolchain,
+        toolchain: NormalizedToolchain,
     ) -> Result<Self, GeneratorError> {
         utility::create_dir(build_directory.as_path())?;
         Ok(Self {

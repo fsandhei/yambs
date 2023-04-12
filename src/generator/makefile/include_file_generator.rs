@@ -9,18 +9,21 @@ use crate::compiler::StdLibCXX;
 use crate::compiler::Type;
 use crate::errors::FsError;
 use crate::generator::{GeneratorError, UtilityGenerator};
-use crate::toolchain::Toolchain;
+use crate::toolchain::NormalizedToolchain;
 use crate::utility;
 
 pub(crate) struct IncludeFileGenerator<'generator> {
     file: Option<File>,
     output_directory: std::path::PathBuf,
     args: HashMap<&'generator str, String>,
-    toolchain: &'generator Toolchain,
+    toolchain: &'generator NormalizedToolchain,
 }
 
 impl<'generator> IncludeFileGenerator<'generator> {
-    pub fn new(output_directory: &std::path::Path, toolchain: &'generator Toolchain) -> Self {
+    pub fn new(
+        output_directory: &std::path::Path,
+        toolchain: &'generator NormalizedToolchain,
+    ) -> Self {
         utility::create_dir(output_directory).unwrap();
 
         IncludeFileGenerator {
@@ -44,7 +47,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
     }
 
     fn warnings_from_compiler_type(&self) -> Vec<&str> {
-        let compiler = &self.toolchain.cxx_compiler;
+        let compiler = &self.toolchain.cxx.compiler;
 
         let mut warning_flags = vec![
             "-Wall",
@@ -76,7 +79,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
     }
 
     fn select_stdlib_impl(&self) -> String {
-        let stdlib = &self.toolchain.cxx_compiler.stdlib;
+        let stdlib = &self.toolchain.cxx.compiler.stdlib;
         match stdlib {
             StdLibCXX::LibStdCXX => "".to_string(),
             StdLibCXX::LibCXX => "-stdlib=libc++".to_string(),
@@ -84,8 +87,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
     }
 
     fn generate_linker_selection(&self) -> String {
-        let compiler = &self.toolchain.cxx_compiler;
-        let linker = &compiler.linker;
+        let linker = &self.toolchain.cxx.linker;
 
         let linker_statement = match linker {
             Linker::Gold => "LDFLAGS += -fuse-ld=gold".to_string(),
@@ -130,7 +132,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
         cpp_version = self.print_cpp_version(),
         def_directory = self.print_build_directory(),
         warnings = self.warnings_from_compiler_type().join("\\\n"),
-        compiler_type = self.toolchain.cxx_compiler.compiler_info.compiler_type.to_string(),
+        compiler_type = self.toolchain.cxx.compiler.compiler_info.compiler_type.to_string(),
         );
         self.file
             .as_ref()
@@ -236,7 +238,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
     }
 
     fn generate_toolchain_defines(&self) -> String {
-        let compiler_path = &self.toolchain.cxx_compiler.compiler_exe;
+        let compiler_path = &self.toolchain.cxx.compiler.compiler_exe;
         let archiver_path = self.toolchain.archiver.path.clone();
         indoc::formatdoc!(
             "

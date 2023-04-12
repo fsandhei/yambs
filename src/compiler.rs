@@ -60,7 +60,7 @@ pub struct CXXCompilerInfo {
 }
 
 impl CXXCompilerInfo {
-    pub fn new(compiler_exe: &std::path::PathBuf) -> Result<Self, CompilerError> {
+    pub fn new(compiler_exe: &std::path::Path) -> Result<Self, CompilerError> {
         let compiler_type = Type::new(compiler_exe)?;
         let compiler_version = parse_version(compiler_exe)?;
 
@@ -89,7 +89,6 @@ impl Default for StdLibCXX {
 pub struct CXXCompiler {
     pub compiler_exe: std::path::PathBuf,
     pub compiler_info: CXXCompilerInfo,
-    pub linker: Linker,
     #[serde(default)]
     pub stdlib: StdLibCXX,
 }
@@ -100,14 +99,12 @@ impl CXXCompiler {
             .map(std::path::PathBuf::from)
             .ok_or(CompilerError::CXXEnvNotSet)?;
         let compiler_info = CXXCompilerInfo::new(&compiler_exe)?;
-        let linker = Linker::new();
         let stdlib = StdLibCXX::default();
 
         log::debug!("Registered CXX = {}", compiler_exe.display());
         Ok(Self {
             compiler_exe,
             compiler_info,
-            linker,
             stdlib,
         })
     }
@@ -115,18 +112,11 @@ impl CXXCompiler {
     pub fn from_toolchain_cxx_data(data: &ToolchainCXXData) -> Result<Self, CompilerError> {
         let compiler_exe = data.compiler.clone();
         let compiler_info = CXXCompilerInfo::new(&compiler_exe)?;
-        let linker = data.linker.clone().unwrap_or_else(|| {
-            log::debug!(
-                "Linker not specified. Linker is inferred by the settings the compiler has."
-            );
-            Linker::Inferred
-        });
         let stdlib = data.stdlib.clone();
 
         Ok(Self {
             compiler_exe,
             compiler_info,
-            linker,
             stdlib,
         })
     }

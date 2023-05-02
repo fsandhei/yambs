@@ -194,49 +194,6 @@ fn generate_prerequisites(
     formatted_string
 }
 
-fn generate_compiler_flags_for_target(target: &TargetNode, makefile_writer: &mut Writer) {
-    let borrowed_target = target.borrow();
-    let target_name = borrowed_target.name();
-    let target_name_capitalized = target_name.to_uppercase();
-    let cxx_flags = &borrowed_target.compiler_flags.cxx_flags;
-
-    makefile_writer.data.push_str(&indoc::formatdoc!(
-        "# CXXFLAGS for target \"{target_name}\"
-    {target_name_capitalized}_CXXFLAGS +="
-    ));
-
-    if let Some(cxx) = cxx_flags {
-        makefile_writer.data.push_str(&indoc::formatdoc!(
-            "{cxx_flags}",
-            cxx_flags = cxx.flags().join(" ")
-        ));
-    }
-    makefile_writer.data.push('\n');
-    makefile_writer.data.push('\n');
-
-    let cpp_flags = &borrowed_target.compiler_flags.cpp_flags;
-    makefile_writer.data.push_str(&indoc::formatdoc!(
-        "# CPPFLAGS for target \"{target_name}\"
-    {target_name_capitalized}_CPPFLAGS +="
-    ));
-
-    if let Some(cpp) = cpp_flags {
-        makefile_writer.data.push_str(&indoc::formatdoc!(
-            "{cpp_flags}",
-            cpp_flags = cpp.flags().join(" ")
-        ));
-    }
-
-    let defines = match borrowed_target.target_source {
-        build_target::TargetSource::FromSource(ref s) => generate_defines(&s.defines),
-        _ => "".to_string(),
-    };
-
-    makefile_writer.data.push_str(&defines);
-
-    makefile_writer.data.push('\n');
-}
-
 fn generate_search_directories(target: &TargetNode) -> String {
     let borrowed_target = target.borrow();
     let mut formatted_string = String::new();
@@ -443,7 +400,10 @@ impl MakefileGenerator {
     ) {
         let dependency_target = dependency.to_build_target(registry).unwrap();
         if dependency_target.borrow().state != TargetState::BuildFileMade {
-            generate_compiler_flags_for_target(&dependency_target, &mut writers.makefile_writer);
+            self.generate_compiler_flags_for_target(
+                &dependency_target,
+                &mut writers.makefile_writer,
+            );
             writers.makefile_writer.data.push('\n');
             let rule = LibraryTargetFactory::create_rule(
                 &dependency_target,
@@ -610,7 +570,7 @@ impl MakefileGenerator {
 
     fn generate_rule_declaration_for_target(&self, writers: &mut Writers, target: &TargetNode) {
         self.generate_phony(&mut writers.makefile_writer, target);
-        generate_compiler_flags_for_target(target, &mut writers.makefile_writer);
+        self.generate_compiler_flags_for_target(target, &mut writers.makefile_writer);
         let target_rule_declaration = TargetRuleFactory::create_rule(
             target,
             &self.output_directory,
@@ -627,6 +587,58 @@ impl MakefileGenerator {
             .push_str(&target_rule_declaration);
         writers.makefile_writer.data.push('\n');
         writers.makefile_writer.data.push('\n');
+    }
+
+    fn generate_compiler_flags_for_target(
+        &self,
+        target: &TargetNode,
+        makefile_writer: &mut Writer,
+    ) {
+        let borrowed_target = target.borrow();
+        let target_name = borrowed_target.name();
+        let target_name_capitalized = target_name.to_uppercase();
+        let cxx_flags = &borrowed_target.compiler_flags.cxx_flags;
+
+        makefile_writer.data.push_str(&indoc::formatdoc!(
+            "# CXXFLAGS for target \"{target_name}\"
+    {target_name_capitalized}_CXXFLAGS +="
+        ));
+
+        if let Some(cxx) = cxx_flags {
+            makefile_writer.data.push_str(&indoc::formatdoc!(
+                "{cxx_flags}",
+                cxx_flags = cxx.flags().join(" ")
+            ));
+        }
+        makefile_writer.data.push('\n');
+        makefile_writer.data.push('\n');
+
+        let cpp_flags = &borrowed_target.compiler_flags.cpp_flags;
+        makefile_writer.data.push_str(&indoc::formatdoc!(
+            "# CPPFLAGS for target \"{target_name}\"
+    {target_name_capitalized}_CPPFLAGS +="
+        ));
+
+        if let Some(cpp) = cpp_flags {
+            makefile_writer.data.push_str(&indoc::formatdoc!(
+                "{cpp_flags}",
+                cpp_flags = cpp.flags().join(" ")
+            ));
+        }
+
+        let defines = if !self.configurations.defines.is_empty() {
+            let defines = &self.configurations.defines;
+            generate_defines(&defines)
+        } else {
+            match borrowed_target.target_source {
+                build_target::TargetSource::FromSource(ref s) => generate_defines(&s.defines),
+                _ => "".to_string(),
+            }
+        };
+
+        makefile_writer.data.push_str(&defines);
+
+        makefile_writer.data.push('\n');
     }
 }
 

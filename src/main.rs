@@ -148,7 +148,6 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     let buildfile_directory = generate_build_files(&mut generator, &dependency_registry, &opts)?;
 
-    // FIXME: This most likely does not work anymore...
     build_project(&buildfile_directory, output, &opts, &logger)?;
     Ok(())
 }

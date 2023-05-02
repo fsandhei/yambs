@@ -4,6 +4,7 @@ use crate::cli;
 use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
 use crate::generator::GeneratorType;
+use crate::parser::types::Define;
 
 // TODO: Need to add tests for C++ validation
 // TODO: Add default values that correctly correspond for 'configuration' when not all options are
@@ -99,6 +100,8 @@ pub struct ConfigurationOpts {
     pub cxx_standard: configurations::CXXStandard,
     #[arg(default_value_t = GeneratorType::GNUMakefiles, short = 'g', value_enum)]
     pub generator_type: GeneratorType,
+    #[arg(short = 'D', value_parser = Define::from_cli)]
+    pub defines: Vec<Define>,
 }
 
 #[derive(clap::Args, Debug)]

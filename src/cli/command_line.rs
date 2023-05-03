@@ -15,7 +15,7 @@ use crate::parser::types::Define;
 // TODO: to its own struct?
 
 #[derive(clap::Parser, Debug)]
-/// GNU Make build system overlay for C++ projects. Yambs generates makefiles and builds the project with the \n\
+/// GNU Make build system overlay for C++ projects. Yambs generates makefiles and builds the project with the
 /// specifications written in the respective YAMBS files.
 pub struct CommandLine {
     #[command(subcommand)]

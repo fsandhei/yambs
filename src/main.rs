@@ -102,7 +102,9 @@ pub fn generator_from_build_opts(opts: &BuildOpts) -> anyhow::Result<Box<dyn Gen
             .as_path()
             .join(".yambs")
             .join(TOOLCHAIN_FILE_NAME),
-    ).with_context(|| "
+    )
+    .or_else(|_| NormalizedToolchain::new())
+    .with_context(|| "
     Failed to get information about toolchain.
     A toolchain has to be provided to yambs in order to work.
     It is recommended to specify it through a file located in .yambs/toolchain.toml.

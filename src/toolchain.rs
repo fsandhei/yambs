@@ -127,7 +127,11 @@ impl ToolchainCXX {
 struct Toolchain {
     #[serde(rename = "CXX")]
     pub cxx: ToolchainCXXData,
-    #[serde(rename = "AR")]
+    pub common: CommonToolchainData,
+}
+
+#[derive(PartialEq, Eq, Debug, Deserialize)]
+struct CommonToolchainData {
     pub archiver: Option<PathBuf>,
 }
 
@@ -152,7 +156,7 @@ impl Toolchain {
 
     fn to_toolchain(&self) -> Result<NormalizedToolchain, ToolchainError> {
         let archiver = {
-            if let Some(ref archiver) = self.archiver {
+            if let Some(ref archiver) = self.common.archiver {
                 Archiver::from_path(archiver)
             } else {
                 Archiver::new()

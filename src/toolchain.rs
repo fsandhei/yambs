@@ -65,19 +65,9 @@ impl Archiver {
     }
 
     pub fn from_path(path: &Path) -> Result<Self, ArchiverError> {
-        let program = {
-            if path.is_file() {
-                path.to_path_buf()
-            } else {
-                if let Some(program) = find_program(path) {
-                    program
-                } else {
-                    return Err(ArchiverError::ArchiverDoesNotExist);
-                }
-            }
-        };
-
-        Ok(Self { path: program })
+        Ok(Self {
+            path: path.to_path_buf(),
+        })
     }
 
     fn try_from_environment_variable() -> Option<PathBuf> {
@@ -127,6 +117,7 @@ impl ToolchainCXX {
 struct Toolchain {
     #[serde(rename = "CXX")]
     pub cxx: ToolchainCXXData,
+    #[serde(flatten)]
     pub common: CommonToolchainData,
 }
 
@@ -157,6 +148,7 @@ impl Toolchain {
     fn to_toolchain(&self) -> Result<NormalizedToolchain, ToolchainError> {
         let archiver = {
             if let Some(ref archiver) = self.common.archiver {
+                log::debug!("Using archiver found from toolchain file");
                 Archiver::from_path(archiver)
             } else {
                 Archiver::new()

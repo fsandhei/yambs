@@ -5,6 +5,7 @@ use colored::Colorize;
 use regex::Regex;
 use std::io::BufRead;
 use std::path::Path;
+use yambs::toolchain::ToolchainError;
 
 use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
@@ -102,14 +103,34 @@ pub fn generator_from_build_opts(opts: &BuildOpts) -> anyhow::Result<Box<dyn Gen
             .as_path()
             .join(".yambs")
             .join(TOOLCHAIN_FILE_NAME),
-    )
-    .or_else(|_| NormalizedToolchain::new())
-    .with_context(|| "
+    );
+
+    let toolchain = match toolchain {
+        Ok(tc) => tc,
+        Err(e) => {
+            let tc_err = e.downcast_ref::<ToolchainError>().unwrap();
+            match tc_err {
+                ToolchainError::FailedToParseToolchainFile(_) => return Err(e),
+                _ => {
+                    println!("Warning: Did not find any toolchain file. Attempt using CXX value");
+                    match NormalizedToolchain::new() {
+                        Ok(tc) => tc,
+                        Err(_) => {
+                            anyhow::bail!(
+                                "
     Failed to get information about toolchain.
     A toolchain has to be provided to yambs in order to work.
     It is recommended to specify it through a file located in .yambs/toolchain.toml.
 
-    At the very minimum you can set CXX, and yambs will attempt to find minimum other settings required.")?;
+    At the very minimum you can set CXX, and yambs will attempt to find minimum other settings required."
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    };
+
     evaluate_compiler(&toolchain.cxx.compiler, opts)?;
 
     let generator_type = &opts.configuration.generator_type;

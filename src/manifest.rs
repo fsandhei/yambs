@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::parser::types;
 use crate::targets;
 use crate::YAMBS_MANIFEST_NAME;
@@ -38,8 +40,8 @@ pub struct ManifestData {
 pub enum ParseManifestError {
     #[error("Failed to parse dependency")]
     FailedToParseDependency(#[source] targets::DependencyError),
-    #[error("Failed to canonicalize path")]
-    FailedToCanonicalizePath(#[source] std::io::Error),
+    #[error("Failed to canonicalize {1:?}")]
+    FailedToCanonicalizePath(#[source] std::io::Error, PathBuf),
 }
 
 impl ManifestData {
@@ -70,8 +72,9 @@ impl ManifestData {
                         let sources = data.common_raw.sources;
                         for source in sources {
                             let canonicalized_source =
-                                crate::canonicalize_source(manifest_dir, &source)
-                                    .map_err(ParseManifestError::FailedToCanonicalizePath)?;
+                                crate::canonicalize_source(manifest_dir, &source).map_err(|e| {
+                                    ParseManifestError::FailedToCanonicalizePath(e, source)
+                                })?;
                             canonicalized_sources.push(canonicalized_source);
                         }
                         Ok(canonicalized_sources)
@@ -114,8 +117,9 @@ impl ManifestData {
                         let sources = data.common_raw.sources;
                         for source in sources {
                             let canonicalized_source =
-                                crate::canonicalize_source(manifest_dir, &source)
-                                    .map_err(ParseManifestError::FailedToCanonicalizePath)?;
+                                crate::canonicalize_source(manifest_dir, &source).map_err(|e| {
+                                    ParseManifestError::FailedToCanonicalizePath(e, source)
+                                })?;
                             canonicalized_sources.push(canonicalized_source);
                         }
                         Ok(canonicalized_sources)

@@ -163,7 +163,6 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
                 }
             }
         }
-        _ => {}
     }
     formatted_string
 }
@@ -180,7 +179,6 @@ fn generate_search_directories(target: &TargetNode) -> String {
                 formatted_string.push_str(" -L.");
             }
         }
-        _ => {}
     };
     formatted_string.trim_end().to_string()
 }
@@ -287,7 +285,6 @@ impl MakefileGenerator {
                 let dep_dir = format!("{}.dir", &borrowed_target.name());
                 self.push_and_create_directory(std::path::Path::new(&dep_dir))?;
                 match borrowed_target.target_source {
-                    build_target::TargetSource::FromPrebuilt(_) => {}
                     build_target::TargetSource::FromSource(ref s) => {
                         log::debug!(
                             "Generating makefiles for target {:?} (manifest path: {})",
@@ -599,7 +596,6 @@ impl MakefileGenerator {
         } else {
             match borrowed_target.target_source {
                 build_target::TargetSource::FromSource(ref s) => generate_defines(&s.defines),
-                _ => "".to_string(),
             }
         };
 
@@ -879,9 +875,6 @@ mod tests {
                     build_dir.join(file_name).with_extension("o")
                 })
                 .collect::<Vec<std::path::PathBuf>>(),
-            build_target::TargetSource::FromPrebuilt(_) => {
-                panic!("target_source was not a source type!");
-            }
         }
     }
 

@@ -61,7 +61,6 @@ impl Dependency {
                     && build_target.library_type()
                         == Some(dependency_source_data.library_type.clone())
             }
-            _ => false,
         })
     }
 }
@@ -75,30 +74,21 @@ pub struct SourceBuildData {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct PrebuiltBuildData {
-    pub debug_binary_path: std::path::PathBuf,
-    pub release_binary_path: std::path::PathBuf,
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum TargetSource {
     FromSource(SourceBuildData),
-    FromPrebuilt(PrebuiltBuildData),
 }
 
 impl TargetSource {
     pub fn from_source(&self) -> Option<&SourceBuildData> {
         match self {
             Self::FromSource(s) => Some(s),
-            _ => None,
         }
     }
 
     pub fn from_source_mut(&mut self) -> Option<&mut SourceBuildData> {
         match self {
             Self::FromSource(s) => Some(s),
-            _ => None,
         }
     }
 }
@@ -126,7 +116,6 @@ impl BuildTarget {
                     source_data.manifest.directory == manifest_dir_path
                         && build_target.target_type == target_type
                 }
-                _ => false,
             })
         {
             return Ok(existing_node);
@@ -296,7 +285,6 @@ impl BuildTarget {
                                     source_data.manifest.directory == dependency_source_data.path
                                         && build_target.name() == dependency.name
                                 }
-                                _ => false,
                             }
                         })
                     {
@@ -428,17 +416,6 @@ impl TargetType {
     pub fn from_library(library: &targets::Library) -> TargetType {
         let lib_type = &library.lib_type;
         TargetType::Library(LibraryType::from(lib_type), library.name.clone())
-    }
-
-    // FIXME: For now this works for Linux, but if we're going to support other OS
-    // we need to have abstraction.
-    pub fn from_prebuilt(name: &str, binary: &std::path::Path) -> Result<TargetType, TargetError> {
-        let extension = binary.extension().and_then(std::ffi::OsStr::to_str);
-        match extension {
-            Some("a") => Ok(TargetType::Library(LibraryType::Static, name.to_string())),
-            Some("so") => Ok(TargetType::Library(LibraryType::Dynamic, name.to_string())),
-            _ => Err(TargetError::DependencyNotALibrary(name.to_string())),
-        }
     }
 }
 

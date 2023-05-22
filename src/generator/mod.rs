@@ -98,7 +98,6 @@ pub mod targets {
                     })
                     .map(|ds| ds.name.to_owned())
                     .collect::<Vec<String>>(),
-                TargetSource::FromPrebuilt(_) => Vec::new(),
             };
 
             Self {

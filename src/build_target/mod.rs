@@ -23,17 +23,9 @@ pub struct DependencySourceData {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct DependencyPrebuiltData {
-    pub name: String,
-    pub debug_binary_path: std::path::PathBuf,
-    pub release_binary_path: std::path::PathBuf,
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum DependencySource {
     FromSource(DependencySourceData),
-    FromPrebuilt(DependencyPrebuiltData),
     FromHeaderOnly(DependencyHeaderData),
 }
 
@@ -121,32 +113,6 @@ pub struct BuildTarget {
 }
 
 impl BuildTarget {
-    pub fn target_node_from_binary(
-        name: &str,
-        binary_data: &types::BinaryData,
-        registry: &mut target_registry::TargetRegistry,
-    ) -> Result<TargetNode, TargetError> {
-        let target_type =
-            TargetType::from_prebuilt(name, &binary_data.debug_path_information.path)?;
-
-        if let Some(existing_node) =
-            registry.get_target_from_predicate(|build_target| match build_target.target_source {
-                TargetSource::FromPrebuilt(ref other_binary_data) => {
-                    (other_binary_data.debug_binary_path == binary_data.debug_path_information.path
-                        && other_binary_data.release_binary_path
-                            == binary_data.release_path_information.path)
-                        && build_target.target_type == target_type
-                }
-                _ => false,
-            })
-        {
-            return Ok(existing_node);
-        }
-
-        let target_node = TargetNode::new(BuildTarget::library_from_prebuilt(name, binary_data)?);
-        Ok(target_node)
-    }
-
     pub fn target_node_from_source(
         manifest_dir_path: &std::path::Path,
         target: &targets::Target,
@@ -192,9 +158,6 @@ impl BuildTarget {
                         s.name,
                         s.manifest.directory.display()
                     );
-                }
-                DependencySource::FromPrebuilt(ref b) => {
-                    log::debug!("Registering prebuilt target \"{}\"", b.name);
                 }
                 DependencySource::FromHeaderOnly(ref h) => {
                     log::debug!("Registering header only target \"{}\"", h.name);
@@ -269,38 +232,6 @@ impl BuildTarget {
         })
     }
 
-    fn library_from_prebuilt(
-        name: &str,
-        binary_data: &types::BinaryData,
-    ) -> Result<Self, TargetError> {
-        let mut include_directories = IncludeDirectories::new();
-        let include_type = match binary_data.search_type {
-            types::IncludeSearchType::Include => include_directories::IncludeType::Include,
-            types::IncludeSearchType::System => include_directories::IncludeType::System,
-        };
-
-        include_directories.add(include_directories::IncludeDirectory {
-            include_type,
-            path: binary_data.include_directory.clone(),
-        });
-
-        let target_source = TargetSource::FromPrebuilt(PrebuiltBuildData {
-            debug_binary_path: binary_data.debug_path_information.path.clone(),
-            release_binary_path: binary_data.release_path_information.path.clone(),
-        });
-
-        Ok(Self {
-            target_source,
-            state: TargetState::NotInProcess,
-            target_type: TargetType::from_prebuilt(
-                name,
-                &binary_data.release_path_information.path,
-            )?,
-            include_directories,
-            compiler_flags: CompilerFlags::new(),
-        })
-    }
-
     fn library_from_source(
         manifest_dir_path: &std::path::Path,
         library: &targets::Library,
@@ -357,29 +288,6 @@ impl BuildTarget {
         let mut target_vec = Vec::new();
         for dependency in target.dependencies() {
             match dependency.data {
-                types::DependencyData::Binary(ref dependency_binary_data) => {
-                    let dependency_target = BuildTarget::target_node_from_binary(
-                        &dependency.name,
-                        dependency_binary_data,
-                        registry,
-                    )?;
-                    let dependency_source =
-                        DependencySource::FromPrebuilt(DependencyPrebuiltData {
-                            name: dependency_target.borrow().name(),
-                            debug_binary_path: dependency_binary_data
-                                .debug_path_information
-                                .path
-                                .clone(),
-                            release_binary_path: dependency_binary_data
-                                .release_path_information
-                                .path
-                                .clone(),
-                        });
-                    let dependency = Dependency {
-                        source: dependency_source,
-                    };
-                    target_vec.push(dependency);
-                }
                 types::DependencyData::Source(ref dependency_source_data) => {
                     if let Some(registered_dep) =
                         registry.get_target_from_predicate(|build_target| {

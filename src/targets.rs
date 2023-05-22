@@ -84,19 +84,6 @@ impl Dependency {
                 );
                 dependency = Dependency::from_source(name, source_data, manifest_dir);
             }
-            types::DependencyData::Binary(ref binary_data) => {
-                log::debug!(
-                    "Found prebuilt dependency {}, with search type {:?}
-                    release configuration: {:?}
-                    debug configuration: {:?}
-                    ",
-                    name,
-                    binary_data.search_type,
-                    binary_data.release_path_information,
-                    binary_data.debug_path_information,
-                );
-                dependency = Dependency::from_binary(name, binary_data, manifest_dir);
-            }
             types::DependencyData::HeaderOnly(ref header_only_data) => {
                 log::debug!(
                     "Found header only dependency {} with include directory \"{}\"",
@@ -121,56 +108,6 @@ impl Dependency {
         let canonicalized_data = types::DependencyData::Source(types::SourceData {
             path: canonicalized_path,
             origin: source_data.origin.clone(),
-        });
-        Ok(Self {
-            name: name.to_string(),
-            data: canonicalized_data,
-        })
-    }
-
-    pub fn from_binary(
-        name: &str,
-        binary_data: &types::BinaryData,
-        manifest_dir: &std::path::Path,
-    ) -> Result<Self, DependencyError> {
-        let canonicalized_release_information = types::BinaryPath {
-            path: crate::canonicalize_source(
-                manifest_dir,
-                &binary_data.release_path_information.path,
-            )
-            .map_err(|err| {
-                DependencyError::FailedToCanonicalizePath(
-                    binary_data.release_path_information.path.clone(),
-                    err,
-                )
-            })?,
-        };
-        let include_directory = crate::canonicalize_source(
-            manifest_dir,
-            &binary_data.include_directory,
-        )
-        .map_err(|err| {
-            DependencyError::FailedToCanonicalizePath(binary_data.include_directory.clone(), err)
-        })?;
-
-        let canonicalized_debug_information = types::BinaryPath {
-            path: crate::canonicalize_source(
-                manifest_dir,
-                &binary_data.debug_path_information.path,
-            )
-            .map_err(|err| {
-                DependencyError::FailedToCanonicalizePath(
-                    binary_data.debug_path_information.path.clone(),
-                    err,
-                )
-            })?,
-        };
-
-        let canonicalized_data = types::DependencyData::Binary(types::BinaryData {
-            release_path_information: canonicalized_release_information,
-            debug_path_information: canonicalized_debug_information,
-            include_directory,
-            search_type: binary_data.search_type.clone(),
         });
         Ok(Self {
             name: name.to_string(),

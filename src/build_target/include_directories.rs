@@ -46,19 +46,6 @@ impl IncludeDirectory {
                     },
                 }
             }
-            types::DependencyData::Binary(ref binary_data) => {
-                let include_path = binary_data.include_directory.clone();
-                match binary_data.search_type {
-                    types::IncludeSearchType::Include => IncludeDirectory {
-                        include_type: IncludeType::Include,
-                        path: include_path,
-                    },
-                    types::IncludeSearchType::System => IncludeDirectory {
-                        include_type: IncludeType::System,
-                        path: include_path,
-                    },
-                }
-            }
             types::DependencyData::HeaderOnly(ref header_only_data) => IncludeDirectory {
                 include_type: IncludeType::System,
                 path: header_only_data.include_directory.to_path_buf(),

@@ -102,23 +102,6 @@ pub struct SourceData {
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
-pub struct BinaryPath {
-    #[serde(rename = "binary_path")]
-    pub path: std::path::PathBuf,
-}
-
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
-pub struct BinaryData {
-    #[serde(rename = "debug")]
-    pub debug_path_information: BinaryPath,
-    #[serde(rename = "release")]
-    pub release_path_information: BinaryPath,
-    pub include_directory: std::path::PathBuf,
-    #[serde(default = "IncludeSearchType::system")]
-    pub search_type: IncludeSearchType,
-}
-
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct HeaderOnlyData {
     pub include_directory: std::path::PathBuf,
 }
@@ -127,7 +110,6 @@ pub struct HeaderOnlyData {
 #[serde(untagged)]
 pub enum DependencyData {
     Source(SourceData),
-    Binary(BinaryData),
     HeaderOnly(HeaderOnlyData),
 }
 
@@ -135,12 +117,6 @@ pub enum DependencyData {
 pub enum IncludeSearchType {
     System,
     Include,
-}
-
-impl IncludeSearchType {
-    fn system() -> IncludeSearchType {
-        IncludeSearchType::System
-    }
 }
 
 impl Default for IncludeSearchType {

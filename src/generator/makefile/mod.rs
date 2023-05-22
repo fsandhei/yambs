@@ -31,11 +31,7 @@ pub use make::Make;
 struct ExecutableTargetFactory;
 
 impl ExecutableTargetFactory {
-    pub fn create_rule(
-        target: &TargetNode,
-        output_directory: &std::path::Path,
-        build_type: &configurations::BuildType,
-    ) -> String {
+    pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
         let target_name = target.borrow().name();
         format!("\
                 {target_name} : \
@@ -43,7 +39,7 @@ impl ExecutableTargetFactory {
                     \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
                     target_name = target_name,
                     target_name_capitalized = target_name.to_uppercase(),
-                    prerequisites = generate_prerequisites(target, output_directory, build_type),
+                    prerequisites = generate_prerequisites(target, output_directory),
                     dependencies = generate_search_directories(target),
             )
     }
@@ -52,11 +48,7 @@ impl ExecutableTargetFactory {
 struct LibraryTargetFactory;
 
 impl LibraryTargetFactory {
-    pub fn create_rule(
-        target: &TargetNode,
-        output_directory: &std::path::Path,
-        build_type: &configurations::BuildType,
-    ) -> String {
+    pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
         let mut formatted_string = String::new();
         let library_name = library_name_from_target_type(&target.borrow().target_type);
         let target_rule = match target.borrow().library_type().unwrap() {
@@ -66,7 +58,7 @@ impl LibraryTargetFactory {
                     {prerequisites}\n\
                     \t$(strip $(AR) $(ARFLAGS) $@ $?)\n\n",
                 target_name = library_name,
-                prerequisites = generate_prerequisites(target, output_directory, build_type)
+                prerequisites = generate_prerequisites(target, output_directory)
             ),
             LibraryType::Dynamic => format!(
                 "\
@@ -75,7 +67,7 @@ impl LibraryTargetFactory {
                     \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
                     target_name = library_name,
                     target_name_capitalized = target.borrow().name().to_uppercase(),
-                    prerequisites = generate_prerequisites(target, output_directory, build_type),
+                    prerequisites = generate_prerequisites(target, output_directory),
                     dependencies = generate_search_directories(target),
             ),
         };
@@ -96,15 +88,11 @@ impl LibraryTargetFactory {
 struct TargetRuleFactory;
 
 impl TargetRuleFactory {
-    pub fn create_rule(
-        target: &TargetNode,
-        output_dir: &std::path::Path,
-        build_type: &configurations::BuildType,
-    ) -> String {
+    pub fn create_rule(target: &TargetNode, output_dir: &std::path::Path) -> String {
         if target.borrow().is_executable() {
-            ExecutableTargetFactory::create_rule(target, output_dir, build_type)
+            ExecutableTargetFactory::create_rule(target, output_dir)
         } else {
-            LibraryTargetFactory::create_rule(target, output_dir, build_type)
+            LibraryTargetFactory::create_rule(target, output_dir)
         }
     }
 }
@@ -138,11 +126,7 @@ fn library_name_from_target_type(target_type: &TargetType) -> String {
     }
 }
 
-fn generate_prerequisites(
-    target: &TargetNode,
-    output_directory: &std::path::Path,
-    build_type: &configurations::BuildType,
-) -> String {
+fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Path) -> String {
     let mut formatted_string = String::new();
     let borrowed_target = target.borrow();
     match borrowed_target.target_source {
@@ -175,16 +159,6 @@ fn generate_prerequisites(
                             library_name_from_dependency_source_data(s)
                         ));
                     }
-                    build_target::DependencySource::FromPrebuilt(ref b) => match build_type {
-                        configurations::BuildType::Debug => {
-                            formatted_string
-                                .push_str(&format!("   {}", b.debug_binary_path.display()));
-                        }
-                        configurations::BuildType::Release => {
-                            formatted_string
-                                .push_str(&format!("   {}", b.release_binary_path.display()));
-                        }
-                    },
                     build_target::DependencySource::FromHeaderOnly(_) => {}
                 }
             }
@@ -373,8 +347,7 @@ impl MakefileGenerator {
             let dependencies = &source_data.dependencies;
             for dependency in dependencies {
                 match dependency.source {
-                    build_target::DependencySource::FromPrebuilt(_)
-                    | build_target::DependencySource::FromHeaderOnly(_) => {}
+                    build_target::DependencySource::FromHeaderOnly(_) => {}
                     build_target::DependencySource::FromSource(ref s) => {
                         log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
                             s.name,
@@ -405,11 +378,8 @@ impl MakefileGenerator {
                 &mut writers.makefile_writer,
             );
             writers.makefile_writer.data.push('\n');
-            let rule = LibraryTargetFactory::create_rule(
-                &dependency_target,
-                &self.output_directory,
-                &self.configurations.build_type,
-            );
+            let rule =
+                LibraryTargetFactory::create_rule(&dependency_target, &self.output_directory);
             ObjectTarget::create_object_targets(&dependency_target, &self.output_directory)
                 .iter()
                 .for_each(|object_target| {
@@ -571,11 +541,8 @@ impl MakefileGenerator {
     fn generate_rule_declaration_for_target(&self, writers: &mut Writers, target: &TargetNode) {
         self.generate_phony(&mut writers.makefile_writer, target);
         self.generate_compiler_flags_for_target(target, &mut writers.makefile_writer);
-        let target_rule_declaration = TargetRuleFactory::create_rule(
-            target,
-            &self.output_directory,
-            &self.configurations.build_type,
-        );
+        let target_rule_declaration =
+            TargetRuleFactory::create_rule(target, &self.output_directory);
         writers.makefile_writer.data.push('\n');
         writers.makefile_writer.data.push_str(&format!(
             "# Rule for target \"{}\"\n",

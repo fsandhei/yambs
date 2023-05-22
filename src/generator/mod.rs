@@ -89,17 +89,15 @@ pub mod targets {
                     .collect::<Vec<std::path::PathBuf>>();
             let target_name = target_node.borrow().name();
             let target_dependencies = match target_node.borrow().target_source {
-                TargetSource::FromSource(ref s) => {
-                    s.dependencies
-                        .iter()
-                        .filter_map(|d| match d.source {
-                            DependencySource::FromSource(ref ds) => Some(ds),
-                            DependencySource::FromPrebuilt(_)
-                            | DependencySource::FromHeaderOnly(_) => None,
-                        })
-                        .map(|ds| ds.name.to_owned())
-                        .collect::<Vec<String>>()
-                }
+                TargetSource::FromSource(ref s) => s
+                    .dependencies
+                    .iter()
+                    .filter_map(|d| match d.source {
+                        DependencySource::FromSource(ref ds) => Some(ds),
+                        DependencySource::FromHeaderOnly(_) => None,
+                    })
+                    .map(|ds| ds.name.to_owned())
+                    .collect::<Vec<String>>(),
                 TargetSource::FromPrebuilt(_) => Vec::new(),
             };
 

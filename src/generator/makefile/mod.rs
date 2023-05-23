@@ -159,7 +159,6 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
                             library_name_from_dependency_source_data(s)
                         ));
                     }
-                    build_target::DependencySource::FromHeaderOnly(_) => {}
                 }
             }
         }
@@ -344,7 +343,6 @@ impl MakefileGenerator {
             let dependencies = &source_data.dependencies;
             for dependency in dependencies {
                 match dependency.source {
-                    build_target::DependencySource::FromHeaderOnly(_) => {}
                     build_target::DependencySource::FromSource(ref s) => {
                         log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
                             s.name,

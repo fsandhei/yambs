@@ -26,22 +26,14 @@ pub struct DependencySourceData {
 #[serde(untagged)]
 pub enum DependencySource {
     FromSource(DependencySourceData),
-    FromHeaderOnly(DependencyHeaderData),
 }
 
 impl DependencySource {
     pub fn from_source(&self) -> Option<&DependencySourceData> {
         match self {
             Self::FromSource(s) => Some(s),
-            _ => None,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct DependencyHeaderData {
-    pub name: String,
-    pub include_directory: std::path::PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -147,9 +139,6 @@ impl BuildTarget {
                         s.name,
                         s.manifest.directory.display()
                     );
-                }
-                DependencySource::FromHeaderOnly(ref h) => {
-                    log::debug!("Registering header only target \"{}\"", h.name);
                 }
             }
             target_node.borrow_mut().add_target(target);

@@ -94,7 +94,6 @@ pub mod targets {
                     .iter()
                     .filter_map(|d| match d.source {
                         DependencySource::FromSource(ref ds) => Some(ds),
-                        DependencySource::FromHeaderOnly(_) => None,
                     })
                     .map(|ds| ds.name.to_owned())
                     .collect::<Vec<String>>(),

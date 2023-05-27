@@ -24,6 +24,11 @@ impl CXXFlags {
         Self(flags.to_vec())
     }
 
+    pub fn new(flags: &[&str]) -> Self {
+        let flags = flags.iter().map(|f| f.to_string()).collect::<Vec<String>>();
+        Self(flags)
+    }
+
     pub fn flags(&self) -> &std::vec::Vec<String> {
         &self.0
     }
@@ -40,5 +45,24 @@ impl CPPFlags {
 
     pub fn flags(&self) -> &std::vec::Vec<String> {
         &self.0
+    }
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct LDFlags(std::vec::Vec<String>);
+
+impl LDFlags {
+    pub fn from_slice(flags: &[String]) -> Self {
+        Self(flags.to_vec())
+    }
+
+    pub fn flags(&self) -> &std::vec::Vec<String> {
+        &self.0
+    }
+
+    pub fn new(flags: &[&str]) -> Self {
+        let flags = flags.iter().map(|f| f.to_string()).collect::<Vec<String>>();
+        Self(flags)
     }
 }

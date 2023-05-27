@@ -92,6 +92,10 @@ impl Dependency {
                 );
                 dependency = Dependency::from_header_only(name, header_only_data, manifest_dir);
             }
+            types::DependencyData::PkgConfig(ref pkgconfig_data) => {
+                log::debug!("Found pkgconfig dependency {}", name);
+                dependency = Ok(Dependency::from_pkgconfig_data(name, pkgconfig_data));
+            }
         }
         dependency
     }
@@ -135,5 +139,12 @@ impl Dependency {
             name: name.to_string(),
             data: canonicalized_data,
         })
+    }
+
+    fn from_pkgconfig_data(name: &str, pkgconfig_data: &types::PkgConfigData) -> Self {
+        Self {
+            name: name.to_string(),
+            data: types::DependencyData::PkgConfig(pkgconfig_data.clone()),
+        }
     }
 }

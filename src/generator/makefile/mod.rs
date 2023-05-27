@@ -1,4 +1,5 @@
 use std::io::Write;
+use std::rc::Rc;
 
 use indoc;
 
@@ -231,7 +232,7 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
 }
 
 pub struct MakefileGenerator {
-    pub toolchain: NormalizedToolchain,
+    pub toolchain: Rc<NormalizedToolchain>,
     pub configurations: command_line::ConfigurationOpts,
     pub build_directory: BuildDirectory,
     pub output_directory: std::path::PathBuf,
@@ -242,7 +243,7 @@ impl MakefileGenerator {
     pub fn new(
         configurations: &command_line::ConfigurationOpts,
         build_directory: &BuildDirectory,
-        toolchain: NormalizedToolchain,
+        toolchain: Rc<NormalizedToolchain>,
     ) -> Result<Self, GeneratorError> {
         utility::create_dir(build_directory.as_path())?;
         Ok(Self {

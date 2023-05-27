@@ -1,3 +1,5 @@
+use regex::Regex;
+
 use crate::parser::types;
 use crate::targets;
 
@@ -30,28 +32,52 @@ impl IncludeDirectory {
         None
     }
 
+    pub fn from_str(s: &str) -> Option<Self> {
+        lazy_static::lazy_static! {
+            static ref INCLUDE_PATH_REGEX: Regex = Regex::new("(?P<type>(-I|-isystem))?(?P<path>.*)$").unwrap();
+        }
+        if let Some(captures) = INCLUDE_PATH_REGEX.captures(s) {
+            let include_type = if let Some(ty) = captures.name("type") {
+                match ty.as_str() {
+                    "-I" => IncludeType::Include,
+                    "-isystem" => IncludeType::System,
+                    _ => IncludeType::Include,
+                }
+            } else {
+                IncludeType::Include
+            };
+            let path = captures.name("path").unwrap().as_str();
+            let path = std::path::PathBuf::from(path);
+
+            Some(Self { include_type, path })
+        } else {
+            None
+        }
+    }
+
     pub fn from_dependency(dependency: &targets::Dependency) -> Option<Self> {
         let include_directory = match dependency.data {
             types::DependencyData::Source(ref source_data) => {
                 let include_path = IncludeDirectory::find(&source_data.path)?;
 
                 match source_data.origin {
-                    types::IncludeSearchType::Include => IncludeDirectory {
+                    types::IncludeSearchType::Include => Some(IncludeDirectory {
                         include_type: IncludeType::Include,
                         path: include_path,
-                    },
-                    types::IncludeSearchType::System => IncludeDirectory {
+                    }),
+                    types::IncludeSearchType::System => Some(IncludeDirectory {
                         include_type: IncludeType::System,
                         path: include_path,
-                    },
+                    }),
                 }
             }
-            types::DependencyData::HeaderOnly(ref header_only_data) => IncludeDirectory {
+            types::DependencyData::HeaderOnly(ref header_only_data) => Some(IncludeDirectory {
                 include_type: IncludeType::System,
                 path: header_only_data.include_directory.to_path_buf(),
-            },
+            }),
+            types::DependencyData::PkgConfig(_) => None,
         };
-        Some(include_directory)
+        include_directory
     }
 }
 

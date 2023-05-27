@@ -1,8 +1,11 @@
+use crate::build_target::pkg_config::PkgConfig;
+use crate::compiler::{CXXCompiler, CompilerError, Linker, StdLibCXX};
+use crate::{find_program, FindProgramOptions};
+
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::compiler::{CXXCompiler, CompilerError, Linker, StdLibCXX};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -21,31 +24,6 @@ pub enum ArchiverError {
     ArchiverDoesNotExist,
 }
 
-lazy_static::lazy_static! {
-    static ref PATH_ENV_PATHS: Vec<PathBuf> = {
-        let path_env = std::env::var_os("PATH").unwrap();
-        std::env::split_paths(&path_env).collect::<Vec<PathBuf>>()
-    };
-}
-
-fn find_program(program: &Path) -> Option<std::path::PathBuf>
-where
-{
-    for path in &*PATH_ENV_PATHS {
-        log::debug!("Looking for {} in {}", program.display(), path.display());
-        let executable_path = path.join(&program);
-        if executable_path.is_file() {
-            log::debug!(
-                "Found {} as {}",
-                program.display(),
-                executable_path.display()
-            );
-            return Some(executable_path);
-        }
-    }
-    None
-}
-
 impl Archiver {
     pub fn new() -> Result<Self, ArchiverError> {
         let archiver_exe = {
@@ -54,7 +32,9 @@ impl Archiver {
                 Ok(archiver_from_env)
             } else {
                 log::debug!("Did not find archiver in $AR. Will try to find 'ar' in common installation places.");
-                if let Some(archiver) = find_program(&Path::new("ar")) {
+                let mut search_options = FindProgramOptions::new();
+                search_options.with_path_env();
+                if let Some(archiver) = find_program(&Path::new("ar"), search_options) {
                     Ok(archiver)
                 } else {
                     return Err(ArchiverError::NoArchiverFound);
@@ -121,11 +101,6 @@ struct Toolchain {
     pub common: CommonToolchainData,
 }
 
-#[derive(PartialEq, Eq, Debug, Deserialize)]
-struct CommonToolchainData {
-    pub archiver: Option<PathBuf>,
-}
-
 impl Toolchain {
     fn new(path: &Path) -> Result<Self, ToolchainError> {
         if !path.is_file() {
@@ -156,17 +131,35 @@ impl Toolchain {
         }
         .map_err(ToolchainError::Archiver)?;
 
+        let pkg_config = {
+            if let Some(ref pkg_config) = self.common.pkg_config {
+                log::debug!("Using pkg_config found from toolchain file");
+                Some(PkgConfig::from_path(pkg_config))
+            } else {
+                PkgConfig::new().ok()
+            }
+        };
+
         Ok(NormalizedToolchain {
             cxx: ToolchainCXX::from_toolchain_cxx_data(&self.cxx)?,
             archiver,
+            pkg_config,
         })
     }
+}
+
+#[derive(PartialEq, Eq, Debug, Deserialize)]
+struct CommonToolchainData {
+    pub archiver: Option<PathBuf>,
+    #[serde(rename = "pkg-config")]
+    pub pkg_config: Option<PathBuf>,
 }
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct NormalizedToolchain {
     pub cxx: ToolchainCXX,
     pub archiver: Archiver,
+    pub pkg_config: Option<PkgConfig>,
 }
 
 impl NormalizedToolchain {
@@ -174,6 +167,7 @@ impl NormalizedToolchain {
         Ok(Self {
             cxx: ToolchainCXX::new()?,
             archiver: Archiver::new().map_err(ToolchainError::Archiver)?,
+            pkg_config: PkgConfig::new().ok(),
         })
     }
 

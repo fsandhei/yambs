@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use anyhow::Context;
 use clap::CommandFactory;
 use clap::Parser;
@@ -96,7 +98,42 @@ fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path
     Ok(manifest_file)
 }
 
-pub fn generator_from_build_opts(opts: &BuildOpts) -> anyhow::Result<Box<dyn Generator>> {
+pub fn generator_from_build_opts(
+    opts: &BuildOpts,
+    toolchain: Rc<NormalizedToolchain>,
+) -> anyhow::Result<Box<dyn Generator>> {
+    let generator_type = &opts.configuration.generator_type;
+    log::info!("Using {:?} as generator.", generator_type);
+    match generator_type {
+        GeneratorType::GNUMakefiles => Ok(Box::new(MakefileGenerator::new(
+            &opts.configuration,
+            &opts.build_directory,
+            toolchain,
+        )?) as Box<dyn Generator>),
+    }
+}
+
+fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
+    let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
+    log_invoked_command();
+
+    initialize_preset_variables(&opts)?;
+    log::trace!("do_build");
+
+    let mut dependency_registry = TargetRegistry::new();
+    let manifest_path = locate_manifest(&opts.manifest_dir)?;
+    let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
+
+    // override the command line settings if there are configurations set in the manifest
+    if let Some(cxx_standard) = manifest
+        .data
+        .project_configuration
+        .as_ref()
+        .and_then(|pc| pc.cxx_std.clone())
+    {
+        opts.configuration.cxx_standard = cxx_standard;
+    }
+
     let toolchain = detect_toolchain_file(
         &opts
             .manifest_dir
@@ -131,41 +168,11 @@ pub fn generator_from_build_opts(opts: &BuildOpts) -> anyhow::Result<Box<dyn Gen
         }
     };
 
+    let toolchain = Rc::new(toolchain);
+
     evaluate_compiler(&toolchain.cxx.compiler, opts)?;
 
-    let generator_type = &opts.configuration.generator_type;
-    log::info!("Using {:?} as generator.", generator_type);
-    match generator_type {
-        GeneratorType::GNUMakefiles => Ok(Box::new(MakefileGenerator::new(
-            &opts.configuration,
-            &opts.build_directory,
-            toolchain,
-        )?) as Box<dyn Generator>),
-    }
-}
-
-fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
-    let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
-    log_invoked_command();
-
-    initialize_preset_variables(&opts)?;
-    log::trace!("do_build");
-
-    let mut dependency_registry = TargetRegistry::new();
-    let manifest_path = locate_manifest(&opts.manifest_dir)?;
-    let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
-
-    // override the command line settings if there are configurations set in the manifest
-    if let Some(cxx_standard) = manifest
-        .data
-        .project_configuration
-        .as_ref()
-        .and_then(|pc| pc.cxx_std.clone())
-    {
-        opts.configuration.cxx_standard = cxx_standard;
-    }
-
-    let mut generator = generator_from_build_opts(&opts)?;
+    let mut generator = generator_from_build_opts(&opts, toolchain.clone())?;
     parse_and_register_dependencies(&manifest, output, &mut dependency_registry)
         .with_context(|| "An error occured when registering project dependencies")?;
 

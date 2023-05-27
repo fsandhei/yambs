@@ -107,10 +107,17 @@ pub struct HeaderOnlyData {
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct PkgConfigData {
+    #[serde(rename = "pkg_config_search_dir")]
+    pub search_dir: PathBuf,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum DependencyData {
     Source(SourceData),
     HeaderOnly(HeaderOnlyData),
+    PkgConfig(PkgConfigData),
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]

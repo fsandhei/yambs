@@ -11,6 +11,7 @@ use crate::YAMBS_MANIFEST_NAME;
 
 pub mod associated_files;
 pub mod include_directories;
+pub mod pkg_config;
 pub mod target_registry;
 use associated_files::SourceFiles;
 use include_directories::IncludeDirectories;
@@ -341,6 +342,7 @@ impl BuildTarget {
                     }
                 }
                 types::DependencyData::HeaderOnly(_) => {}
+                types::DependencyData::PkgConfig(_) => {}
             }
         }
 

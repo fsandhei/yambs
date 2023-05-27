@@ -85,10 +85,6 @@ impl ManifestData {
                         dependencies: parsed_dependencies,
                         compiler_flags: data.common_raw.compiler_flags,
                         defines: data.common_raw.defines,
-                        additional_include_directories: data.common_raw.include_directories,
-                        additional_system_include_directories: data
-                            .common_raw
-                            .system_include_directories,
                     });
                     target_executables.push(target_executable);
                 }
@@ -131,10 +127,6 @@ impl ManifestData {
                         compiler_flags: data.common_raw.compiler_flags,
                         lib_type: data.lib_type,
                         defines: data.common_raw.defines,
-                        additional_include_directories: data.common_raw.include_directories,
-                        additional_system_include_directories: data
-                            .common_raw
-                            .system_include_directories,
                     });
                     target_libraries.push(target_library);
                 }

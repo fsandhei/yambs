@@ -1,9 +1,15 @@
+use std::path::PathBuf;
+
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct CompilerFlags {
     #[serde(rename = "cxxflags_append")]
     pub cxx_flags: Option<CXXFlags>,
     #[serde(rename = "cppflags_append")]
     pub cpp_flags: Option<CPPFlags>,
+    #[serde(rename = "append_include_directories", default = "Vec::new")]
+    pub include_directories: Vec<PathBuf>,
+    #[serde(rename = "append_system_include_directories", default = "Vec::new")]
+    pub system_include_directories: Vec<PathBuf>,
 }
 
 impl CompilerFlags {
@@ -11,6 +17,8 @@ impl CompilerFlags {
         Self {
             cxx_flags: None,
             cpp_flags: None,
+            include_directories: Vec::new(),
+            system_include_directories: Vec::new(),
         }
     }
 }

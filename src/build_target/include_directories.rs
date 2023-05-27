@@ -79,6 +79,14 @@ impl IncludeDirectory {
         };
         include_directory
     }
+
+    pub fn as_include_flag(&self) -> String {
+        if self.include_type == IncludeType::System {
+            format!("-isystem {}", self.path.display())
+        } else {
+            format!("-I{}", self.path.display())
+        }
+    }
 }
 
 impl IncludeDirectories {

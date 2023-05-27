@@ -94,6 +94,7 @@ pub mod targets {
                     .iter()
                     .filter_map(|d| match d.source {
                         DependencySource::FromSource(ref ds) => Some(ds),
+                        _ => None,
                     })
                     .map(|ds| ds.name.to_owned())
                     .collect::<Vec<String>>(),
@@ -146,11 +147,34 @@ pub mod targets {
                     }
                 }
                 .with_extension("o");
+                let include_directories = {
+                    let mut include_directories = IncludeDirectories::new();
+                    include_directories.add(borrowed_target.include_directory.clone());
+                    let deps = &borrowed_target
+                        .target_source
+                        .from_source()
+                        .as_ref()
+                        .unwrap()
+                        .dependencies;
+                    for dep in deps {
+                        match dep.source {
+                            DependencySource::FromSource(ref sd) => {
+                                let include_dir = sd.include_directory.clone();
+                                include_directories.add(include_dir);
+                            }
+                            DependencySource::FromHeaderOnly(ref hd) => {
+                                include_directories.add(hd.include_directory.clone());
+                            }
+                        }
+                    }
+                    include_directories
+                };
+
                 let object_target = ObjectTarget {
                     target: target_name.clone(),
                     object,
                     source: source_file,
-                    include_directories: borrowed_target.include_directories.clone(),
+                    include_directories,
                 };
 
                 object_targets.push(object_target);

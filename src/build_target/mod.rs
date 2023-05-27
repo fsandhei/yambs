@@ -14,25 +14,35 @@ pub mod include_directories;
 pub mod pkg_config;
 pub mod target_registry;
 use associated_files::SourceFiles;
-use include_directories::IncludeDirectories;
+use include_directories::IncludeDirectory;
+use include_directories::IncludeType;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DependencySourceData {
     pub name: String,
     pub manifest: manifest::Manifest,
     pub library_type: LibraryType,
+    pub include_directory: IncludeDirectory,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct HeaderOnlyData {
+    pub name: String,
+    pub include_directory: IncludeDirectory,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum DependencySource {
     FromSource(DependencySourceData),
+    FromHeaderOnly(HeaderOnlyData),
 }
 
 impl DependencySource {
     pub fn from_source(&self) -> Option<&DependencySourceData> {
         match self {
             Self::FromSource(s) => Some(s),
+            _ => None,
         }
     }
 }
@@ -91,7 +101,7 @@ pub struct BuildTarget {
     pub target_source: TargetSource,
     pub state: TargetState,
     pub target_type: TargetType,
-    pub include_directories: IncludeDirectories,
+    pub include_directory: IncludeDirectory,
     pub compiler_flags: CompilerFlags,
 }
 
@@ -141,6 +151,9 @@ impl BuildTarget {
                         s.manifest.directory.display()
                     );
                 }
+                DependencySource::FromHeaderOnly(ref h) => {
+                    log::debug!("Registering header only target \"{}\"", h.name);
+                }
             }
             target_node.borrow_mut().add_target(target);
         }
@@ -186,14 +199,6 @@ impl BuildTarget {
     ) -> Result<Self, TargetError> {
         let source_files = executable.sources.clone();
 
-        let mut include_directories =
-            IncludeDirectories::from_dependencies(&executable.dependencies)
-                .map_err(TargetError::IncludeDirectories)?;
-        include_directories.add(include_directories::IncludeDirectory {
-            include_type: include_directories::IncludeType::Include,
-            path: manifest_dir_path.to_path_buf().join("include"),
-        });
-
         let target_source = TargetSource::FromSource(SourceBuildData {
             manifest: manifest::Manifest::new(manifest_dir_path),
             dependencies: Vec::new(),
@@ -206,7 +211,10 @@ impl BuildTarget {
             target_source,
             state: TargetState::NotInProcess,
             target_type: TargetType::Executable(executable.name.to_string()),
-            include_directories,
+            include_directory: include_directories::IncludeDirectory {
+                include_type: include_directories::IncludeType::Include,
+                path: manifest_dir_path.to_path_buf().join("include"),
+            },
             compiler_flags: executable.compiler_flags.clone(),
         })
     }
@@ -216,27 +224,6 @@ impl BuildTarget {
         library: &targets::Library,
     ) -> Result<Self, TargetError> {
         let source_files = library.sources.clone();
-
-        let mut include_directories = IncludeDirectories::from_dependencies(&library.dependencies)
-            .map_err(TargetError::IncludeDirectories)?;
-        include_directories.add(include_directories::IncludeDirectory {
-            include_type: include_directories::IncludeType::Include,
-            path: manifest_dir_path.to_path_buf().join("include"),
-        });
-
-        for include_directory in &library.additional_include_directories {
-            include_directories.add(include_directories::IncludeDirectory {
-                include_type: include_directories::IncludeType::Include,
-                path: include_directory.to_path_buf(),
-            });
-        }
-
-        for include_directory in &library.additional_system_include_directories {
-            include_directories.add(include_directories::IncludeDirectory {
-                include_type: include_directories::IncludeType::System,
-                path: include_directory.to_path_buf(),
-            });
-        }
 
         let target_source = TargetSource::FromSource(SourceBuildData {
             manifest: manifest::Manifest::new(manifest_dir_path),
@@ -250,7 +237,10 @@ impl BuildTarget {
             target_source,
             state: TargetState::NotInProcess,
             target_type: TargetType::from_library(library),
-            include_directories,
+            include_directory: include_directories::IncludeDirectory {
+                include_type: include_directories::IncludeType::Include,
+                path: manifest_dir_path.to_path_buf().join("include"),
+            },
             compiler_flags: library.compiler_flags.clone(),
         })
     }
@@ -295,6 +285,10 @@ impl BuildTarget {
                                         )
                                     },
                                 )?,
+                                include_directory: registered_dep
+                                    .borrow()
+                                    .include_directory
+                                    .clone(),
                             });
                         let dependency = Dependency {
                             source: dependency_source,
@@ -335,13 +329,26 @@ impl BuildTarget {
                                 library_type: target.borrow().library_type().ok_or_else(|| {
                                     TargetError::DependencyNotALibrary(target.borrow().name())
                                 })?,
+                                include_directory: target.borrow().include_directory.clone(),
                             });
                         target_vec.push(Dependency {
                             source: dependency_source,
                         });
                     }
                 }
-                types::DependencyData::HeaderOnly(_) => {}
+                types::DependencyData::HeaderOnly(ref header_only_data) => {
+                    let header_only = HeaderOnlyData {
+                        name: dependency.name.to_string(),
+                        include_directory: IncludeDirectory {
+                            path: header_only_data.include_directory.clone(),
+                            include_type: IncludeType::Include,
+                        },
+                    };
+                    let header_only = DependencySource::FromHeaderOnly(header_only);
+                    target_vec.push(Dependency {
+                        source: header_only,
+                    });
+                }
                 types::DependencyData::PkgConfig(_) => {}
             }
         }

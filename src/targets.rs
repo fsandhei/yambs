@@ -38,8 +38,6 @@ pub struct Executable {
     pub dependencies: Vec<Dependency>,
     pub compiler_flags: CompilerFlags,
     pub defines: Vec<types::Define>,
-    pub additional_include_directories: Vec<std::path::PathBuf>,
-    pub additional_system_include_directories: Vec<std::path::PathBuf>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
@@ -50,8 +48,6 @@ pub struct Library {
     pub compiler_flags: CompilerFlags,
     pub lib_type: types::LibraryType,
     pub defines: Vec<types::Define>,
-    pub additional_include_directories: Vec<std::path::PathBuf>,
-    pub additional_system_include_directories: Vec<std::path::PathBuf>,
 }
 
 #[derive(thiserror::Error, Debug)]

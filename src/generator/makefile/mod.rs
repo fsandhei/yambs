@@ -9,8 +9,9 @@ pub mod make;
 use crate::build_target;
 use crate::build_target::include_directories;
 use crate::build_target::{
-    include_directories::IncludeType, target_registry::TargetRegistry, Dependency, LibraryType,
-    TargetNode, TargetState, TargetType,
+    include_directories::{IncludeDirectory, IncludeType},
+    target_registry::TargetRegistry,
+    Dependency, LibraryType, TargetNode, TargetState, TargetType,
 };
 use crate::cli::command_line;
 use crate::cli::configurations;
@@ -160,6 +161,7 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
                             library_name_from_dependency_source_data(s)
                         ));
                     }
+                    _ => {}
                 }
             }
         }
@@ -170,13 +172,18 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
 fn generate_search_directories(target: &TargetNode) -> String {
     let borrowed_target = target.borrow();
     let mut formatted_string = String::new();
-    formatted_string.push_str(&generate_include_directories(
-        &borrowed_target.include_directories,
-    ));
+    formatted_string.push_str(&borrowed_target.include_directory.as_include_flag());
+
     match borrowed_target.target_source {
         build_target::TargetSource::FromSource(ref source_data) => {
-            if !source_data.dependencies.is_empty() {
-                formatted_string.push_str(" -L.");
+            for dependency in &source_data.dependencies {
+                match dependency.source.from_source() {
+                    Some(sd) => {
+                        let include_dir = &sd.include_directory;
+                        formatted_string.push_str(&include_dir.as_include_flag());
+                    }
+                    None => {}
+                }
             }
         }
     };
@@ -355,6 +362,7 @@ impl MakefileGenerator {
                         self.generate_rule_for_dependency(writers, dependency, registry);
                         self.output_directory.pop();
                     }
+                    _ => {}
                 }
             }
         }
@@ -573,6 +581,29 @@ impl MakefileGenerator {
                 cxx_flags = cxx.flags().join(" ")
             ));
         }
+
+        for include_dir in &borrowed_target.compiler_flags.include_directories {
+            let include_dir = IncludeDirectory {
+                path: include_dir.to_path_buf(),
+                include_type: IncludeType::Include,
+            };
+            makefile_writer
+                .data
+                .push_str(&include_dir.as_include_flag());
+            makefile_writer.data.push_str(" ");
+        }
+
+        for include_dir in &borrowed_target.compiler_flags.system_include_directories {
+            let include_dir = IncludeDirectory {
+                path: include_dir.to_path_buf(),
+                include_type: IncludeType::System,
+            };
+            makefile_writer
+                .data
+                .push_str(&include_dir.as_include_flag());
+            makefile_writer.data.push_str(" ");
+        }
+
         makefile_writer.data.push('\n');
         makefile_writer.data.push('\n');
 

@@ -165,6 +165,11 @@ pub mod targets {
                             DependencySource::FromHeaderOnly(ref hd) => {
                                 include_directories.add(hd.include_directory.clone());
                             }
+                            DependencySource::FromPkgConfig(ref pkg) => {
+                                for dir in &pkg.include_directories {
+                                    include_directories.add(dir.clone());
+                                }
+                            }
                         }
                     }
                     include_directories

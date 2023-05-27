@@ -132,6 +132,16 @@ pub fn find_program(
 where
 {
     for dir in search_options.search_directories {
+        log::debug!("Looking for {} in {}", program.display(), dir.display());
+        let executable_path = dir.join(&program);
+        if executable_path.is_file() {
+            log::debug!(
+                "Found {} as {}",
+                program.display(),
+                executable_path.display()
+            );
+            return Some(executable_path);
+        }
         if search_options.look_in_subdirectories {
             let read_dir = std::fs::read_dir(&dir).ok()?;
             let subdirectories = read_dir
@@ -163,16 +173,6 @@ where
                     return Some(executable_path);
                 }
             }
-        }
-        log::debug!("Looking for {} in {}", program.display(), dir.display());
-        let executable_path = dir.join(&program);
-        if executable_path.is_file() {
-            log::debug!(
-                "Found {} as {}",
-                program.display(),
-                executable_path.display()
-            );
-            return Some(executable_path);
         }
     }
     None

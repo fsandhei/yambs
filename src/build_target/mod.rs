@@ -7,6 +7,7 @@ use crate::manifest;
 use crate::parser;
 use crate::parser::types;
 use crate::targets;
+use crate::toolchain::NormalizedToolchain;
 use crate::YAMBS_MANIFEST_NAME;
 
 pub mod associated_files;
@@ -16,6 +17,7 @@ pub mod target_registry;
 use associated_files::SourceFiles;
 use include_directories::IncludeDirectory;
 use include_directories::IncludeType;
+use pkg_config::PkgConfigTarget;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DependencySourceData {
@@ -36,6 +38,7 @@ pub struct HeaderOnlyData {
 pub enum DependencySource {
     FromSource(DependencySourceData),
     FromHeaderOnly(HeaderOnlyData),
+    FromPkgConfig(PkgConfigTarget),
 }
 
 impl DependencySource {
@@ -110,6 +113,7 @@ impl BuildTarget {
         manifest_dir_path: &std::path::Path,
         target: &targets::Target,
         registry: &mut target_registry::TargetRegistry,
+        toolchain: &Rc<RefCell<NormalizedToolchain>>,
     ) -> Result<TargetNode, TargetError> {
         let target_type = TargetType::new(target);
 
@@ -140,7 +144,9 @@ impl BuildTarget {
         );
         registry.add_target(target_node.clone());
         target_node.borrow_mut().state = TargetState::InProcess;
-        let target_vec = target_node.borrow().detect_target(registry, target)?;
+        let target_vec = target_node
+            .borrow()
+            .detect_target(registry, target, toolchain)?;
 
         for target in target_vec {
             match target.source {
@@ -154,6 +160,7 @@ impl BuildTarget {
                 DependencySource::FromHeaderOnly(ref h) => {
                     log::debug!("Registering header only target \"{}\"", h.name);
                 }
+                _ => {}
             }
             target_node.borrow_mut().add_target(target);
         }
@@ -249,6 +256,7 @@ impl BuildTarget {
         &self,
         registry: &mut target_registry::TargetRegistry,
         target: &targets::Target,
+        toolchain: &Rc<RefCell<NormalizedToolchain>>,
     ) -> Result<Vec<Dependency>, TargetError> {
         log::debug!(
             "Checking if target \"{}\" has registered dependencies",
@@ -319,6 +327,7 @@ impl BuildTarget {
                             &dependency_source_data.path,
                             dep_target,
                             registry,
+                            toolchain,
                         )?;
                         let borrowed_target = target.borrow();
                         let source_data = borrowed_target.target_source.from_source().unwrap();
@@ -349,7 +358,28 @@ impl BuildTarget {
                         source: header_only,
                     });
                 }
-                types::DependencyData::PkgConfig(_) => {}
+                types::DependencyData::PkgConfig(ref pkg_config_data) => {
+                    let mut toolchain_lock = toolchain.borrow_mut();
+                    if let Some(ref mut pkg_config) = toolchain_lock.pkg_config {
+                        pkg_config.add_search_path(&pkg_config_data.search_dir);
+                        match pkg_config.find_target(&dependency.name) {
+                            Some(pkg_config_target) => {
+                                let pkg_config_dep =
+                                    DependencySource::FromPkgConfig(pkg_config_target);
+                                target_vec.push(Dependency {
+                                    source: pkg_config_dep,
+                                });
+                            }
+                            None => {
+                                return Err(TargetError::CouldNotFindPkgConfigPackage(
+                                    dependency.name.clone(),
+                                ))
+                            }
+                        }
+                    } else {
+                        return Err(TargetError::NoPkgConfigInstance);
+                    }
+                }
             }
         }
 
@@ -472,6 +502,10 @@ pub enum TargetError {
     DependencyNotALibrary(String),
     #[error("Error occured when parsing include directories")]
     IncludeDirectories(#[source] include_directories::IncludeDirectoriesError),
+    #[error("Could not find any instance of pkg-config! Unable to find pkg-config dependencies.")]
+    NoPkgConfigInstance,
+    #[error("Could not find any pkg-config package with name {0}")]
+    CouldNotFindPkgConfigPackage(String),
 }
 
 #[cfg(test)]

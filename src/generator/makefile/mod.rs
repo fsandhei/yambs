@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::io::Write;
 use std::rc::Rc;
 
@@ -161,6 +162,14 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
                             library_name_from_dependency_source_data(s)
                         ));
                     }
+                    build_target::DependencySource::FromPkgConfig(ref pkg) => {
+                        for (i, lib) in pkg.library_paths.iter().enumerate() {
+                            formatted_string.push_str(&format!("   {}", lib.path().display()));
+                            if i != pkg.library_paths.len() - 1 {
+                                formatted_string.push_str("\\\n");
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -239,7 +248,7 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
 }
 
 pub struct MakefileGenerator {
-    pub toolchain: Rc<NormalizedToolchain>,
+    pub toolchain: Rc<RefCell<NormalizedToolchain>>,
     pub configurations: command_line::ConfigurationOpts,
     pub build_directory: BuildDirectory,
     pub output_directory: std::path::PathBuf,
@@ -250,7 +259,7 @@ impl MakefileGenerator {
     pub fn new(
         configurations: &command_line::ConfigurationOpts,
         build_directory: &BuildDirectory,
-        toolchain: Rc<NormalizedToolchain>,
+        toolchain: Rc<RefCell<NormalizedToolchain>>,
     ) -> Result<Self, GeneratorError> {
         utility::create_dir(build_directory.as_path())?;
         Ok(Self {
@@ -494,8 +503,9 @@ impl MakefileGenerator {
 
     fn generate_include_files(&self) -> Result<(), GeneratorError> {
         let include_output_directory = self.output_directory.join("make_include");
+        let toolchain = self.toolchain.borrow();
         let mut include_file_generator =
-            IncludeFileGenerator::new(&include_output_directory, &self.toolchain);
+            IncludeFileGenerator::new(&include_output_directory, &toolchain);
 
         let cxx_standard = &self.configurations.cxx_standard.to_string();
         include_file_generator.add_cpp_version(cxx_standard);

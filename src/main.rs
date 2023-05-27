@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use anyhow::Context;
@@ -11,7 +12,6 @@ use yambs::toolchain::ToolchainError;
 
 use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
-use yambs::compiler;
 use yambs::generator::{
     makefile::make::BuildProcess, makefile::Make, Generator, GeneratorType, MakefileGenerator,
 };
@@ -67,7 +67,12 @@ fn initialize_preset_variables(opts: &BuildOpts) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn evaluate_compiler(compiler: &compiler::CXXCompiler, opts: &BuildOpts) -> anyhow::Result<()> {
+fn evaluate_compiler(
+    toolchain: &Rc<RefCell<NormalizedToolchain>>,
+    opts: &BuildOpts,
+) -> anyhow::Result<()> {
+    let toolchain = toolchain.borrow();
+    let compiler = &toolchain.cxx.compiler;
     log::trace!("evaluate_compiler");
     let test_dir = opts.build_directory.as_path().join("sample");
     log::debug!("Evaluating compiler by doing a sample build...");
@@ -100,7 +105,7 @@ fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path
 
 pub fn generator_from_build_opts(
     opts: &BuildOpts,
-    toolchain: Rc<NormalizedToolchain>,
+    toolchain: &Rc<RefCell<NormalizedToolchain>>,
 ) -> anyhow::Result<Box<dyn Generator>> {
     let generator_type = &opts.configuration.generator_type;
     log::info!("Using {:?} as generator.", generator_type);
@@ -108,7 +113,7 @@ pub fn generator_from_build_opts(
         GeneratorType::GNUMakefiles => Ok(Box::new(MakefileGenerator::new(
             &opts.configuration,
             &opts.build_directory,
-            toolchain,
+            toolchain.clone(),
         )?) as Box<dyn Generator>),
     }
 }
@@ -168,12 +173,12 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
         }
     };
 
-    let toolchain = Rc::new(toolchain);
+    let toolchain = Rc::new(RefCell::new(toolchain));
 
-    evaluate_compiler(&toolchain.cxx.compiler, opts)?;
+    evaluate_compiler(&toolchain, opts)?;
 
-    let mut generator = generator_from_build_opts(&opts, toolchain.clone())?;
-    parse_and_register_dependencies(&manifest, output, &mut dependency_registry)
+    let mut generator = generator_from_build_opts(&opts, &toolchain)?;
+    parse_and_register_dependencies(&manifest, output, &mut dependency_registry, &toolchain)
         .with_context(|| "An error occured when registering project dependencies")?;
 
     let buildfile_directory = generate_build_files(&mut generator, &dependency_registry, &opts)?;
@@ -219,6 +224,7 @@ fn parse_and_register_dependencies(
     manifest: &manifest::ParsedManifest,
     output: &Output,
     dep_registry: &mut TargetRegistry,
+    toolchain: &Rc<RefCell<NormalizedToolchain>>,
 ) -> anyhow::Result<()> {
     log::trace!("parse_and_register_dependencies");
     let manifest_path = manifest.manifest.directory.join(YAMBS_MANIFEST_NAME);
@@ -241,6 +247,7 @@ fn parse_and_register_dependencies(
             &manifest.manifest.directory,
             build_target,
             dep_registry,
+            toolchain,
         )?;
     }
     let number_of_targets = dep_registry.number_of_targets();

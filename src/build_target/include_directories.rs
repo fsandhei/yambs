@@ -1,8 +1,5 @@
 use regex::Regex;
 
-use crate::parser::types;
-use crate::targets;
-
 #[derive(Debug, thiserror::Error)]
 pub enum IncludeDirectoriesError {
     #[error("Could not find any include directory located at {0}")]
@@ -20,18 +17,6 @@ pub struct IncludeDirectory {
 }
 
 impl IncludeDirectory {
-    fn find(path: &std::path::Path) -> Option<std::path::PathBuf> {
-        let include_path = path.join("include");
-        if include_path.is_dir() {
-            log::debug!("Found include directory {:?}", include_path.display());
-            return Some(include_path);
-        }
-        if let Some(parent) = path.parent() {
-            return Self::find(parent);
-        }
-        None
-    }
-
     pub fn from_str(s: &str) -> Option<Self> {
         lazy_static::lazy_static! {
             static ref INCLUDE_PATH_REGEX: Regex = Regex::new("(?P<type>(-I|-isystem))?(?P<path>.*)$").unwrap();
@@ -55,31 +40,6 @@ impl IncludeDirectory {
         }
     }
 
-    pub fn from_dependency(dependency: &targets::Dependency) -> Option<Self> {
-        let include_directory = match dependency.data {
-            types::DependencyData::Source(ref source_data) => {
-                let include_path = IncludeDirectory::find(&source_data.path)?;
-
-                match source_data.origin {
-                    types::IncludeSearchType::Include => Some(IncludeDirectory {
-                        include_type: IncludeType::Include,
-                        path: include_path,
-                    }),
-                    types::IncludeSearchType::System => Some(IncludeDirectory {
-                        include_type: IncludeType::System,
-                        path: include_path,
-                    }),
-                }
-            }
-            types::DependencyData::HeaderOnly(ref header_only_data) => Some(IncludeDirectory {
-                include_type: IncludeType::System,
-                path: header_only_data.include_directory.to_path_buf(),
-            }),
-            types::DependencyData::PkgConfig(_) => None,
-        };
-        include_directory
-    }
-
     pub fn as_include_flag(&self) -> String {
         if self.include_type == IncludeType::System {
             format!("-isystem {}", self.path.display())
@@ -92,19 +52,6 @@ impl IncludeDirectory {
 impl IncludeDirectories {
     pub fn new() -> Self {
         Self(Vec::new())
-    }
-
-    pub fn from_dependencies(
-        dependencies: &[targets::Dependency],
-    ) -> Result<Self, IncludeDirectoriesError> {
-        let mut include_directories = Vec::new();
-        for dependency in dependencies {
-            if let Some(include_directory) = IncludeDirectory::from_dependency(dependency) {
-                include_directories.push(include_directory);
-            }
-        }
-        include_directories.dedup_by(|path_a, path_b| path_a == path_b);
-        Ok(Self(include_directories))
     }
 
     pub fn add(&mut self, include_directory: IncludeDirectory) {
@@ -143,6 +90,9 @@ pub enum IncludeType {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::parser::types;
+    use crate::targets;
 
     use tempdir::TempDir;
 

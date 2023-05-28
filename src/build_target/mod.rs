@@ -23,7 +23,7 @@ use pkg_config::PkgConfigTarget;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DependencySourceData {
     pub manifest: manifest::Manifest,
-    pub library: Library,
+    pub library: PrintableLibrary,
     pub include_directory: IncludeDirectory,
 }
 
@@ -217,7 +217,7 @@ impl BuildTarget {
         Ok(Self {
             target_source,
             state: TargetState::NotInProcess,
-            target_type: TargetType::Executable(Executable(executable.name.to_string())),
+            target_type: TargetType::Executable(PrintableExecutable(executable.name.to_string())),
             include_directory: include_directories::IncludeDirectory {
                 include_type: include_directories::IncludeType::Include,
                 path: manifest_dir_path.to_path_buf().join("include"),
@@ -243,7 +243,7 @@ impl BuildTarget {
         Ok(Self {
             target_source,
             state: TargetState::NotInProcess,
-            target_type: TargetType::Library(Library::from(library)),
+            target_type: TargetType::Library(PrintableLibrary::from(library)),
             include_directory: include_directories::IncludeDirectory {
                 include_type: include_directories::IncludeType::Include,
                 path: manifest_dir_path.to_path_buf().join("include"),
@@ -284,7 +284,7 @@ impl BuildTarget {
                         let source_data = borrowed_dep.target_source.from_source().unwrap();
                         let dependency_source =
                             DependencySource::FromSource(DependencySourceData {
-                                library: Library {
+                                library: PrintableLibrary {
                                     name: registered_dep.borrow().name(),
                                     ty: registered_dep.borrow().library_type().ok_or_else(
                                         || {
@@ -335,7 +335,7 @@ impl BuildTarget {
                         let source_data = borrowed_target.target_source.from_source().unwrap();
                         let dependency_source =
                             DependencySource::FromSource(DependencySourceData {
-                                library: Library {
+                                library: PrintableLibrary {
                                     name: target.borrow().name(),
                                     ty: target.borrow().library_type().ok_or_else(|| {
                                         TargetError::DependencyNotALibrary(target.borrow().name())
@@ -430,26 +430,46 @@ impl std::ops::Deref for TargetNode {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Executable(String);
+pub struct PrintableExecutable(String);
 
-impl fmt::Display for Executable {
+impl fmt::Display for PrintableExecutable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 #[cfg(target_os = "linux")]
-const STATIC_LIBRARY_FILE_EXTENSION: &str = "a";
+pub const STATIC_LIBRARY_FILE_EXTENSION: &str = "a";
 #[cfg(target_os = "linux")]
-const SHARED_LIBRARY_FILE_EXTENSION: &str = "so";
+pub const SHARED_LIBRARY_FILE_EXTENSION: &str = "so";
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Library {
+//  FIXME: This should be concretized to a Library type instead.
+// It does not really make sense that a Library only has a name and type; it is lacking.
+// For example, there is no directory property so there is no practical way to fully establish the
+// location of the library.
+//
+// It has been difficult to create a Library type with a directory because of lack of information
+// when creating it. Could it be a choice of compressing some of the types in DependencySourceData
+// in favor of them in Library? Then this class would make more sense.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, Eq)]
+pub struct PrintableLibrary {
     pub name: String,
     pub ty: LibraryType,
 }
 
-impl From<targets::Library> for Library {
+impl PrintableLibrary {
+    pub fn possible_lib_names(name: &str) -> [String; 2] {
+        #[cfg(target_family = "unix")]
+        {
+            [
+                format!("lib{}.{}", name, STATIC_LIBRARY_FILE_EXTENSION),
+                format!("lib{}.{}", name, SHARED_LIBRARY_FILE_EXTENSION),
+            ]
+        }
+    }
+}
+
+impl From<targets::Library> for PrintableLibrary {
     fn from(lib: targets::Library) -> Self {
         Self {
             name: lib.name,
@@ -458,7 +478,7 @@ impl From<targets::Library> for Library {
     }
 }
 
-impl From<&targets::Library> for Library {
+impl From<&targets::Library> for PrintableLibrary {
     fn from(lib: &targets::Library) -> Self {
         Self {
             name: lib.name.clone(),
@@ -467,7 +487,7 @@ impl From<&targets::Library> for Library {
     }
 }
 
-impl fmt::Display for Library {
+impl fmt::Display for PrintableLibrary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.ty {
             LibraryType::Static => {
@@ -492,17 +512,17 @@ impl fmt::Display for Library {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum TargetType {
-    Executable(Executable),
-    Library(Library),
+    Executable(PrintableExecutable),
+    Library(PrintableLibrary),
 }
 
 impl TargetType {
     pub fn new(target: &targets::Target) -> Self {
         match target {
             targets::Target::Executable(executable) => {
-                Self::Executable(Executable(executable.name.clone()))
+                Self::Executable(PrintableExecutable(executable.name.clone()))
             }
-            targets::Target::Library(lib) => Self::Library(Library {
+            targets::Target::Library(lib) => Self::Library(PrintableLibrary {
                 name: lib.name.clone(),
                 ty: LibraryType::from(&lib.lib_type),
             }),
@@ -510,7 +530,7 @@ impl TargetType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, Eq)]
 pub enum LibraryType {
     Static,
     Dynamic,

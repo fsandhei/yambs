@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::build_target::include_directories::{IncludeDirectories, IncludeDirectory};
+use crate::build_target::{
+    LibraryType, PrintableLibrary, SHARED_LIBRARY_FILE_EXTENSION, STATIC_LIBRARY_FILE_EXTENSION,
+};
 use crate::flags::CXXFlags;
 use crate::{find_program, EnvironmentVariable, FindProgramOptions, ModifyMode};
 
@@ -73,7 +76,7 @@ impl PkgConfig {
             include_directories
         };
 
-        let library_names_without_extension = {
+        let library_names = {
             let libs_only_l = self.run(&[target, "--libs-only-l"]).ok()?;
             log::debug!("Output from 'pkg-config --libs-only-l': {}", libs_only_l);
             let split = libs_only_l.split(" ").collect::<Vec<&str>>();
@@ -82,11 +85,6 @@ impl PkgConfig {
                 .map(|s| s.replace("-l", ""))
                 .collect::<Vec<String>>()
         };
-
-        let libraries = library_names_without_extension
-            .iter()
-            .map(|l| PathBuf::from(format!("lib{}.a", l)))
-            .collect::<Vec<PathBuf>>();
 
         let search_paths = {
             let libs_only_capital_l = self.run(&[target, "--libs-only-L"]).ok()?;
@@ -104,15 +102,15 @@ impl PkgConfig {
         };
 
         let mut library_paths = vec![];
-        for library in libraries {
+        for lib_name in library_names {
             for search_path in &search_paths {
-                if let Some(lib) = Library::find(&library, &search_path) {
+                if let Some(lib) = Library::find(&lib_name, &search_path) {
                     log::info!("Found library {} with pkg-config", lib.path().display());
                     library_paths.push(lib);
                 } else {
                     log::error!(
                         "Failed to find library {} in {}",
-                        library.display(),
+                        lib_name,
                         search_path.display()
                     );
                 }
@@ -154,21 +152,40 @@ pub struct PkgConfigTarget {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Library(PathBuf);
+pub struct Library {
+    printable: PrintableLibrary,
+    dir: PathBuf,
+}
 
 impl Library {
-    pub fn path(&self) -> &Path {
-        &self.0
+    pub fn path(&self) -> PathBuf {
+        self.dir.join(self.printable.name.clone())
     }
 
-    pub fn find(library: &Path, dir: &Path) -> Option<Self> {
+    pub fn find(library: &str, dir: &Path) -> Option<Self> {
+        let possible_lib_names = PrintableLibrary::possible_lib_names(library);
         let mut search_options = FindProgramOptions::new();
         search_options.search_directory(dir);
         search_options.look_in_subdirectories(true);
-        if let Some(lib) = find_program(library, search_options) {
-            Some(Self(lib))
-        } else {
-            None
+        for lib_name in &possible_lib_names {
+            match find_program(&Path::new(lib_name), search_options) {
+                Some(found_lib) => {
+                    let ty = match found_lib.extension().and_then(|e| e.to_str()) {
+                        Some(STATIC_LIBRARY_FILE_EXTENSION) => LibraryType::Static,
+                        Some(SHARED_LIBRARY_FILE_EXTENSION) => LibraryType::Dynamic,
+                        _ => LibraryType::Static,
+                    };
+                    return Some(Self {
+                        printable: PrintableLibrary {
+                            name: lib_name.to_owned(),
+                            ty,
+                        },
+                        dir: found_lib.parent().unwrap().to_path_buf(),
+                    });
+                }
+                None => return None,
+            };
         }
+        None
     }
 }

@@ -82,7 +82,7 @@ impl PkgConfig {
 
         let library_names = {
             let libs_only_l = self.run(&[target, "--libs-only-l"])?;
-            let split = libs_only_l.split(" ").collect::<Vec<&str>>();
+            let split = libs_only_l.split_whitespace().collect::<Vec<&str>>();
             split
                 .iter()
                 .map(|s| s.replace("-l", ""))
@@ -102,8 +102,11 @@ impl PkgConfig {
 
         let mut library_paths = vec![];
         for lib_name in library_names {
+            let alternative_lib_name = &format!("{}d", lib_name);
             for search_path in &search_paths {
-                if let Some(lib) = PkgConfigLibrary::find(&lib_name, &search_path) {
+                if let Some(lib) =
+                    PkgConfigLibrary::find(&lib_name, Some(alternative_lib_name), &search_path)
+                {
                     log::info!("Found library {} with pkg-config", lib.path().display());
                     library_paths.push(lib);
                 } else {
@@ -163,13 +166,13 @@ impl PkgConfigLibrary {
         self.dir.join(self.printable.name.clone())
     }
 
-    pub fn find(library: &str, dir: &Path) -> Option<Self> {
+    pub fn find(library: &str, alternative_library: Option<&str>, dir: &Path) -> Option<Self> {
         let possible_lib_names = PrintableLibrary::possible_lib_names(library);
         let mut search_options = FindProgramOptions::new();
         search_options.search_directory(dir);
         search_options.look_in_subdirectories(true);
         for lib_name in &possible_lib_names {
-            match find_program(&Path::new(lib_name), search_options) {
+            match find_program(&Path::new(lib_name), search_options.clone()) {
                 Some(found_lib) => {
                     let ty = match found_lib.extension().and_then(|e| e.to_str()) {
                         Some(STATIC_LIBRARY_FILE_EXTENSION) => LibraryType::Static,
@@ -184,7 +187,13 @@ impl PkgConfigLibrary {
                         dir: found_lib.parent().unwrap().to_path_buf(),
                     });
                 }
-                None => return None,
+                None => {
+                    if let Some(alternative_lib) = alternative_library {
+                        return Self::find(alternative_lib, None, dir);
+                    } else {
+                        None::<Self>
+                    }
+                }
             };
         }
         None

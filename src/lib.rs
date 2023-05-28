@@ -96,6 +96,7 @@ lazy_static::lazy_static! {
     };
 }
 
+#[derive(Debug, Clone)]
 pub struct FindProgramOptions {
     search_directories: Vec<PathBuf>,
     look_in_subdirectories: bool,

@@ -22,9 +22,8 @@ use pkg_config::PkgConfigTarget;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DependencySourceData {
-    pub name: String,
     pub manifest: manifest::Manifest,
-    pub library_type: LibraryType,
+    pub library: Library,
     pub include_directory: IncludeDirectory,
 }
 
@@ -66,7 +65,7 @@ impl Dependency {
                 let dependency_source_data = self.source.from_source().unwrap();
                 source_data.manifest.directory == dependency_source_data.manifest.directory
                     && build_target.library_type()
-                        == Some(dependency_source_data.library_type.clone())
+                        == Some(dependency_source_data.library.ty.clone())
             }
         })
     }
@@ -154,7 +153,7 @@ impl BuildTarget {
                 DependencySource::FromSource(ref s) => {
                     log::debug!(
                         "Registering target \"{}\" (manifest directory {})",
-                        s.name,
+                        s.library.name,
                         s.manifest.directory.display()
                     );
                 }
@@ -285,15 +284,17 @@ impl BuildTarget {
                         let source_data = borrowed_dep.target_source.from_source().unwrap();
                         let dependency_source =
                             DependencySource::FromSource(DependencySourceData {
-                                name: registered_dep.borrow().name(),
+                                library: Library {
+                                    name: registered_dep.borrow().name(),
+                                    ty: registered_dep.borrow().library_type().ok_or_else(
+                                        || {
+                                            TargetError::DependencyNotALibrary(
+                                                registered_dep.borrow().name(),
+                                            )
+                                        },
+                                    )?,
+                                },
                                 manifest: source_data.manifest.clone(),
-                                library_type: registered_dep.borrow().library_type().ok_or_else(
-                                    || {
-                                        TargetError::DependencyNotALibrary(
-                                            registered_dep.borrow().name(),
-                                        )
-                                    },
-                                )?,
                                 include_directory: registered_dep
                                     .borrow()
                                     .include_directory
@@ -334,11 +335,13 @@ impl BuildTarget {
                         let source_data = borrowed_target.target_source.from_source().unwrap();
                         let dependency_source =
                             DependencySource::FromSource(DependencySourceData {
-                                name: target.borrow().name(),
+                                library: Library {
+                                    name: target.borrow().name(),
+                                    ty: target.borrow().library_type().ok_or_else(|| {
+                                        TargetError::DependencyNotALibrary(target.borrow().name())
+                                    })?,
+                                },
                                 manifest: source_data.manifest.clone(),
-                                library_type: target.borrow().library_type().ok_or_else(|| {
-                                    TargetError::DependencyNotALibrary(target.borrow().name())
-                                })?,
                                 include_directory: target.borrow().include_directory.clone(),
                             });
                         target_vec.push(Dependency {
@@ -442,8 +445,8 @@ const SHARED_LIBRARY_FILE_EXTENSION: &str = "so";
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Library {
-    name: String,
-    ty: LibraryType,
+    pub name: String,
+    pub ty: LibraryType,
 }
 
 impl From<targets::Library> for Library {

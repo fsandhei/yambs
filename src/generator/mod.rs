@@ -7,11 +7,6 @@ pub mod makefile;
 #[cfg(target_os = "linux")]
 pub use makefile::MakefileGenerator;
 
-#[cfg(target_os = "linux")]
-pub(crate) const STATIC_LIBRARY_FILE_EXTENSION: &str = "a";
-#[cfg(target_os = "linux")]
-pub(crate) const SHARED_LIBRARY_FILE_EXTENSION: &str = "so";
-
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum GeneratorError {
@@ -96,7 +91,7 @@ pub mod targets {
                         DependencySource::FromSource(ref ds) => Some(ds),
                         _ => None,
                     })
-                    .map(|ds| ds.name.to_owned())
+                    .map(|ds| ds.library.name.to_owned())
                     .collect::<Vec<String>>(),
             };
 

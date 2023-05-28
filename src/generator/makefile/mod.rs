@@ -21,7 +21,7 @@ use crate::errors::FsError;
 use crate::generator;
 use crate::generator::{
     targets::ObjectTarget, targets::ProgressDocument, targets::ProgressTrackingTarget, Generator,
-    GeneratorError, UtilityGenerator, SHARED_LIBRARY_FILE_EXTENSION, STATIC_LIBRARY_FILE_EXTENSION,
+    GeneratorError, UtilityGenerator,
 };
 use crate::parser::types;
 use crate::progress;
@@ -100,21 +100,6 @@ impl TargetRuleFactory {
     }
 }
 
-fn library_name_from_dependency_source_data(
-    dependency_source_data: &build_target::DependencySourceData,
-) -> String {
-    match dependency_source_data.library_type {
-        build_target::LibraryType::Dynamic => format!(
-            "lib{}.{}",
-            dependency_source_data.name, SHARED_LIBRARY_FILE_EXTENSION
-        ),
-        build_target::LibraryType::Static => format!(
-            "lib{}.{}",
-            dependency_source_data.name, STATIC_LIBRARY_FILE_EXTENSION
-        ),
-    }
-}
-
 fn library_name_from_target_type(target_type: &TargetType) -> String {
     match target_type {
         TargetType::Executable(_) => panic!("Not a library"),
@@ -150,10 +135,7 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
                 formatted_string.push_str("\\\n");
                 match dependency.source {
                     build_target::DependencySource::FromSource(ref s) => {
-                        formatted_string.push_str(&format!(
-                            "   {}",
-                            library_name_from_dependency_source_data(s)
-                        ));
+                        formatted_string.push_str(&format!("   {}", s.library.to_string()));
                     }
                     build_target::DependencySource::FromPkgConfig(ref pkg) => {
                         for (i, lib) in pkg.library_paths.iter().enumerate() {
@@ -355,11 +337,11 @@ impl MakefileGenerator {
                 match dependency.source {
                     build_target::DependencySource::FromSource(ref s) => {
                         log::debug!("Generating build rule for dependency \"{}\" (manifest path = {}) to target \"{}\" (manifest path {})",
-                            s.name,
+                            s.library.name,
                             s.manifest.directory.display(),
                             target_name,
                             source_data.manifest.directory.display());
-                        let dep_dir = format!("{}.dir", &s.name);
+                        let dep_dir = format!("{}.dir", &s.library.name);
                         self.push_and_create_directory(std::path::Path::new(&dep_dir))?;
                         self.generate_rule_for_dependency(writers, dependency, registry);
                         self.output_directory.pop();

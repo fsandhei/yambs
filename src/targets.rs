@@ -1,5 +1,8 @@
+use std::path::Path;
+
 use crate::flags::CompilerFlags;
 use crate::parser::types;
+use crate::parser::types::PkgConfigData;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(untagged)]
@@ -90,7 +93,7 @@ impl Dependency {
             }
             types::DependencyData::PkgConfig(ref pkgconfig_data) => {
                 log::debug!("Found pkgconfig dependency {}", name);
-                dependency = Ok(Dependency::from_pkgconfig_data(name, pkgconfig_data));
+                dependency = Dependency::from_pkgconfig_data(name, pkgconfig_data, manifest_dir);
             }
         }
         dependency
@@ -137,10 +140,19 @@ impl Dependency {
         })
     }
 
-    fn from_pkgconfig_data(name: &str, pkgconfig_data: &types::PkgConfigData) -> Self {
-        Self {
+    fn from_pkgconfig_data(
+        name: &str,
+        pkgconfig_data: &types::PkgConfigData,
+        manifest_dir: &Path,
+    ) -> Result<Self, DependencyError> {
+        let search_dir = crate::canonicalize_source(manifest_dir, &pkgconfig_data.search_dir)
+            .map_err(|err| {
+                DependencyError::FailedToCanonicalizePath(pkgconfig_data.search_dir.clone(), err)
+            })?;
+
+        Ok(Self {
             name: name.to_string(),
-            data: types::DependencyData::PkgConfig(pkgconfig_data.clone()),
-        }
+            data: types::DependencyData::PkgConfig(PkgConfigData { search_dir }),
+        })
     }
 }

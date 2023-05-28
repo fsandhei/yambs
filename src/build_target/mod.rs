@@ -18,7 +18,7 @@ pub mod target_registry;
 use associated_files::SourceFiles;
 use include_directories::IncludeDirectory;
 use include_directories::IncludeType;
-use pkg_config::PkgConfigTarget;
+use pkg_config::{PkgConfigError, PkgConfigTarget};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DependencySourceData {
@@ -367,16 +367,17 @@ impl BuildTarget {
                     if let Some(ref mut pkg_config) = toolchain_lock.pkg_config {
                         pkg_config.add_search_path(&pkg_config_data.search_dir);
                         match pkg_config.find_target(&dependency.name) {
-                            Some(pkg_config_target) => {
+                            Ok(pkg_config_target) => {
                                 let pkg_config_dep =
                                     DependencySource::FromPkgConfig(pkg_config_target);
                                 target_vec.push(Dependency {
                                     source: pkg_config_dep,
                                 });
                             }
-                            None => {
+                            Err(e) => {
                                 return Err(TargetError::CouldNotFindPkgConfigPackage(
                                     dependency.name.clone(),
+                                    e,
                                 ))
                             }
                         }
@@ -588,7 +589,7 @@ pub enum TargetError {
     #[error("Could not find any instance of pkg-config! Unable to find pkg-config dependencies.")]
     NoPkgConfigInstance,
     #[error("Could not find any pkg-config package with name {0}")]
-    CouldNotFindPkgConfigPackage(String),
+    CouldNotFindPkgConfigPackage(String, #[source] PkgConfigError),
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::fmt;
 use std::rc::Rc;
 
 use crate::errors;
@@ -171,7 +172,7 @@ impl BuildTarget {
     pub fn is_executable(&self) -> bool {
         match self.target_type {
             TargetType::Executable(_) => true,
-            TargetType::Library(_, _) => false,
+            TargetType::Library(_) => false,
         }
     }
 
@@ -181,22 +182,22 @@ impl BuildTarget {
 
     pub fn library_file_name(&self) -> String {
         match &self.target_type {
-            TargetType::Library(_, library_name) => library_name.to_owned(),
+            TargetType::Library(lib) => lib.name.to_owned(),
             _ => panic!("Dependency is not a library"),
         }
     }
 
     pub fn library_type(&self) -> Option<LibraryType> {
         match &self.target_type {
-            TargetType::Library(library_type, _) => Some(library_type.to_owned()),
+            TargetType::Library(lib) => Some(lib.ty.to_owned()),
             _ => None,
         }
     }
 
     pub fn name(&self) -> String {
         match self.target_type {
-            TargetType::Executable(ref name) => name.to_owned(),
-            TargetType::Library(_, ref name) => name.to_owned(),
+            TargetType::Executable(ref exe) => exe.0.to_owned(),
+            TargetType::Library(ref lib) => lib.name.to_owned(),
         }
     }
 
@@ -217,7 +218,7 @@ impl BuildTarget {
         Ok(Self {
             target_source,
             state: TargetState::NotInProcess,
-            target_type: TargetType::Executable(executable.name.to_string()),
+            target_type: TargetType::Executable(Executable(executable.name.to_string())),
             include_directory: include_directories::IncludeDirectory {
                 include_type: include_directories::IncludeType::Include,
                 path: manifest_dir_path.to_path_buf().join("include"),
@@ -243,7 +244,7 @@ impl BuildTarget {
         Ok(Self {
             target_source,
             state: TargetState::NotInProcess,
-            target_type: TargetType::from_library(library),
+            target_type: TargetType::Library(Library::from(library)),
             include_directory: include_directories::IncludeDirectory {
                 include_type: include_directories::IncludeType::Include,
                 path: manifest_dir_path.to_path_buf().join("include"),
@@ -426,24 +427,83 @@ impl std::ops::Deref for TargetNode {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Executable(String);
+
+impl fmt::Display for Executable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[cfg(target_os = "linux")]
+const STATIC_LIBRARY_FILE_EXTENSION: &str = "a";
+#[cfg(target_os = "linux")]
+const SHARED_LIBRARY_FILE_EXTENSION: &str = "so";
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Library {
+    name: String,
+    ty: LibraryType,
+}
+
+impl From<targets::Library> for Library {
+    fn from(lib: targets::Library) -> Self {
+        Self {
+            name: lib.name,
+            ty: LibraryType::from(&lib.lib_type),
+        }
+    }
+}
+
+impl From<&targets::Library> for Library {
+    fn from(lib: &targets::Library) -> Self {
+        Self {
+            name: lib.name.clone(),
+            ty: LibraryType::from(&lib.lib_type),
+        }
+    }
+}
+
+impl fmt::Display for Library {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.ty {
+            LibraryType::Static => {
+                #[cfg(target_family = "unix")]
+                write!(
+                    f,
+                    "{}",
+                    format!("lib{}.{}", self.name, STATIC_LIBRARY_FILE_EXTENSION)
+                )
+            }
+            LibraryType::Dynamic => {
+                #[cfg(target_family = "unix")]
+                write!(
+                    f,
+                    "{}",
+                    format!("lib{}.{}", self.name, SHARED_LIBRARY_FILE_EXTENSION)
+                )
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum TargetType {
-    Executable(String),
-    Library(LibraryType, String),
+    Executable(Executable),
+    Library(Library),
 }
 
 impl TargetType {
     pub fn new(target: &targets::Target) -> Self {
-        if let Some(library) = target.library() {
-            Self::from_library(library)
-        } else {
-            let executable = target.executable().unwrap();
-            Self::Executable(executable.name.to_string())
+        match target {
+            targets::Target::Executable(executable) => {
+                Self::Executable(Executable(executable.name.clone()))
+            }
+            targets::Target::Library(lib) => Self::Library(Library {
+                name: lib.name.clone(),
+                ty: LibraryType::from(&lib.lib_type),
+            }),
         }
-    }
-
-    pub fn from_library(library: &targets::Library) -> TargetType {
-        let lib_type = &library.lib_type;
-        TargetType::Library(LibraryType::from(lib_type), library.name.clone())
     }
 }
 

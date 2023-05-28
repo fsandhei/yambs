@@ -118,14 +118,7 @@ fn library_name_from_dependency_source_data(
 fn library_name_from_target_type(target_type: &TargetType) -> String {
     match target_type {
         TargetType::Executable(_) => panic!("Not a library"),
-        TargetType::Library(lib_type, name) => match lib_type {
-            build_target::LibraryType::Dynamic => {
-                format!("lib{}.{}", name, SHARED_LIBRARY_FILE_EXTENSION)
-            }
-            build_target::LibraryType::Static => {
-                format!("lib{}.{}", name, STATIC_LIBRARY_FILE_EXTENSION)
-            }
-        },
+        TargetType::Library(lib) => lib.to_string(),
     }
 }
 

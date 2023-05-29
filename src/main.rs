@@ -12,6 +12,7 @@ use yambs::toolchain::ToolchainError;
 
 use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
+use yambs::cli::configurations::BuildType;
 use yambs::generator::{
     makefile::make::BuildProcess, makefile::Make, Generator, GeneratorType, MakefileGenerator,
 };
@@ -178,8 +179,14 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     evaluate_compiler(&toolchain, opts)?;
 
     let mut generator = generator_from_build_opts(&opts, &toolchain)?;
-    parse_and_register_dependencies(&manifest, output, &mut dependency_registry, &toolchain)
-        .with_context(|| "An error occured when registering project dependencies")?;
+    parse_and_register_dependencies(
+        &manifest,
+        output,
+        &mut dependency_registry,
+        &toolchain,
+        &opts.configuration.build_type,
+    )
+    .with_context(|| "An error occured when registering project dependencies")?;
 
     let buildfile_directory = generate_build_files(&mut generator, &dependency_registry, &opts)?;
 
@@ -225,6 +232,7 @@ fn parse_and_register_dependencies(
     output: &Output,
     dep_registry: &mut TargetRegistry,
     toolchain: &Rc<RefCell<NormalizedToolchain>>,
+    build_type: &BuildType,
 ) -> anyhow::Result<()> {
     log::trace!("parse_and_register_dependencies");
     let manifest_path = manifest.manifest.directory.join(YAMBS_MANIFEST_NAME);
@@ -248,6 +256,7 @@ fn parse_and_register_dependencies(
             build_target,
             dep_registry,
             toolchain,
+            build_type,
         )?;
     }
     let number_of_targets = dep_registry.number_of_targets();

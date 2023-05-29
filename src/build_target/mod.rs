@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
+use crate::cli::configurations::BuildType;
 use crate::errors;
 use crate::flags::CompilerFlags;
 use crate::manifest;
@@ -114,6 +115,7 @@ impl BuildTarget {
         target: &targets::Target,
         registry: &mut target_registry::TargetRegistry,
         toolchain: &Rc<RefCell<NormalizedToolchain>>,
+        build_type: &BuildType,
     ) -> Result<TargetNode, TargetError> {
         let target_type = TargetType::new(target);
 
@@ -146,7 +148,7 @@ impl BuildTarget {
         target_node.borrow_mut().state = TargetState::InProcess;
         let target_vec = target_node
             .borrow()
-            .detect_target(registry, target, toolchain)?;
+            .detect_target(registry, target, toolchain, build_type)?;
 
         for target in target_vec {
             match target.source {
@@ -257,6 +259,7 @@ impl BuildTarget {
         registry: &mut target_registry::TargetRegistry,
         target: &targets::Target,
         toolchain: &Rc<RefCell<NormalizedToolchain>>,
+        build_type: &BuildType,
     ) -> Result<Vec<Dependency>, TargetError> {
         log::debug!(
             "Checking if target \"{}\" has registered dependencies",
@@ -330,6 +333,7 @@ impl BuildTarget {
                             dep_target,
                             registry,
                             toolchain,
+                            build_type,
                         )?;
                         let borrowed_target = target.borrow();
                         let source_data = borrowed_target.target_source.from_source().unwrap();
@@ -365,7 +369,14 @@ impl BuildTarget {
                 types::DependencyData::PkgConfig(ref pkg_config_data) => {
                     let mut toolchain_lock = toolchain.borrow_mut();
                     if let Some(ref mut pkg_config) = toolchain_lock.pkg_config {
-                        pkg_config.add_search_path(&pkg_config_data.search_dir);
+                        match build_type {
+                            BuildType::Debug => {
+                                pkg_config.add_search_path(&pkg_config_data.debug.search_dir);
+                            }
+                            BuildType::Release => {
+                                pkg_config.add_search_path(&pkg_config_data.release.search_dir);
+                            }
+                        }
                         match pkg_config.find_target(&dependency.name) {
                             Ok(pkg_config_target) => {
                                 let pkg_config_dep =

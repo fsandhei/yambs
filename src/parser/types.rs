@@ -104,6 +104,13 @@ pub struct HeaderOnlyData {
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct PkgConfigData {
+    pub debug: PkgConfigSearchDir,
+    #[serde(rename = "release")]
+    pub release: PkgConfigSearchDir,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct PkgConfigSearchDir {
     #[serde(rename = "pkg_config_search_dir")]
     pub search_dir: PathBuf,
 }

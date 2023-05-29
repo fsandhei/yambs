@@ -137,17 +137,14 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
 
     // override the command line settings if there are configurations set in the manifest
-    if let Some(cxx_standard) = manifest
+    if let Some(standard) = manifest
         .data
         .project_config
         .as_ref()
-        .and_then(|pc| pc.cxx_std.clone())
+        .and_then(|pc| pc.std.clone())
     {
-        log::info!(
-            "Using C++ standard defined in manifest: {}",
-            cxx_standard.to_string()
-        );
-        opts.configuration.cxx_standard = cxx_standard;
+        log::info!("Using standard {} found in manifest", standard.to_string());
+        opts.configuration.standard = Some(standard);
     }
 
     let toolchain = {

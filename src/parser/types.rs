@@ -7,8 +7,19 @@ use crate::flags::CompilerFlags;
 
 #[derive(Debug, Error)]
 pub enum ParseStandardError {
+    #[error("C standard \"{0}\" used is not allowed.")]
+    InvalidCStandard(String),
     #[error("C++ standard \"{0}\" used is not allowed.")]
     InvalidCXXStandard(String),
+    #[error("Could not recognize the given standard: \"{0}\"")]
+    UnrecognizedStandard(String),
+}
+
+#[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectConfiguration {
+    pub std: Option<Standard>,
+    pub language: Option<Language>,
 }
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -16,6 +27,77 @@ pub enum Language {
     #[serde(rename = "C++")]
     CXX,
     C,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum Standard {
+    CXX(CXXStandard),
+    C(CStandard),
+}
+
+impl Standard {
+    pub fn new(standard: &str, language: Language) -> Result<Self, ParseStandardError> {
+        match language {
+            Language::CXX => Ok(Self::CXX(CXXStandard::parse(standard)?)),
+            Language::C => Ok(Self::C(CStandard::parse(standard)?)),
+        }
+    }
+
+    pub fn parse(standard: &str) -> Result<Self, ParseStandardError> {
+        match CXXStandard::parse(standard) {
+            Ok(cxx) => return Ok(Self::CXX(cxx)),
+            Err(_) => {}
+        };
+        match CStandard::parse(standard) {
+            Ok(c) => return Ok(Self::C(c)),
+            Err(_) => {}
+        }
+        Err(ParseStandardError::UnrecognizedStandard(
+            standard.to_string(),
+        ))
+    }
+}
+
+impl std::string::ToString for Standard {
+    fn to_string(&self) -> String {
+        match self {
+            Self::CXX(cxx) => cxx.to_string(),
+            Self::C(c) => c.to_string(),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+pub enum CStandard {
+    C89,
+    C90,
+    C11,
+    C17,
+}
+
+impl CStandard {
+    pub fn parse(standard: &str) -> Result<Self, ParseStandardError> {
+        let converted_standard = match standard.to_lowercase().as_str() {
+            "c89" => Ok(CStandard::C89),
+            "c90" => Ok(CStandard::C90),
+            "c11" => Ok(CStandard::C11),
+            "c17" => Ok(CStandard::C17),
+            _ => Err(ParseStandardError::InvalidCStandard(standard.to_string())),
+        };
+        converted_standard
+    }
+}
+
+impl std::string::ToString for CStandard {
+    fn to_string(&self) -> String {
+        match self {
+            Self::C89 => "c89".to_string(),
+            Self::C90 => "c90".to_string(),
+            Self::C11 => "c11".to_string(),
+            Self::C17 => "c17".to_string(),
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]

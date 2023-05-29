@@ -482,8 +482,11 @@ impl MakefileGenerator {
         let mut include_file_generator =
             IncludeFileGenerator::new(&include_output_directory, &toolchain);
 
-        let cxx_standard = &self.configurations.cxx_standard.to_string();
-        include_file_generator.add_cpp_version(cxx_standard);
+        let standard = match &self.configurations.standard {
+            Some(std) => std.to_string(),
+            None => return Err(GeneratorError::StandardNotFound),
+        };
+        include_file_generator.add_cpp_version(&standard);
         include_file_generator.generate_build_files()
     }
 

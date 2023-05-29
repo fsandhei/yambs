@@ -97,7 +97,6 @@ impl ToolchainCXX {
 struct Toolchain {
     #[serde(rename = "CXX")]
     pub cxx: ToolchainCXXData,
-    #[serde(flatten)]
     pub common: CommonToolchainData,
 }
 

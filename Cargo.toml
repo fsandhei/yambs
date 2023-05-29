@@ -17,6 +17,7 @@ anyhow = "1.0"
 colored = "2.0"
 clap = { version = "4.0", features = ["derive"]}
 either = { version = "1.8", features = ["serde"] }
+home = "0.5"
 indoc = "1.0"
 indicatif = "0.17"
 log = "0.4"

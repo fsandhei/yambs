@@ -140,13 +140,26 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
         opts.configuration.cxx_standard = cxx_standard;
     }
 
-    let toolchain = detect_toolchain_file(
-        &opts
-            .manifest_dir
-            .as_path()
-            .join(".yambs")
-            .join(TOOLCHAIN_FILE_NAME),
-    );
+    let toolchain = {
+        match detect_toolchain_file(
+            &opts
+                .manifest_dir
+                .as_path()
+                .join(".yambs")
+                .join(TOOLCHAIN_FILE_NAME),
+        ) {
+            Ok(tc) => Ok(tc),
+            Err(_) => {
+                log::warn!("Failed to find project-local toolchain.");
+                log::info!(
+                    "Attempt finding toolchain from $HOME directory: $HOME/.yambs/toolchain.toml"
+                );
+                let home_dir =
+                    home::home_dir().context("Failed to locate user's HOME directory")?;
+                detect_toolchain_file(&home_dir.join(".yambs").join(TOOLCHAIN_FILE_NAME))
+            }
+        }
+    };
 
     let toolchain = match toolchain {
         Ok(tc) => tc,

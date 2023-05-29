@@ -1,13 +1,65 @@
 use std::path::PathBuf;
 
-use crate::cli::configurations::CXXStandard;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
 use crate::flags::CompilerFlags;
+
+#[derive(Debug, Error)]
+pub enum ParseStandardError {
+    #[error("C++ standard \"{0}\" used is not allowed.")]
+    InvalidCXXStandard(String),
+}
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Language {
     #[serde(rename = "C++")]
     CXX,
     C,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+pub enum CXXStandard {
+    CXX98,
+    CXX03,
+    CXX11,
+    CXX14,
+    CXX17,
+    CXX20,
+}
+
+impl CXXStandard {
+    pub fn parse(standard: &str) -> Result<Self, ParseStandardError> {
+        let converted_standard = match standard.to_lowercase().as_str() {
+            "c++98" => Ok(CXXStandard::CXX98),
+            "c++03" => Ok(CXXStandard::CXX03),
+            "c++11" => Ok(CXXStandard::CXX11),
+            "c++14" => Ok(CXXStandard::CXX14),
+            "c++17" => Ok(CXXStandard::CXX17),
+            "c++20" => Ok(CXXStandard::CXX20),
+            _ => Err(ParseStandardError::InvalidCXXStandard(standard.to_string())),
+        };
+        converted_standard
+    }
+}
+
+impl std::default::Default for CXXStandard {
+    fn default() -> Self {
+        CXXStandard::CXX17
+    }
+}
+
+impl std::string::ToString for CXXStandard {
+    fn to_string(&self) -> String {
+        match self {
+            CXXStandard::CXX98 => "c++98".to_string(),
+            CXXStandard::CXX03 => "c++03".to_string(),
+            CXXStandard::CXX11 => "c++11".to_string(),
+            CXXStandard::CXX14 => "c++14".to_string(),
+            CXXStandard::CXX17 => "c++17".to_string(),
+            CXXStandard::CXX20 => "c++20".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]

@@ -30,6 +30,12 @@ fn main() -> anyhow::Result<()> {
     let command_line = CommandLine::parse();
     let output = Output::new();
 
+    if command_line.show_version {
+        let version = env!("CARGO_PKG_VERSION");
+        println!("{}", version);
+        return Ok(());
+    }
+
     if let Some(subcommand) = command_line.subcommand {
         match subcommand {
             Subcommand::Build(mut build_opts) => do_build(&mut build_opts, &output)?,

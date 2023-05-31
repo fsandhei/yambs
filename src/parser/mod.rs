@@ -56,9 +56,7 @@ mod tests {
     use crate::flags::CompilerFlags;
     use crate::manifest::ManifestData;
     use crate::targets::{Dependency, Executable, Library, Target};
-    use types::{
-        BinaryData, BinaryPath, Define, DependencyData, IncludeSearchType, LibraryType, SourceData,
-    };
+    use types::{Define, DependencyData, IncludeSearchType, LibraryType, SourceData};
 
     struct TestFixture {
         pub tempdir: tempdir::TempDir,
@@ -107,6 +105,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
+                project_configuration: None,
                 targets: vec![Target::Executable(executable)],
             };
             assert_eq!(manifest, expected);
@@ -146,9 +145,12 @@ mod tests {
                         "-O2".to_string(),
                     ])),
                     cpp_flags: None,
+                    include_directories: vec![],
+                    system_include_directories: vec![],
                 },
             };
             let expected = ManifestData {
+                project_configuration: None,
                 targets: vec![Target::Executable(executable)],
             };
             assert_eq!(manifest, expected);
@@ -199,6 +201,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
+                project_configuration: None,
                 targets: vec![
                     Target::Executable(executable_x),
                     Target::Executable(executable_y),
@@ -238,6 +241,7 @@ mod tests {
             lib_type: LibraryType::default(),
         };
         let expected = ManifestData {
+            project_configuration: None,
             targets: vec![Target::Library(library)],
         };
         assert_eq!(manifest, expected);
@@ -299,6 +303,7 @@ mod tests {
             lib_type: LibraryType::default(),
         };
         let expected = ManifestData {
+            project_configuration: None,
             targets: vec![Target::Library(library)],
         };
         assert_eq!(manifest, expected);
@@ -341,6 +346,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
+                project_configuration: None,
                 targets: vec![Target::Executable(executable)],
             };
             assert_eq!(manifest, expected);
@@ -386,6 +392,7 @@ mod tests {
             lib_type: LibraryType::default(),
         };
         let expected = ManifestData {
+            project_configuration: None,
             targets: vec![Target::Library(library)],
         };
         assert_eq!(manifest, expected);

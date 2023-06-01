@@ -80,25 +80,30 @@ impl PkgConfig {
             include_directories
         };
 
-        let library_names = {
-            let libs_only_l = self.run(&[target, "--libs-only-l"])?;
-            let split = libs_only_l.split_whitespace().collect::<Vec<&str>>();
-            split
-                .iter()
-                .map(|s| s.replace("-l", ""))
-                .collect::<Vec<String>>()
-        };
+        Ok(PkgConfigTarget {
+            target: target.to_string(),
+            include_directories,
+            cxx_flags,
+            method: self.determine_provide_method(target)?,
+        })
+    }
 
-        let search_paths = {
-            let libs_only_capital_l = self.run(&[target, "--libs-only-L"])?;
-            let split = libs_only_capital_l
-                .split_whitespace()
-                .collect::<Vec<&str>>();
-            split
-                .iter()
-                .map(|s| PathBuf::from(s.replace("-L", "")))
-                .collect::<Vec<PathBuf>>()
-        };
+    fn determine_provide_method(&self, target: &str) -> Result<ProvideMethod, PkgConfigError> {
+        let libs_only_l = self.run(&[target, "--libs-only-l"])?;
+        let split_libs_only_l = libs_only_l.split_whitespace().collect::<Vec<&str>>();
+        let library_names = split_libs_only_l
+            .iter()
+            .map(|s| s.replace("-l", ""))
+            .collect::<Vec<String>>();
+
+        let libs_only_capital_l = self.run(&[target, "--libs-only-L"])?;
+        let split_libs_only_capital_l = libs_only_capital_l
+            .split_whitespace()
+            .collect::<Vec<&str>>();
+        let search_paths = split_libs_only_capital_l
+            .iter()
+            .map(|s| PathBuf::from(s.replace("-L", "")))
+            .collect::<Vec<PathBuf>>();
 
         let mut library_paths = vec![];
         for lib_name in library_names {
@@ -115,17 +120,20 @@ impl PkgConfig {
                         lib_name,
                         search_path.display()
                     );
-                    return Err(PkgConfigError::CouldNotLocateLibrary(lib_name));
+                    return Ok(ProvideMethod::PkgConfigOutput(PkgConfigLDFlags {
+                        l_flags_output: split_libs_only_l
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<String>>(),
+                        capital_l_flags_output: split_libs_only_capital_l
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<String>>(),
+                    }));
                 }
             }
         }
-
-        Ok(PkgConfigTarget {
-            target: target.to_string(),
-            include_directories,
-            cxx_flags,
-            library_paths,
-        })
+        Ok(ProvideMethod::Finegrained(library_paths))
     }
 
     fn run(&self, args: &[&str]) -> Result<String, PkgConfigError> {
@@ -152,7 +160,19 @@ pub struct PkgConfigTarget {
     pub target: String,
     pub include_directories: IncludeDirectories,
     pub cxx_flags: CXXFlags,
-    pub library_paths: Vec<PkgConfigLibrary>,
+    pub method: ProvideMethod,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ProvideMethod {
+    Finegrained(Vec<PkgConfigLibrary>),
+    PkgConfigOutput(PkgConfigLDFlags),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PkgConfigLDFlags {
+    pub l_flags_output: Vec<String>,
+    pub capital_l_flags_output: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

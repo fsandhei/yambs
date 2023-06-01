@@ -82,6 +82,8 @@ pub struct SourceBuildData {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
+// FIXME: Can this enum be removed? I can't remember why this was made at all; it may be
+// completely redundant and a wasteful abstraction.
 pub enum TargetSource {
     FromSource(SourceBuildData),
 }

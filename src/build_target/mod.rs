@@ -61,13 +61,10 @@ impl Dependency {
         &self,
         registry: &target_registry::TargetRegistry,
     ) -> Option<TargetNode> {
-        registry.get_target_from_predicate(|build_target| match build_target.target_source {
-            TargetSource::FromSource(ref source_data) => {
-                let dependency_source_data = self.source.from_source().unwrap();
-                source_data.manifest.directory == dependency_source_data.manifest.directory
-                    && build_target.library_type()
-                        == Some(dependency_source_data.library.ty.clone())
-            }
+        registry.get_target_from_predicate(|build_target| {
+            let dependency_source_data = self.source.from_source().unwrap();
+            build_target.manifest.directory == dependency_source_data.manifest.directory
+                && build_target.library_type() == Some(dependency_source_data.library.ty.clone())
         })
     }
 }
@@ -81,34 +78,15 @@ pub struct SourceBuildData {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(untagged)]
-// FIXME: Can this enum be removed? I can't remember why this was made at all; it may be
-// completely redundant and a wasteful abstraction.
-pub enum TargetSource {
-    FromSource(SourceBuildData),
-}
-
-impl TargetSource {
-    pub fn from_source(&self) -> Option<&SourceBuildData> {
-        match self {
-            Self::FromSource(s) => Some(s),
-        }
-    }
-
-    pub fn from_source_mut(&mut self) -> Option<&mut SourceBuildData> {
-        match self {
-            Self::FromSource(s) => Some(s),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BuildTarget {
-    pub target_source: TargetSource,
     pub state: TargetState,
     pub target_type: TargetType,
     pub include_directory: IncludeDirectory,
     pub compiler_flags: CompilerFlags,
+    pub manifest: manifest::Manifest,
+    pub dependencies: Vec<Dependency>,
+    pub source_files: SourceFiles,
+    pub defines: Vec<types::Define>,
 }
 
 impl BuildTarget {
@@ -121,14 +99,10 @@ impl BuildTarget {
     ) -> Result<TargetNode, TargetError> {
         let target_type = TargetType::new(target);
 
-        if let Some(existing_node) =
-            registry.get_target_from_predicate(|build_target| match build_target.target_source {
-                TargetSource::FromSource(ref source_data) => {
-                    source_data.manifest.directory == manifest_dir_path
-                        && build_target.target_type == target_type
-                }
-            })
-        {
+        if let Some(existing_node) = registry.get_target_from_predicate(|build_target| {
+            build_target.manifest.directory == manifest_dir_path
+                && build_target.target_type == target_type
+        }) {
             return Ok(existing_node);
         }
 
@@ -210,16 +184,7 @@ impl BuildTarget {
     ) -> Result<Self, TargetError> {
         let source_files = executable.sources.clone();
 
-        let target_source = TargetSource::FromSource(SourceBuildData {
-            manifest: manifest::Manifest::new(manifest_dir_path),
-            dependencies: Vec::new(),
-            source_files: SourceFiles::from_paths(&source_files)
-                .map_err(TargetError::AssociatedFile)?,
-            defines: executable.defines.clone(),
-        });
-
         Ok(Self {
-            target_source,
             state: TargetState::NotInProcess,
             target_type: TargetType::Executable(PrintableExecutable(executable.name.to_string())),
             include_directory: include_directories::IncludeDirectory {
@@ -227,6 +192,11 @@ impl BuildTarget {
                 path: manifest_dir_path.to_path_buf().join("include"),
             },
             compiler_flags: executable.compiler_flags.clone(),
+            manifest: manifest::Manifest::new(manifest_dir_path),
+            dependencies: Vec::new(),
+            source_files: SourceFiles::from_paths(&source_files)
+                .map_err(TargetError::AssociatedFile)?,
+            defines: executable.defines.clone(),
         })
     }
 
@@ -236,16 +206,7 @@ impl BuildTarget {
     ) -> Result<Self, TargetError> {
         let source_files = library.sources.clone();
 
-        let target_source = TargetSource::FromSource(SourceBuildData {
-            manifest: manifest::Manifest::new(manifest_dir_path),
-            dependencies: Vec::new(),
-            source_files: SourceFiles::from_paths(&source_files)
-                .map_err(TargetError::AssociatedFile)?,
-            defines: library.defines.clone(),
-        });
-
         Ok(Self {
-            target_source,
             state: TargetState::NotInProcess,
             target_type: TargetType::Library(PrintableLibrary::from(library)),
             include_directory: include_directories::IncludeDirectory {
@@ -253,6 +214,11 @@ impl BuildTarget {
                 path: manifest_dir_path.to_path_buf().join("include"),
             },
             compiler_flags: library.compiler_flags.clone(),
+            manifest: manifest::Manifest::new(manifest_dir_path),
+            dependencies: Vec::new(),
+            source_files: SourceFiles::from_paths(&source_files)
+                .map_err(TargetError::AssociatedFile)?,
+            defines: library.defines.clone(),
         })
     }
 
@@ -273,12 +239,8 @@ impl BuildTarget {
                 types::DependencyData::Source(ref dependency_source_data) => {
                     if let Some(registered_dep) =
                         registry.get_target_from_predicate(|build_target| {
-                            match build_target.target_source {
-                                TargetSource::FromSource(ref source_data) => {
-                                    source_data.manifest.directory == dependency_source_data.path
-                                        && build_target.name() == dependency.name
-                                }
-                            }
+                            build_target.manifest.directory == dependency_source_data.path
+                                && build_target.name() == dependency.name
                         })
                     {
                         log::debug!(
@@ -286,7 +248,6 @@ impl BuildTarget {
                         );
                         self.detect_cycle_from_target(&registered_dep)?;
                         let borrowed_dep = registered_dep.borrow();
-                        let source_data = borrowed_dep.target_source.from_source().unwrap();
                         let dependency_source =
                             DependencySource::FromSource(DependencySourceData {
                                 library: PrintableLibrary {
@@ -299,7 +260,7 @@ impl BuildTarget {
                                         },
                                     )?,
                                 },
-                                manifest: source_data.manifest.clone(),
+                                manifest: borrowed_dep.manifest.clone(),
                                 include_directory: registered_dep
                                     .borrow()
                                     .include_directory
@@ -338,7 +299,6 @@ impl BuildTarget {
                             build_type,
                         )?;
                         let borrowed_target = target.borrow();
-                        let source_data = borrowed_target.target_source.from_source().unwrap();
                         let dependency_source =
                             DependencySource::FromSource(DependencySourceData {
                                 library: PrintableLibrary {
@@ -347,7 +307,7 @@ impl BuildTarget {
                                         TargetError::DependencyNotALibrary(target.borrow().name())
                                     })?,
                                 },
-                                manifest: source_data.manifest.clone(),
+                                manifest: borrowed_target.manifest.clone(),
                                 include_directory: target.borrow().include_directory.clone(),
                             });
                         target_vec.push(Dependency {
@@ -409,20 +369,16 @@ impl BuildTarget {
             && target_node.borrow().name() == self.name()
         {
             let borrowed_target_node = target_node.borrow();
-            let target_node_source_data = borrowed_target_node.target_source.from_source().unwrap();
-            let source_data = self.target_source.from_source().unwrap();
             return Err(TargetError::Circulation(
-                target_node_source_data.manifest.directory.to_path_buf(),
-                source_data.manifest.directory.to_path_buf(),
+                borrowed_target_node.manifest.directory.to_path_buf(),
+                self.manifest.directory.to_path_buf(),
             ));
         }
         Ok(())
     }
 
     fn add_target(&mut self, dependency: Dependency) {
-        if let Some(source_data) = self.target_source.from_source_mut() {
-            source_data.dependencies.push(dependency);
-        }
+        self.dependencies.push(dependency)
     }
 }
 

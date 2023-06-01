@@ -47,7 +47,7 @@ pub trait UtilityGenerator<'config> {
 
 pub mod targets {
     use crate::build_target::include_directories::IncludeDirectories;
-    use crate::build_target::{DependencySource, TargetNode, TargetSource};
+    use crate::build_target::{DependencySource, TargetNode};
 
     #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
     pub struct ProgressDocument {
@@ -83,17 +83,16 @@ pub mod targets {
                     .map(|o| o.object.to_path_buf())
                     .collect::<Vec<std::path::PathBuf>>();
             let target_name = target_node.borrow().name();
-            let target_dependencies = match target_node.borrow().target_source {
-                TargetSource::FromSource(ref s) => s
-                    .dependencies
-                    .iter()
-                    .filter_map(|d| match d.source {
-                        DependencySource::FromSource(ref ds) => Some(ds),
-                        _ => None,
-                    })
-                    .map(|ds| ds.library.name.to_owned())
-                    .collect::<Vec<String>>(),
-            };
+            let target_dependencies = target_node
+                .borrow()
+                .dependencies
+                .iter()
+                .filter_map(|d| match d.source {
+                    DependencySource::FromSource(ref ds) => Some(ds),
+                    _ => None,
+                })
+                .map(|ds| ds.library.name.to_owned())
+                .collect::<Vec<String>>();
 
             Self {
                 target: target_name,
@@ -118,12 +117,11 @@ pub mod targets {
         ) -> Vec<ObjectTarget> {
             let mut object_targets = Vec::new();
             let borrowed_target = target.borrow();
-            let source_data = borrowed_target.target_source.from_source().unwrap();
-            let sources = source_data
+            let sources = borrowed_target
                 .source_files
                 .iter()
                 .filter(|file| file.is_source());
-            let dependency_root_path = &source_data.manifest.directory;
+            let dependency_root_path = &borrowed_target.manifest.directory;
             let target_name = borrowed_target.name();
 
             for source in sources {
@@ -145,12 +143,7 @@ pub mod targets {
                 let include_directories = {
                     let mut include_directories = IncludeDirectories::new();
                     include_directories.add(borrowed_target.include_directory.clone());
-                    let deps = &borrowed_target
-                        .target_source
-                        .from_source()
-                        .as_ref()
-                        .unwrap()
-                        .dependencies;
+                    let deps = &borrowed_target.dependencies;
                     for dep in deps {
                         match dep.source {
                             DependencySource::FromSource(ref sd) => {

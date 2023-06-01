@@ -145,6 +145,7 @@ mod tests {
                         "-O2".to_string(),
                     ])),
                     cpp_flags: None,
+                    ld_flags: None,
                     include_directories: vec![],
                     system_include_directories: vec![],
                 },

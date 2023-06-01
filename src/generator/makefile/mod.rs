@@ -111,54 +111,50 @@ fn library_name_from_target_type(target_type: &TargetType) -> String {
 fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Path) -> String {
     let mut formatted_string = String::new();
     let borrowed_target = target.borrow();
-    match borrowed_target.target_source {
-        build_target::TargetSource::FromSource(ref source_data) => {
-            let sources = source_data
-                .source_files
-                .iter()
-                .filter(|file| file.is_source());
-            let dependency_root_path = &source_data.manifest.directory;
+    let sources = borrowed_target
+        .source_files
+        .iter()
+        .filter(|file| file.is_source());
+    let dependency_root_path = &borrowed_target.manifest.directory;
 
-            for source in sources {
-                let source_file = source.file();
-                let source_dir = source_file
-                    .parent()
-                    .and_then(|p| p.strip_prefix(dependency_root_path).ok())
-                    .unwrap();
-                let object = output_directory
-                    .join(source_dir)
-                    .join(source_file.file_name().unwrap())
-                    .with_extension("o");
-                formatted_string.push_str("\\\n");
-                formatted_string.push_str(&format!("   {}", object.display()));
+    for source in sources {
+        let source_file = source.file();
+        let source_dir = source_file
+            .parent()
+            .and_then(|p| p.strip_prefix(dependency_root_path).ok())
+            .unwrap();
+        let object = output_directory
+            .join(source_dir)
+            .join(source_file.file_name().unwrap())
+            .with_extension("o");
+        formatted_string.push_str("\\\n");
+        formatted_string.push_str(&format!("   {}", object.display()));
+    }
+    for dependency in &borrowed_target.dependencies {
+        formatted_string.push_str("\\\n");
+        match dependency.source {
+            build_target::DependencySource::FromSource(ref s) => {
+                formatted_string.push_str(&format!("   {}", s.library.to_string()));
             }
-            for dependency in &source_data.dependencies {
-                formatted_string.push_str("\\\n");
-                match dependency.source {
-                    build_target::DependencySource::FromSource(ref s) => {
-                        formatted_string.push_str(&format!("   {}", s.library.to_string()));
+            build_target::DependencySource::FromPkgConfig(ref pkg) => match pkg.method {
+                ProvideMethod::Finegrained(ref libs) => {
+                    for (i, lib) in libs.iter().enumerate() {
+                        formatted_string.push_str(&format!("   {}", lib.path().display()));
+                        if i != libs.len() - 1 {
+                            formatted_string.push_str("\\\n");
+                        }
                     }
-                    build_target::DependencySource::FromPkgConfig(ref pkg) => match pkg.method {
-                        ProvideMethod::Finegrained(ref libs) => {
-                            for (i, lib) in libs.iter().enumerate() {
-                                formatted_string.push_str(&format!("   {}", lib.path().display()));
-                                if i != libs.len() - 1 {
-                                    formatted_string.push_str("\\\n");
-                                }
-                            }
-                        }
-                        ProvideMethod::PkgConfigOutput(ref pkg_config_ld) => {
-                            for (i, l_flag) in pkg_config_ld.l_flags_output.iter().enumerate() {
-                                formatted_string.push_str(&format!("   {}", l_flag));
-                                if i != pkg_config_ld.l_flags_output.len() - 1 {
-                                    formatted_string.push_str("\\\n");
-                                }
-                            }
-                        }
-                    },
-                    _ => {}
                 }
-            }
+                ProvideMethod::PkgConfigOutput(ref pkg_config_ld) => {
+                    for (i, l_flag) in pkg_config_ld.l_flags_output.iter().enumerate() {
+                        formatted_string.push_str(&format!("   {}", l_flag));
+                        if i != pkg_config_ld.l_flags_output.len() - 1 {
+                            formatted_string.push_str("\\\n");
+                        }
+                    }
+                }
+            },
+            _ => {}
         }
     }
     formatted_string
@@ -169,19 +165,15 @@ fn generate_search_directories(target: &TargetNode) -> String {
     let mut formatted_string = String::new();
     formatted_string.push_str(&borrowed_target.include_directory.as_include_flag());
 
-    match borrowed_target.target_source {
-        build_target::TargetSource::FromSource(ref source_data) => {
-            for dependency in &source_data.dependencies {
-                match dependency.source.from_source() {
-                    Some(sd) => {
-                        let include_dir = &sd.include_directory;
-                        formatted_string.push_str(&include_dir.as_include_flag());
-                    }
-                    None => {}
-                }
+    for dependency in &borrowed_target.dependencies {
+        match dependency.source.from_source() {
+            Some(sd) => {
+                let include_dir = &sd.include_directory;
+                formatted_string.push_str(&include_dir.as_include_flag());
             }
+            None => {}
         }
-    };
+    }
     formatted_string.trim_end().to_string()
 }
 
@@ -286,45 +278,41 @@ impl MakefileGenerator {
                 let borrowed_target = target.borrow();
                 let dep_dir = format!("{}.dir", &borrowed_target.name());
                 self.push_and_create_directory(std::path::Path::new(&dep_dir))?;
-                match borrowed_target.target_source {
-                    build_target::TargetSource::FromSource(ref s) => {
-                        log::debug!(
-                            "Generating makefiles for target {:?} (manifest path: {})",
-                            target.borrow().name(),
-                            s.manifest.directory.display()
-                        );
+                log::debug!(
+                    "Generating makefiles for target {:?} (manifest path: {})",
+                    target.borrow().name(),
+                    borrowed_target.manifest.directory.display()
+                );
 
-                        self.generate_rule_declaration_for_target(writers, target);
-                        // Quick hack to allow each dependency / target to be placed in their own
-                        // folder, without it being a subfolder of a separate target.
-                        // FIXME: Need to figure out if there is a better way to solve this. It is
-                        // rather clunky.
-                        self.output_directory.pop();
-                        self.generate_rule_for_dependencies_from_source_data(
-                            writers,
-                            &borrowed_target.name(),
-                            s,
-                            registry,
-                        )?;
-                        self.push_and_create_directory(std::path::Path::new(&dep_dir))?;
+                self.generate_rule_declaration_for_target(writers, target);
+                // Quick hack to allow each dependency / target to be placed in their own
+                // folder, without it being a subfolder of a separate target.
+                // FIXME: Need to figure out if there is a better way to solve this. It is
+                // rather clunky.
+                self.output_directory.pop();
+                self.generate_rule_for_dependencies_from_source_data(
+                    writers,
+                    &borrowed_target.name(),
+                    &borrowed_target,
+                    registry,
+                )?;
+                self.push_and_create_directory(std::path::Path::new(&dep_dir))?;
 
-                        let progress_tracking_target =
-                            ProgressTrackingTarget::from_target(target, &self.output_directory);
-                        self.progress_document
-                            .add_progress_tracking_target(progress_tracking_target);
-                        ObjectTarget::create_object_targets(target, &self.output_directory)
-                            .into_iter()
-                            .for_each(|object_target| {
-                                if !writers
-                                    .makefile_writer
-                                    .object_targets
-                                    .contains(&object_target)
-                                {
-                                    writers.makefile_writer.object_targets.push(object_target);
-                                }
-                            });
-                    }
-                }
+                let progress_tracking_target =
+                    ProgressTrackingTarget::from_target(target, &self.output_directory);
+                self.progress_document
+                    .add_progress_tracking_target(progress_tracking_target);
+                ObjectTarget::create_object_targets(target, &self.output_directory)
+                    .into_iter()
+                    .for_each(|object_target| {
+                        if !writers
+                            .makefile_writer
+                            .object_targets
+                            .contains(&object_target)
+                        {
+                            writers.makefile_writer.object_targets.push(object_target);
+                        }
+                    });
                 self.output_directory.pop();
             }
             target.borrow_mut().state = TargetState::BuildFileMade;
@@ -339,11 +327,11 @@ impl MakefileGenerator {
         &mut self,
         writers: &mut Writers,
         target_name: &str,
-        source_data: &build_target::SourceBuildData,
+        build_target: &build_target::BuildTarget,
         registry: &TargetRegistry,
     ) -> Result<(), GeneratorError> {
-        if !source_data.dependencies.is_empty() {
-            let dependencies = &source_data.dependencies;
+        if !build_target.dependencies.is_empty() {
+            let dependencies = &build_target.dependencies;
             for dependency in dependencies {
                 match dependency.source {
                     build_target::DependencySource::FromSource(ref s) => {
@@ -351,7 +339,7 @@ impl MakefileGenerator {
                             s.library.name,
                             s.manifest.directory.display(),
                             target_name,
-                            source_data.manifest.directory.display());
+                            build_target.manifest.directory.display());
                         let dep_dir = format!("{}.dir", &s.library.name);
                         self.push_and_create_directory(std::path::Path::new(&dep_dir))?;
                         self.generate_rule_for_dependency(writers, dependency, registry);
@@ -620,40 +608,37 @@ impl MakefileGenerator {
             let defines = &self.configurations.defines;
             generate_defines(&defines)
         } else {
-            match borrowed_target.target_source {
-                build_target::TargetSource::FromSource(ref s) => generate_defines(&s.defines),
-            }
+            generate_defines(&borrowed_target.defines)
         };
 
         makefile_writer.data.push_str(&defines);
 
+        makefile_writer.data.push('\n');
         makefile_writer.data.push('\n');
         makefile_writer.data.push_str(&indoc::formatdoc!(
             "# LDFLAGS for target \"{target_name}\"
                 {target_name_capitalized}_LDFLAGS +="
         ));
 
-        match borrowed_target.target_source {
-            build_target::TargetSource::FromSource(ref s) => {
-                let deps = &s.dependencies;
-                for dep in deps {
-                    match dep.source {
-                        DependencySource::FromPkgConfig(ref pkg_config_target) => {
-                            match pkg_config_target.method {
-                                ProvideMethod::PkgConfigOutput(ref ld_flags) => {
-                                    for search_flag in &ld_flags.capital_l_flags_output {
-                                        makefile_writer.data.push_str(&search_flag);
-                                        makefile_writer.data.push_str(" ");
-                                    }
-                                }
-                                _ => {}
+        let deps = &borrowed_target.dependencies;
+        for dep in deps {
+            match dep.source {
+                DependencySource::FromPkgConfig(ref pkg_config_target) => {
+                    match pkg_config_target.method {
+                        ProvideMethod::PkgConfigOutput(ref ld_flags) => {
+                            for search_flag in &ld_flags.capital_l_flags_output {
+                                makefile_writer.data.push_str(&search_flag);
+                                makefile_writer.data.push_str(" ");
                             }
                         }
                         _ => {}
                     }
                 }
+                _ => {}
             }
         }
+        makefile_writer.data.push('\n');
+        makefile_writer.data.push('\n');
     }
 }
 

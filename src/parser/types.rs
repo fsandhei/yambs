@@ -35,16 +35,12 @@ pub struct RawExecutableData {
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum LibraryType {
+    #[default]
     Static,
     #[serde(rename = "shared")]
     Dynamic,
-}
-
-impl Default for LibraryType {
-    fn default() -> Self {
-        LibraryType::Static
-    }
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
@@ -123,14 +119,9 @@ pub enum DependencyData {
     PkgConfig(PkgConfigData),
 }
 
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Default)]
 pub enum IncludeSearchType {
     System,
+    #[default]
     Include,
-}
-
-impl Default for IncludeSearchType {
-    fn default() -> Self {
-        IncludeSearchType::Include
-    }
 }

@@ -111,7 +111,7 @@ impl FindProgramOptions {
     }
 
     pub fn with_path_env(&mut self) -> &mut Self {
-        self.search_directories.extend_from_slice(&*PATH_ENV_PATHS);
+        self.search_directories.extend_from_slice(&PATH_ENV_PATHS);
         self
     }
 
@@ -134,7 +134,7 @@ where
 {
     for dir in search_options.search_directories {
         log::debug!("Looking for {} in {}", program.display(), dir.display());
-        let executable_path = dir.join(&program);
+        let executable_path = dir.join(program);
         if executable_path.is_file() {
             log::debug!(
                 "Found {} as {}",
@@ -164,7 +164,7 @@ where
                     program.display(),
                     subdirectory.display()
                 );
-                let executable_path = subdirectory.join(&program);
+                let executable_path = subdirectory.join(program);
                 if executable_path.is_file() {
                     log::debug!(
                         "Found {} as {}",

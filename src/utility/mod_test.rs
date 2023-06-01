@@ -33,7 +33,7 @@ fn is_source_directory_src_test() {
     let dir = TempDir::new("example").unwrap();
     let source_dir = dir.path().join("src");
     create_dir(&source_dir).unwrap();
-    assert_eq!(is_source_directory(source_dir), true);
+    assert!(is_source_directory(source_dir));
 }
 
 #[test]
@@ -41,13 +41,13 @@ fn is_source_directory_source_test() {
     let dir = TempDir::new("example").unwrap();
     let source_dir = dir.path().join("source");
     create_dir(&source_dir).unwrap();
-    assert_eq!(is_source_directory(source_dir), true);
+    assert!(is_source_directory(source_dir));
 }
 
 #[test]
 fn is_source_directory_false_test() {
     let source_dir = PathBuf::from("/some/path/without/source/directory");
-    assert_eq!(is_source_directory(source_dir), false);
+    assert!(!is_source_directory(source_dir));
 }
 
 #[test]
@@ -55,13 +55,13 @@ fn is_test_directory_true_test() {
     let dir = TempDir::new("example").unwrap();
     let test_dir = dir.path().join("test");
     create_dir(&test_dir).unwrap();
-    assert_eq!(is_test_directory(test_dir), true);
+    assert!(is_test_directory(test_dir));
 }
 
 #[test]
 fn is_test_directory_false_test() {
     let test_dir = PathBuf::from("/some/path/without/test/directory");
-    assert_eq!(is_test_directory(test_dir), false);
+    assert!(!is_test_directory(test_dir));
 }
 
 #[test]

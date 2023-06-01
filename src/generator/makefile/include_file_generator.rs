@@ -89,13 +89,12 @@ impl<'generator> IncludeFileGenerator<'generator> {
     fn generate_linker_selection(&self) -> String {
         let linker = &self.toolchain.cxx.linker;
 
-        let linker_statement = match linker {
+        match linker {
             Linker::Gold => "LDFLAGS += -fuse-ld=gold".to_string(),
             Linker::Ld => "LDFLAGS += -fuse-ld=ld".to_string(),
             Linker::LLD => "LDFLAGS += -fuse-ld=lld".to_string(),
             _ => "LDFLAGS += ".to_string(),
-        };
-        linker_statement
+        }
     }
 
     fn generate_warnings_mk(&mut self) -> Result<(), GeneratorError> {

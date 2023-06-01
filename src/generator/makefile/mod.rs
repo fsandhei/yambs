@@ -134,7 +134,7 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
         formatted_string.push_str("\\\n");
         match dependency.source {
             build_target::DependencySource::FromSource(ref s) => {
-                formatted_string.push_str(&format!("   {}", s.library.to_string()));
+                formatted_string.push_str(&format!("   {}", s.library));
             }
             build_target::DependencySource::FromPkgConfig(ref pkg) => match pkg.method {
                 ProvideMethod::Finegrained(ref libs) => {
@@ -574,7 +574,7 @@ impl MakefileGenerator {
             makefile_writer
                 .data
                 .push_str(&include_dir.as_include_flag());
-            makefile_writer.data.push_str(" ");
+            makefile_writer.data.push(' ');
         }
 
         for include_dir in &borrowed_target.compiler_flags.system_include_directories {
@@ -585,7 +585,7 @@ impl MakefileGenerator {
             makefile_writer
                 .data
                 .push_str(&include_dir.as_include_flag());
-            makefile_writer.data.push_str(" ");
+            makefile_writer.data.push(' ');
         }
 
         makefile_writer.data.push('\n');
@@ -606,7 +606,7 @@ impl MakefileGenerator {
 
         let defines = if !self.configurations.defines.is_empty() {
             let defines = &self.configurations.defines;
-            generate_defines(&defines)
+            generate_defines(defines)
         } else {
             generate_defines(&borrowed_target.defines)
         };
@@ -627,8 +627,8 @@ impl MakefileGenerator {
                     match pkg_config_target.method {
                         ProvideMethod::PkgConfigOutput(ref ld_flags) => {
                             for search_flag in &ld_flags.capital_l_flags_output {
-                                makefile_writer.data.push_str(&search_flag);
-                                makefile_writer.data.push_str(" ");
+                                makefile_writer.data.push_str(search_flag);
+                                makefile_writer.data.push(' ');
                             }
                         }
                         _ => {}

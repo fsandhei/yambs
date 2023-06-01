@@ -500,8 +500,9 @@ impl TargetType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, Eq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, Eq, Default)]
 pub enum LibraryType {
+    #[default]
     Static,
     Dynamic,
 }
@@ -512,12 +513,6 @@ impl LibraryType {
             &types::LibraryType::Dynamic => LibraryType::Dynamic,
             &types::LibraryType::Static => LibraryType::Static,
         }
-    }
-}
-
-impl Default for LibraryType {
-    fn default() -> Self {
-        LibraryType::Static
     }
 }
 

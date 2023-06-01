@@ -36,7 +36,7 @@ impl PkgConfig {
         let mut search_options = FindProgramOptions::new();
         search_options.with_path_env();
 
-        if let Some(pkg_config) = find_program(&Path::new("pkg-config"), search_options) {
+        if let Some(pkg_config) = find_program(Path::new("pkg-config"), search_options) {
             Ok(Self {
                 path: pkg_config,
                 search_path_env: EnvironmentVariable::new("PKG_CONFIG_PATH"),
@@ -55,7 +55,7 @@ impl PkgConfig {
 
     pub fn add_search_path(&mut self, path: &Path) {
         self.search_path_env
-            .set(&path.as_os_str(), ModifyMode::Append);
+            .set(path.as_os_str(), ModifyMode::Append);
     }
 
     pub fn find_target(&self, target: &str) -> Result<PkgConfigTarget, PkgConfigError> {
@@ -72,7 +72,7 @@ impl PkgConfig {
                 .collect::<Vec<&str>>();
             let mut include_directories = IncludeDirectories::new();
             for dir_str in include_directories_str {
-                let include_directory = IncludeDirectory::from_str(&dir_str);
+                let include_directory = IncludeDirectory::from_str(dir_str);
                 if let Some(include_directory) = include_directory {
                     include_directories.add(include_directory);
                 }
@@ -110,7 +110,7 @@ impl PkgConfig {
             let alternative_lib_name = &format!("{}d", lib_name);
             for search_path in &search_paths {
                 if let Some(lib) =
-                    PkgConfigLibrary::find(&lib_name, Some(alternative_lib_name), &search_path)
+                    PkgConfigLibrary::find(&lib_name, Some(alternative_lib_name), search_path)
                 {
                     log::info!("Found library {} with pkg-config", lib.path().display());
                     library_paths.push(lib);
@@ -192,7 +192,7 @@ impl PkgConfigLibrary {
         search_options.search_directory(dir);
         search_options.look_in_subdirectories(true);
         for lib_name in &possible_lib_names {
-            match find_program(&Path::new(lib_name), search_options.clone()) {
+            match find_program(Path::new(lib_name), search_options.clone()) {
                 Some(found_lib) => {
                     let ty = match found_lib.extension().and_then(|e| e.to_str()) {
                         Some(STATIC_LIBRARY_FILE_EXTENSION) => LibraryType::Static,

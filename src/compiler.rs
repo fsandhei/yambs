@@ -210,7 +210,7 @@ impl Type {
             Regex::new(r"GCC|gcc|g\+\+").expect("Could not compile regular expression");
         let clang_pattern = Regex::new(r"clang").expect("Could not compile regular expression");
         if gcc_pattern.is_match(&version_output_raw) {
-            return Ok(Type::Gcc);
+            Ok(Type::Gcc)
         } else if clang_pattern.is_match(&version_output_raw) {
             return Ok(Type::Clang);
         } else {

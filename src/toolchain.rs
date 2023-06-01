@@ -34,7 +34,7 @@ impl Archiver {
                 log::debug!("Did not find archiver in $AR. Will try to find 'ar' in common installation places.");
                 let mut search_options = FindProgramOptions::new();
                 search_options.with_path_env();
-                if let Some(archiver) = find_program(&Path::new("ar"), search_options) {
+                if let Some(archiver) = find_program(Path::new("ar"), search_options) {
                     Ok(archiver)
                 } else {
                     return Err(ArchiverError::NoArchiverFound);
@@ -86,7 +86,7 @@ impl ToolchainCXX {
             Linker::default()
         };
         Ok(Self {
-            compiler: CXXCompiler::from_toolchain_cxx_data(&toolchain_cxx_data)
+            compiler: CXXCompiler::from_toolchain_cxx_data(toolchain_cxx_data)
                 .map_err(ToolchainError::CouldNotGetCompiler)?,
             linker,
         })
@@ -115,7 +115,7 @@ impl Toolchain {
             toml::from_str(&toolchain_file_content)
                 .map_err(ToolchainError::FailedToParseToolchainFile)
         } else {
-            return Err(ToolchainError::CouldNotGetFilename);
+            Err(ToolchainError::CouldNotGetFilename)
         }
     }
 

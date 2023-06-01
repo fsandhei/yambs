@@ -11,16 +11,11 @@ pub enum ConfigurationError {
     InvalidSanitizerOption(String),
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Default)]
 pub enum BuildType {
+    #[default]
     Debug,
     Release,
-}
-
-impl std::default::Default for BuildType {
-    fn default() -> Self {
-        BuildType::Debug
-    }
 }
 
 impl std::str::FromStr for BuildType {
@@ -43,12 +38,13 @@ impl std::string::ToString for BuildType {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize, Default)]
 pub enum CXXStandard {
     CXX98,
     CXX03,
     CXX11,
     CXX14,
+    #[default]
     CXX17,
     CXX20,
 }
@@ -65,12 +61,6 @@ impl CXXStandard {
             _ => Err(ConfigurationError::InvalidCXXStandard(standard.to_string())),
         };
         converted_standard
-    }
-}
-
-impl std::default::Default for CXXStandard {
-    fn default() -> Self {
-        CXXStandard::CXX17
     }
 }
 

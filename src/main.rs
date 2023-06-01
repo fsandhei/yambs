@@ -129,7 +129,7 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
 
-    initialize_preset_variables(&opts)?;
+    initialize_preset_variables(opts)?;
     log::trace!("do_build");
 
     let mut dependency_registry = TargetRegistry::new();
@@ -197,7 +197,7 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     evaluate_compiler(&toolchain, opts)?;
 
-    let mut generator = generator_from_build_opts(&opts, &toolchain)?;
+    let mut generator = generator_from_build_opts(opts, &toolchain)?;
     parse_and_register_dependencies(
         &manifest,
         output,
@@ -207,9 +207,9 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     )
     .with_context(|| "An error occured when registering project dependencies")?;
 
-    let buildfile_directory = generate_build_files(&mut generator, &dependency_registry, &opts)?;
+    let buildfile_directory = generate_build_files(&mut generator, &dependency_registry, opts)?;
 
-    build_project(&buildfile_directory, output, &opts, &logger)?;
+    build_project(&buildfile_directory, output, opts, &logger)?;
     Ok(())
 }
 
@@ -316,8 +316,8 @@ fn build_project(
 
     let make_thread = std::thread::spawn(move || {
         let mut build_process = run_make(&make_args, &owned_buildfile_directory).unwrap();
-        let exit_status = build_process.wait_and_log(&output_clone);
-        exit_status
+
+        build_process.wait_and_log(&output_clone)
     });
 
     let mut progress = progress::Progress::new(&progress_path, target)?;

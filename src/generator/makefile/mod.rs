@@ -40,7 +40,7 @@ impl ExecutableTargetFactory {
         format!("\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $({target_name_capitalized}_LDFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ -o $@)",
+                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
                     target_name = target_name,
                     target_name_capitalized = target_name.to_uppercase(),
                     prerequisites = generate_prerequisites(target, output_directory),
@@ -68,7 +68,7 @@ impl LibraryTargetFactory {
                 "\
                 {target_name} : \
                     {prerequisites}\n\
-                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $({target_name_capitalized}_LDFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ -o $@)\n\n",
+                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
                     target_name = library_name,
                     target_name_capitalized = target.borrow().name().to_uppercase(),
                     prerequisites = generate_prerequisites(target, output_directory),
@@ -145,14 +145,7 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
                         }
                     }
                 }
-                ProvideMethod::PkgConfigOutput(ref pkg_config_ld) => {
-                    for (i, l_flag) in pkg_config_ld.l_flags_output.iter().enumerate() {
-                        formatted_string.push_str(&format!("   {}", l_flag));
-                        if i != pkg_config_ld.l_flags_output.len() - 1 {
-                            formatted_string.push_str("\\\n");
-                        }
-                    }
-                }
+                _ => {}
             },
             _ => {}
         }
@@ -626,10 +619,11 @@ impl MakefileGenerator {
                 DependencySource::FromPkgConfig(ref pkg_config_target) => {
                     match pkg_config_target.method {
                         ProvideMethod::PkgConfigOutput(ref ld_flags) => {
-                            for search_flag in &ld_flags.capital_l_flags_output {
-                                makefile_writer.data.push_str(search_flag);
-                                makefile_writer.data.push(' ');
-                            }
+                            let search_flags = ld_flags.capital_l_flags_output.join(" ");
+                            makefile_writer.data.push_str(&search_flags);
+                            let libs = ld_flags.l_flags_output.join(" ");
+                            makefile_writer.data.push(' ');
+                            makefile_writer.data.push_str(&libs);
                         }
                         _ => {}
                     }

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::flags::CompilerFlags;
 use crate::parser::types;
-use crate::parser::types::{PkgConfigData, PkgConfigSearchDir};
+use crate::parser::types::PkgConfigData;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(untagged)]
@@ -145,33 +145,14 @@ impl Dependency {
         pkgconfig_data: &types::PkgConfigData,
         manifest_dir: &Path,
     ) -> Result<Self, DependencyError> {
-        let debug_search_dir = crate::canonicalize_source(
-            manifest_dir,
-            &pkgconfig_data.debug.search_dir,
-        )
-        .map_err(|err| {
-            DependencyError::FailedToCanonicalizePath(pkgconfig_data.debug.search_dir.clone(), err)
-        })?;
-        let release_search_dir =
-            crate::canonicalize_source(manifest_dir, &pkgconfig_data.release.search_dir).map_err(
-                |err| {
-                    DependencyError::FailedToCanonicalizePath(
-                        pkgconfig_data.release.search_dir.clone(),
-                        err,
-                    )
-                },
-            )?;
+        let search_dir = crate::canonicalize_source(manifest_dir, &pkgconfig_data.search_dir)
+            .map_err(|err| {
+                DependencyError::FailedToCanonicalizePath(pkgconfig_data.search_dir.clone(), err)
+            })?;
 
         Ok(Self {
             name: name.to_string(),
-            data: types::DependencyData::PkgConfig(PkgConfigData {
-                debug: PkgConfigSearchDir {
-                    search_dir: debug_search_dir,
-                },
-                release: PkgConfigSearchDir {
-                    search_dir: release_search_dir,
-                },
-            }),
+            data: types::DependencyData::PkgConfig(PkgConfigData { search_dir }),
         })
     }
 }

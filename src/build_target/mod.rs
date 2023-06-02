@@ -331,14 +331,7 @@ impl BuildTarget {
                 types::DependencyData::PkgConfig(ref pkg_config_data) => {
                     let mut toolchain_lock = toolchain.borrow_mut();
                     if let Some(ref mut pkg_config) = toolchain_lock.pkg_config {
-                        match build_type {
-                            BuildType::Debug => {
-                                pkg_config.add_search_path(&pkg_config_data.debug.search_dir);
-                            }
-                            BuildType::Release => {
-                                pkg_config.add_search_path(&pkg_config_data.release.search_dir);
-                            }
-                        }
+                        pkg_config.add_search_path(&pkg_config_data.search_dir);
                         match pkg_config.find_target(&dependency.name) {
                             Ok(pkg_config_target) => {
                                 let pkg_config_dep =

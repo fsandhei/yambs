@@ -619,9 +619,9 @@ impl MakefileGenerator {
                 DependencySource::FromPkgConfig(ref pkg_config_target) => {
                     match pkg_config_target.method {
                         ProvideMethod::PkgConfigOutput(ref ld_flags) => {
-                            let search_flags = ld_flags.capital_l_flags_output.join(" ");
+                            let search_flags = ld_flags.link_dirs.join(" ");
                             makefile_writer.data.push_str(&search_flags);
-                            let libs = ld_flags.l_flags_output.join(" ");
+                            let libs = ld_flags.link_libs.join(" ");
                             makefile_writer.data.push(' ');
                             makefile_writer.data.push_str(&libs);
                         }

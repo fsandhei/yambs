@@ -90,17 +90,17 @@ impl PkgConfig {
 
     fn determine_provide_method(&self, target: &str) -> Result<ProvideMethod, PkgConfigError> {
         let libs_only_l = self.run(&[target, "--libs-only-l"])?;
-        let split_libs_only_l = libs_only_l.split_whitespace().collect::<Vec<&str>>();
-        let library_names = split_libs_only_l
+        let link_libs = libs_only_l.split_whitespace().collect::<Vec<&str>>();
+        let library_names = link_libs
             .iter()
             .map(|s| s.replace("-l", ""))
             .collect::<Vec<String>>();
 
         let libs_only_capital_l = self.run(&[target, "--libs-only-L"])?;
-        let split_libs_only_capital_l = libs_only_capital_l
+        let link_dirs = libs_only_capital_l
             .split_whitespace()
             .collect::<Vec<&str>>();
-        let search_paths = split_libs_only_capital_l
+        let search_paths = link_dirs
             .iter()
             .map(|s| PathBuf::from(s.replace("-L", "")))
             .collect::<Vec<PathBuf>>();
@@ -121,11 +121,11 @@ impl PkgConfig {
                         search_path.display()
                     );
                     return Ok(ProvideMethod::PkgConfigOutput(PkgConfigLDFlags {
-                        l_flags_output: split_libs_only_l
+                        link_libs: link_libs
                             .iter()
                             .map(|s| s.to_string())
                             .collect::<Vec<String>>(),
-                        capital_l_flags_output: split_libs_only_capital_l
+                        link_dirs: link_dirs
                             .iter()
                             .map(|s| s.to_string())
                             .collect::<Vec<String>>(),
@@ -171,8 +171,8 @@ pub enum ProvideMethod {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PkgConfigLDFlags {
-    pub l_flags_output: Vec<String>,
-    pub capital_l_flags_output: Vec<String>,
+    pub link_libs: Vec<String>,
+    pub link_dirs: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

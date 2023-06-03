@@ -21,6 +21,7 @@ use yambs::manifest;
 use yambs::output;
 use yambs::output::Output;
 use yambs::parser;
+use yambs::parser::types::Standard;
 use yambs::progress;
 use yambs::toolchain::{NormalizedToolchain, TOOLCHAIN_FILE_NAME};
 use yambs::YAMBS_MANIFEST_NAME;
@@ -146,6 +147,20 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
         log::info!("Using standard {} found in manifest", standard.to_string());
         opts.configuration.standard = Some(standard);
     }
+    // if let Some(standard) = manifest
+    //     .data
+    //     .project_configuration
+    //     .as_ref()
+    //     .and_then(|pc| pc.std.clone())
+    // {
+    // log::info!("Using standard {} found in manifest", standard.to_string());
+    // opts.configuration.standard = Some(standard);
+    // }
+
+    // if let Some(language) = manifest.data.project_configuration.as_ref().and_then(|pc| pc.language.clone()) {
+    // log::info!("Using language \"{}\" found in manifest", language.to_string());
+    // opts.configuration.language = Some(language);
+    // }
 
     let toolchain = {
         match detect_toolchain_file(

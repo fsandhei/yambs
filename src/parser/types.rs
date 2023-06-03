@@ -1,4 +1,6 @@
+use std::fmt;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -22,11 +24,40 @@ pub struct ProjectConfiguration {
     pub language: Option<Language>,
 }
 
-#[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Language {
     #[serde(rename = "C++")]
     CXX,
     C,
+}
+
+impl fmt::Display for Language {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CXX => write!(f, "C++"),
+            Self::C => write!(f, "C"),
+        }
+    }
+}
+
+impl FromStr for Language {
+    type Err = ParseLanguageError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "C++" => Ok(Self::CXX),
+            "C" => Ok(Self::C),
+            _ => Err(Self::Err::InvalidLanguage(s.to_string())),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ParseLanguageError {
+    #[error(
+        "Language input is not valid: {0}.
+    Either pick C or C++"
+    )]
+    InvalidLanguage(String),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
@@ -37,7 +68,7 @@ pub enum Standard {
 }
 
 impl Standard {
-    pub fn new(standard: &str, language: Language) -> Result<Self, ParseStandardError> {
+    pub fn new(standard: &str, language: &Language) -> Result<Self, ParseStandardError> {
         match language {
             Language::CXX => Ok(Self::CXX(CXXStandard::parse(standard)?)),
             Language::C => Ok(Self::C(CStandard::parse(standard)?)),

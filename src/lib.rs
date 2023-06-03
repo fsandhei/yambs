@@ -15,6 +15,7 @@ pub mod progress;
 pub mod targets;
 pub mod toolchain;
 pub mod utility;
+// use parser::types::{Standard, Language};
 
 use std::path::{Path, PathBuf};
 
@@ -28,6 +29,14 @@ pub const YAMBS_MANIFEST_NAME: &str = "yambs.toml";
 pub static YAMBS_BUILD_DIR_VAR: OnceCell<BuildDirectory> = OnceCell::new();
 pub static YAMBS_MANIFEST_DIR: OnceCell<ManifestDirectory> = OnceCell::new();
 pub static YAMBS_BUILD_TYPE: OnceCell<BuildType> = OnceCell::new();
+
+// pub struct ProjectConfig {
+//     pub std: Option<Standard>,
+//     pub language: Option<Language>,
+//     pub build_type: configurations::BuildType,
+//     pub generator_type: GeneratorType,
+//     pub defines: Vec<Define>,
+// }
 
 pub enum ModifyMode {
     Set,

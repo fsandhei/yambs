@@ -4,7 +4,7 @@ use crate::cli;
 use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
 use crate::generator::GeneratorType;
-use crate::parser::types::{Define, Language, Standard};
+use crate::parser::types::{Define, Standard};
 
 // TODO: Need to add tests for C++ validation
 // TODO: Add default values that correctly correspond for 'configuration' when not all options are
@@ -105,8 +105,6 @@ pub struct ConfigurationOpts {
     /// Macro definitions to be passed to the compiler upon build
     #[arg(short = 'D', value_parser = Define::from_cli)]
     pub defines: Vec<Define>,
-    #[arg(long)]
-    pub language: Option<Language>,
 }
 
 #[derive(clap::Args, Debug)]

@@ -21,9 +21,9 @@ use yambs::manifest;
 use yambs::output;
 use yambs::output::Output;
 use yambs::parser;
-use yambs::parser::types::Standard;
 use yambs::progress;
 use yambs::toolchain::{NormalizedToolchain, TOOLCHAIN_FILE_NAME};
+use yambs::ProjectConfig;
 use yambs::YAMBS_MANIFEST_NAME;
 use yambs::{YAMBS_BUILD_DIR_VAR, YAMBS_BUILD_TYPE, YAMBS_MANIFEST_DIR};
 
@@ -111,22 +111,21 @@ fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path
     Ok(manifest_file)
 }
 
-pub fn generator_from_build_opts(
-    opts: &BuildOpts,
+pub fn construct_generator(
+    project_config: &ProjectConfig,
     toolchain: &Rc<RefCell<NormalizedToolchain>>,
 ) -> anyhow::Result<Box<dyn Generator>> {
-    let generator_type = &opts.configuration.generator_type;
+    let generator_type = &project_config.generator_type;
     log::info!("Using {:?} as generator.", generator_type);
     match generator_type {
         GeneratorType::GNUMakefiles => Ok(Box::new(MakefileGenerator::new(
-            &opts.configuration,
-            &opts.build_directory,
+            &project_config,
             toolchain.clone(),
         )?) as Box<dyn Generator>),
     }
 }
 
-fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
+fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
 
@@ -157,10 +156,25 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     // opts.configuration.standard = Some(standard);
     // }
 
-    // if let Some(language) = manifest.data.project_configuration.as_ref().and_then(|pc| pc.language.clone()) {
-    // log::info!("Using language \"{}\" found in manifest", language.to_string());
-    // opts.configuration.language = Some(language);
-    // }
+    let language = if let Some(language) = manifest
+        .data
+        .project_configuration
+        .as_ref()
+        .map(|pc| pc.language.clone())
+    {
+        language
+    } else {
+        None
+    };
+
+    let project_config = ProjectConfig {
+        std,
+        language,
+        build_directory: opts.build_directory.clone(),
+        build_type: opts.configuration.build_type.clone(),
+        generator_type: opts.configuration.generator_type.clone(),
+        defines: opts.configuration.defines.clone(),
+    };
 
     let toolchain = {
         match detect_toolchain_file(
@@ -213,7 +227,7 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     evaluate_compiler(&toolchain, opts)?;
 
-    let mut generator = generator_from_build_opts(opts, &toolchain)?;
+    let mut generator = construct_generator(&project_config, &toolchain)?;
     parse_and_register_dependencies(
         &manifest,
         output,

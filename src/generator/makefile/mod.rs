@@ -16,7 +16,6 @@ use crate::build_target::{
     target_registry::TargetRegistry,
     Dependency, DependencySource, LibraryType, TargetNode, TargetState, TargetType,
 };
-use crate::cli::command_line;
 use crate::cli::configurations;
 use crate::cli::BuildDirectory;
 use crate::errors::FsError;
@@ -29,6 +28,7 @@ use crate::parser::types;
 use crate::progress;
 use crate::toolchain::NormalizedToolchain;
 use crate::utility;
+use crate::ProjectConfig;
 
 use include_file_generator::IncludeFileGenerator;
 pub use make::Make;
@@ -228,7 +228,7 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
 
 pub struct MakefileGenerator {
     pub toolchain: Rc<RefCell<NormalizedToolchain>>,
-    pub configurations: command_line::ConfigurationOpts,
+    pub project_config: ProjectConfig,
     pub build_directory: BuildDirectory,
     pub output_directory: std::path::PathBuf,
     pub progress_document: ProgressDocument,
@@ -236,13 +236,13 @@ pub struct MakefileGenerator {
 
 impl MakefileGenerator {
     pub fn new(
-        configurations: &command_line::ConfigurationOpts,
-        build_directory: &BuildDirectory,
+        project_config: &ProjectConfig,
         toolchain: Rc<RefCell<NormalizedToolchain>>,
     ) -> Result<Self, GeneratorError> {
+        let build_directory = project_config.build_directory.clone();
         utility::create_dir(build_directory.as_path())?;
         Ok(Self {
-            configurations: configurations.to_owned(),
+            project_config: project_config.clone(),
             build_directory: build_directory.clone(),
             output_directory: build_directory.as_path().to_path_buf(),
             progress_document: ProgressDocument::new(),
@@ -392,7 +392,7 @@ impl MakefileGenerator {
     }
 
     fn build_configurations_file(&self) -> &str {
-        if self.configurations.build_type == configurations::BuildType::Debug {
+        if self.project_config.build_type == configurations::BuildType::Debug {
             "debug.mk"
         } else {
             "release.mk"
@@ -482,7 +482,7 @@ impl MakefileGenerator {
         let mut include_file_generator =
             IncludeFileGenerator::new(&include_output_directory, &toolchain);
 
-        let standard = match &self.configurations.standard {
+        let standard = match &self.project_config.std {
             Some(std) => std.to_string(),
             None => return Err(GeneratorError::StandardNotFound),
         };
@@ -608,8 +608,8 @@ impl MakefileGenerator {
             ));
         }
 
-        let defines = if !self.configurations.defines.is_empty() {
-            let defines = &self.configurations.defines;
+        let defines = if !self.project_config.defines.is_empty() {
+            let defines = &self.project_config.defines;
             generate_defines(defines)
         } else {
             generate_defines(&borrowed_target.defines)
@@ -656,7 +656,7 @@ impl Generator for MakefileGenerator {
     ) -> Result<std::path::PathBuf, GeneratorError> {
         self.generate_include_files()?;
         self.push_and_create_directory(&std::path::PathBuf::from(
-            &self.configurations.build_type.to_string(),
+            &self.project_config.build_type.to_string(),
         ))?;
         let mut writers = Writers {
             makefile_writer: Writer::new(&self.output_directory.join("Makefile"))?,

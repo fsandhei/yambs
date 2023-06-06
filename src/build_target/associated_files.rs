@@ -29,6 +29,12 @@ impl SourceFiles {
     }
 }
 
+impl std::convert::From<Vec<SourceFile>> for SourceFiles {
+    fn from(value: Vec<SourceFile>) -> Self {
+        Self(value)
+    }
+}
+
 impl std::iter::IntoIterator for SourceFiles {
     type Item = <std::vec::Vec<SourceFile> as IntoIterator>::Item;
     type IntoIter = <std::vec::Vec<SourceFile> as IntoIterator>::IntoIter;

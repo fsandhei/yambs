@@ -10,6 +10,7 @@ pub mod make;
 use crate::build_target;
 use crate::build_target::include_directories;
 use crate::build_target::{
+    associated_files::SourceFile,
     include_directories::{IncludeDirectory, IncludeType},
     pkg_config::ProvideMethod,
     target_registry::TargetRegistry,
@@ -38,7 +39,7 @@ impl ExecutableTargetFactory {
     pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
         let target_name = target.borrow().name();
         format!("\
-                {target_name} : \
+                {target_name} : \\\n\
                     {prerequisites}\n\
                     \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
                     target_name = target_name,
@@ -58,7 +59,7 @@ impl LibraryTargetFactory {
         let target_rule = match target.borrow().library_type().unwrap() {
             LibraryType::Static => format!(
                 "\
-                {target_name} : \
+                {target_name} : \\\n\
                     {prerequisites}\n\
                     \t$(strip $(AR) $(ARFLAGS) $@ $?)\n\n",
                 target_name = library_name,
@@ -66,7 +67,7 @@ impl LibraryTargetFactory {
             ),
             LibraryType::Dynamic => format!(
                 "\
-                {target_name} : \
+                {target_name} : \\\n\
                     {prerequisites}\n\
                     \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
                     target_name = library_name,
@@ -114,10 +115,11 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
     let sources = borrowed_target
         .source_files
         .iter()
-        .filter(|file| file.is_source());
+        .filter(|file| file.is_source())
+        .collect::<Vec<&SourceFile>>();
     let dependency_root_path = &borrowed_target.manifest.directory;
 
-    for source in sources {
+    for (i, source) in sources.iter().enumerate() {
         let source_file = source.file();
         let source_dir = source_file
             .parent()
@@ -127,26 +129,32 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
             .join(source_dir)
             .join(source_file.file_name().unwrap())
             .with_extension("o");
-        formatted_string.push_str("\\\n");
+
         formatted_string.push_str(&format!("   {}", object.display()));
+        if i != (sources.len() - 1) {
+            formatted_string.push_str("\\\n");
+        }
     }
     for dependency in &borrowed_target.dependencies {
-        formatted_string.push_str("\\\n");
         match dependency.source {
             build_target::DependencySource::FromSource(ref s) => {
+                formatted_string.push_str("\\\n");
                 formatted_string.push_str(&format!("   {}", s.library));
             }
-            build_target::DependencySource::FromPkgConfig(ref pkg) => match pkg.method {
-                ProvideMethod::Finegrained(ref libs) => {
-                    for (i, lib) in libs.iter().enumerate() {
-                        formatted_string.push_str(&format!("   {}", lib.path().display()));
-                        if i != libs.len() - 1 {
-                            formatted_string.push_str("\\\n");
+            build_target::DependencySource::FromPkgConfig(ref pkg) => {
+                formatted_string.push_str("\\\n");
+                match pkg.method {
+                    ProvideMethod::Finegrained(ref libs) => {
+                        for (i, lib) in libs.iter().enumerate() {
+                            formatted_string.push_str(&format!("   {}", lib.path().display()));
+                            if i != libs.len() - 1 {
+                                formatted_string.push_str("\\\n");
+                            }
                         }
                     }
-                }
-                _ => {}
-            },
+                    _ => {}
+                };
+            }
             _ => {}
         }
     }

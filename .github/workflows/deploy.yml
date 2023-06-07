@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      rust_version:
+        description: 'Rust toolchain version'
+        default: '1.69'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    name: Create release
+    runs-on: ubuntu-22.04
+    env:
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust toolchain
+        run: |
+          set -eux
+          apt update
+          apt install curl
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o rustup.sh
+          sh ./rustup.sh -y
+          rustup default ${{ inputs.rust_version }}
+      - name: Build
+        run: cargo build --release --verbose
+      - name: Run tests
+        run: cargo test --release --verbose
+      - name: Create tarball
+        run: |
+          set -eux
+          tarball="yambs_${YAMBS_VERSION}_x86_64_linux.tar.gz"
+          tar -czf "$tarball" ./target/release/yambs
+          echo "YAMBS_TARBALL=$tarball" >> $GITHUB_ENV
+        env:
+          YAMBS_VERSION: ${{ env.YAMBS_VERSION }}
+      - name: Get release version
+        run: |
+          set -eux
+          # Get version from Cargo.
+          version="$(grep -E "version = \"[0-9]+.[0-9]+.[0-9]+\"" Cargo.toml | cut -d "=" -f 2 | sed 's/\"//g')"
+          # Output it as an environment variable that can be consumed by release-action
+          echo "YAMBS_VERSION=$version" >> $GITHUB_ENV
+          echo "Version of yambs: ${{ env.YAMBS_VERSION }}"
+      - name: Create GitHub release
+        id: release
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          files: ${{ env.YAMBS_TARBALL }}
+          tag: ${{ env.YAMBS_VERSION }}
+      
+      

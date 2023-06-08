@@ -41,7 +41,7 @@ jobs:
         run: |
           set -eux
           tarball="yambs_${RELEASE_VERSION}_${RUST_TOOLCHAIN_LINUX}.tar.gz"
-          tar -czf "$tarball" ./target/release/yambs
+          tar -czf "$tarball" -C ./target/release yambs
           echo "YAMBS_TARBALL=$tarball" >> "$GITHUB_ENV"
         env:
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}

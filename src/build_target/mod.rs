@@ -320,7 +320,7 @@ impl BuildTarget {
                         name: dependency.name.to_string(),
                         include_directory: IncludeDirectory {
                             path: header_only_data.include_directory.clone(),
-                            include_type: IncludeType::Include,
+                            include_type: IncludeType::System,
                         },
                     };
                     let header_only = DependencySource::FromHeaderOnly(header_only);

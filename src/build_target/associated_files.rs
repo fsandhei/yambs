@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 pub struct SourceFiles(std::vec::Vec<SourceFile>);
@@ -53,12 +55,14 @@ impl<'a> std::iter::IntoIterator for &'a SourceFiles {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum AssociatedFileError {
-    #[error("Could not specify file type")]
-    CouldNotSpecifyFileType,
+    #[error("Could not specify file type: {0}")]
+    CouldNotSpecifyFileType(String),
     #[error("Source file {0:?} does not exist")]
     FileNotExisting(std::path::PathBuf),
+    #[error("Source file {0} has no extension")]
+    NoFileExtension(PathBuf),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash, serde::Serialize, serde::Deserialize)]
@@ -73,9 +77,14 @@ impl SourceFile {
             return Err(AssociatedFileError::FileNotExisting(file.to_path_buf()));
         }
         let file_type = match file.extension().and_then(|extension| extension.to_str()) {
-            Some("cpp") | Some("cc") => FileType::Source,
+            Some("cpp") | Some("cc") | Some("c") => FileType::Source,
             Some("h") | Some("hpp") => FileType::Header,
-            Some(_) | None => return Err(AssociatedFileError::CouldNotSpecifyFileType),
+            Some(ft) => {
+                return Err(AssociatedFileError::CouldNotSpecifyFileType(ft.to_string()));
+            }
+            None => {
+                return Err(AssociatedFileError::NoFileExtension(file.to_path_buf()));
+            }
         };
         log::debug!("Found source file {}", file.display());
 
@@ -140,9 +149,9 @@ mod tests {
         let file = tempdir.path().join("file.py");
         std::fs::File::create(&file).unwrap();
         let actual = SourceFile::new(&file);
-        assert!(matches!(
+        assert_eq!(
             actual.unwrap_err(),
-            AssociatedFileError::CouldNotSpecifyFileType
-        ));
+            AssociatedFileError::CouldNotSpecifyFileType(String::from("py"))
+        );
     }
 }

@@ -10,6 +10,7 @@ use std::io::BufRead;
 use std::path::Path;
 use yambs::toolchain::ToolchainError;
 
+use parser::types::Language;
 use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
 use yambs::cli::configurations::BuildType;
@@ -160,11 +161,11 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
         .data
         .project_configuration
         .as_ref()
-        .map(|pc| pc.language.clone())
+        .and_then(|pc| pc.language.clone())
     {
         language
     } else {
-        None
+        Language::CXX
     };
 
     let project_config = ProjectConfig {

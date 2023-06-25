@@ -69,15 +69,6 @@ impl std::string::ToString for Sanitizer {
     }
 }
 
-// fn parse_sanitizer_options(sanitizer_options: &[&Configuration]) -> Result<(), CommandLineError> {
-//     if sanitizer_options.contains(&&Configuration::Sanitizer("address".to_string()))
-//         && sanitizer_options.contains(&&Configuration::Sanitizer("thread".to_string()))
-//     {
-//         return Err(CommandLineError::IllegalSanitizerCombination);
-//     }
-//     Ok(())
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,41 +94,5 @@ mod tests {
             build_configuration.unwrap_err(),
             ConfigurationError::InvalidBuildType("relwithdebinfo".to_string())
         );
-    }
-
-    #[test]
-    fn cxxstandard_parse_cpp98_test() {
-        let cpp_version = CXXStandard::parse("c++98").unwrap();
-        assert_eq!(cpp_version, CXXStandard::CXX98);
-    }
-
-    #[test]
-    fn cxxstandard_parse_cpp11_test() {
-        let cpp_version = CXXStandard::parse("c++11").unwrap();
-        assert_eq!(cpp_version, CXXStandard::CXX11);
-    }
-
-    #[test]
-    fn cxxstandard_parse_cpp14_test() {
-        let cpp_version = CXXStandard::parse("c++14").unwrap();
-        assert_eq!(cpp_version, CXXStandard::CXX14);
-    }
-
-    #[test]
-    fn cxxstandard_parse_cpp17_test() {
-        let cpp_version = CXXStandard::parse("c++17").unwrap();
-        assert_eq!(cpp_version, CXXStandard::CXX17);
-    }
-
-    #[test]
-    fn cxxstandard_parse_cpp20_test() {
-        let cpp_version = CXXStandard::parse("c++20").unwrap();
-        assert_eq!(cpp_version, CXXStandard::CXX20);
-    }
-
-    #[test]
-    fn parse_fails_on_invalid_version() {
-        let result = CXXStandard::parse("python");
-        assert!(result.is_err());
     }
 }

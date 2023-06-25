@@ -3,26 +3,55 @@ use crate::manifest;
 pub mod preprocessor;
 pub mod types;
 
-use preprocessor::{Preprocessor, PreprocessorError};
+use crate::YAMBS_BUILD_DIR_VAR;
+use crate::YAMBS_BUILD_TYPE;
+use crate::YAMBS_MANIFEST_DIR;
+use preprocessor::{Preprocessor, PreprocessorError, Variable};
 
 // FIXME: Write tests!
 pub fn parse(manifest_path: &std::path::Path) -> Result<manifest::ParsedManifest, ParseTomlError> {
-    let toml_content =
-        String::from_utf8(std::fs::read(manifest_path).map_err(ParseTomlError::FailedToRead)?)
-            .map_err(ParseTomlError::FailedToConvertUtf8)?;
-    let preprocessor = Preprocessor::parse(&toml_content).map_err(ParseTomlError::Preprocessor)?;
-    let metadata =
-        std::fs::metadata(manifest_path).expect("Could not fetch metadata from yambs.json");
-    let manifest_directory = manifest_path.parent().unwrap();
-    Ok(manifest::ParsedManifest {
-        manifest: manifest::Manifest {
-            directory: manifest_directory.to_path_buf(),
-            modification_time: metadata
-                .modified()
-                .expect("Could not fetch last modified time of manifest"),
-        },
-        data: parse_toml(&preprocessor.manifest_content, manifest_directory)?,
-    })
+    unsafe {
+        let toml_content =
+            String::from_utf8(std::fs::read(manifest_path).map_err(ParseTomlError::FailedToRead)?)
+                .map_err(ParseTomlError::FailedToConvertUtf8)?;
+        let mut preprocessor = Preprocessor::new()
+            .with_var(Variable {
+                key: "YAMBS_BUILD_DIR".to_string(),
+                value: YAMBS_BUILD_DIR_VAR
+                    .get_unchecked()
+                    .as_path()
+                    .display()
+                    .to_string(),
+            })
+            .with_var(Variable {
+                key: "YAMBS_MANIFEST_DIR".to_string(),
+                value: YAMBS_MANIFEST_DIR
+                    .get_unchecked()
+                    .as_path()
+                    .display()
+                    .to_string(),
+            })
+            .with_var(Variable {
+                key: "YAMBS_BUILD_TYPE".to_string(),
+                value: YAMBS_BUILD_TYPE.get_unchecked().to_string(),
+            });
+
+        let manifest_parsed = preprocessor
+            .parse(&toml_content)
+            .map_err(ParseTomlError::Preprocessor)?;
+        let metadata =
+            std::fs::metadata(manifest_path).expect("Could not fetch metadata from yambs.json");
+        let manifest_directory = manifest_path.parent().unwrap();
+        Ok(manifest::ParsedManifest {
+            manifest: manifest::Manifest {
+                directory: manifest_directory.to_path_buf(),
+                modification_time: metadata
+                    .modified()
+                    .expect("Could not fetch last modified time of manifest"),
+            },
+            data: parse_toml(&manifest_parsed, manifest_directory)?,
+        })
+    }
 }
 
 fn parse_toml(

@@ -143,6 +143,10 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
         .as_ref()
         .and_then(|pc| pc.cxx_std.clone())
     {
+        log::info!(
+            "Using C++ standard defined in manifest: {}",
+            cxx_standard.to_string()
+        );
         opts.configuration.cxx_standard = cxx_standard;
     }
 

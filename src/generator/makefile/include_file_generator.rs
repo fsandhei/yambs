@@ -273,6 +273,7 @@ impl<'generator> UtilityGenerator<'generator> for IncludeFileGenerator<'generato
                 "c++14" => "-std=c++14",
                 "c++17" => "-std=c++17",
                 "c++20" => "-std=c++20",
+                "c++23" => "-std=c++23",
                 _ => "-std=c++20",
             }
         } else {

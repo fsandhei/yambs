@@ -47,6 +47,7 @@ pub enum CXXStandard {
     #[default]
     CXX17,
     CXX20,
+    CXX23,
 }
 
 impl CXXStandard {
@@ -58,6 +59,7 @@ impl CXXStandard {
             "c++14" => Ok(CXXStandard::CXX14),
             "c++17" => Ok(CXXStandard::CXX17),
             "c++20" => Ok(CXXStandard::CXX20),
+            "c++23" => Ok(CXXStandard::CXX23),
             _ => Err(ConfigurationError::InvalidCXXStandard(standard.to_string())),
         };
         converted_standard
@@ -73,6 +75,7 @@ impl std::string::ToString for CXXStandard {
             CXXStandard::CXX14 => "c++14".to_string(),
             CXXStandard::CXX17 => "c++17".to_string(),
             CXXStandard::CXX20 => "c++20".to_string(),
+            CXXStandard::CXX23 => "c++23".to_string(),
         }
     }
 }

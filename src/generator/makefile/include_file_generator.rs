@@ -78,7 +78,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
         warning_flags
     }
 
-    fn select_stdlib_impl(&self) -> String {
+    fn select_cxx_stdlib_impl(&self) -> String {
         let stdlib = &self.toolchain.cxx.compiler.stdlib;
         match stdlib {
             StdLibCXX::LibStdCXX => "".to_string(),
@@ -226,7 +226,7 @@ impl<'generator> IncludeFileGenerator<'generator> {
         ",
             compiler_conditional_flags = self.generate_toolchain_defines(),
             linker_selection = self.generate_linker_selection(),
-            stdlib = self.select_stdlib_impl(),
+            stdlib = self.select_cxx_stdlib_impl(),
         );
         self.file
             .as_ref()
@@ -237,15 +237,18 @@ impl<'generator> IncludeFileGenerator<'generator> {
     }
 
     fn generate_toolchain_defines(&self) -> String {
-        let compiler_path = &self.toolchain.cxx.compiler.compiler_exe;
+        let cxx = &self.toolchain.cxx.compiler.compiler_exe;
+        let cc = &self.toolchain.cc.compiler.compiler_exe;
         let archiver_path = self.toolchain.archiver.path.clone();
         indoc::formatdoc!(
             "
         # Toolchain definitions\n
+        CC := {}
         CXX := {}
         AR := {}
         ",
-            compiler_path.display(),
+            cc.display(),
+            cxx.display(),
             archiver_path.display(),
         )
     }

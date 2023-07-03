@@ -32,7 +32,7 @@ pub struct ParsedManifest {
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct ManifestData {
-    pub project_configuration: Option<types::ProjectConfiguration>,
+    pub project_config: Option<types::ProjectConfig>,
     pub targets: Vec<targets::Target>,
 }
 
@@ -135,9 +135,9 @@ impl ManifestData {
         }?;
         targets.append(&mut executables);
         targets.append(&mut libraries);
-        let project_configuration = contents.project_configuration;
+        let project_config = contents.project_config;
         Ok(Self {
-            project_configuration,
+            project_config,
             targets,
         })
     }

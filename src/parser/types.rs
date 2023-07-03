@@ -12,7 +12,7 @@ pub enum Language {
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct ProjectConfiguration {
+pub struct ProjectConfig {
     pub cxx_std: Option<CXXStandard>,
     pub language: Option<Language>,
 }
@@ -20,7 +20,7 @@ pub struct ProjectConfiguration {
 #[derive(Debug, serde::Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct RawManifestData {
-    pub project_configuration: Option<ProjectConfiguration>,
+    pub project_config: Option<ProjectConfig>,
     #[serde(rename = "executable")]
     pub executables: Option<std::collections::BTreeMap<String, RawExecutableData>>,
     #[serde(rename = "library")]

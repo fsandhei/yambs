@@ -139,7 +139,7 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     // override the command line settings if there are configurations set in the manifest
     if let Some(cxx_standard) = manifest
         .data
-        .project_configuration
+        .project_config
         .as_ref()
         .and_then(|pc| pc.cxx_std.clone())
     {

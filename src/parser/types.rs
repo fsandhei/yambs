@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use crate::flags::CompilerFlags;
-
 use crate::cli::configurations::CXXStandard;
+use crate::flags::CompilerFlags;
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Language {
@@ -12,12 +11,14 @@ pub enum Language {
 }
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProjectConfiguration {
     pub cxx_std: Option<CXXStandard>,
     pub language: Option<Language>,
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct RawManifestData {
     pub project_configuration: Option<ProjectConfiguration>,
     #[serde(rename = "executable")]

@@ -48,7 +48,7 @@ impl ExecutableTargetFactory {
                 format!("\
                     {target_name} : \\\n\
                         {prerequisites}\n\
-                        \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
+                        \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CXX_LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
                         target_name = target_name,
                         target_name_capitalized = target_name.to_uppercase(),
                         prerequisites = generate_prerequisites(target, output_directory),
@@ -59,7 +59,7 @@ impl ExecutableTargetFactory {
                 format!("\
                     {target_name} : \\\n\
                         {prerequisites}\n\
-                        \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
+                        \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CC_LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
                         target_name = target_name,
                         target_name_capitalized = target_name.to_uppercase(),
                         prerequisites = generate_prerequisites(target, output_directory),
@@ -95,7 +95,7 @@ impl LibraryTargetFactory {
                             "\
                             {target_name} : \\\n\
                                 {prerequisites}\n\
-                                \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
+                                \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CXX_LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
                                 target_name = library_name,
                                 target_name_capitalized = target.borrow().name().to_uppercase(),
                                 prerequisites = generate_prerequisites(target, output_directory),
@@ -107,7 +107,7 @@ impl LibraryTargetFactory {
                             "\
                             {target_name} : \\\n\
                                 {prerequisites}\n\
-                                \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
+                                \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CC_LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
                                 target_name = library_name,
                                 target_name_capitalized = target.borrow().name().to_uppercase(),
                                 prerequisites = generate_prerequisites(target, output_directory),

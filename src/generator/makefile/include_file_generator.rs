@@ -87,14 +87,30 @@ impl<'generator> IncludeFileGenerator<'generator> {
     }
 
     fn generate_linker_selection(&self) -> String {
-        let linker = &self.toolchain.cxx.linker;
+        let cxx_linker = &self.toolchain.cxx.linker;
 
-        match linker {
-            Linker::Gold => "LDFLAGS += -fuse-ld=gold".to_string(),
-            Linker::Ld => "LDFLAGS += -fuse-ld=ld".to_string(),
-            Linker::LLD => "LDFLAGS += -fuse-ld=lld".to_string(),
-            _ => "LDFLAGS += ".to_string(),
-        }
+        let mut formatted_string = String::new();
+
+        let cxx_linker_str = match cxx_linker {
+            Linker::Gold => "CXX_LDFLAGS += -fuse-ld=gold".to_string(),
+            Linker::Ld => "CXX_LDFLAGS += -fuse-ld=ld".to_string(),
+            Linker::LLD => "CXX_LDFLAGS += -fuse-ld=lld".to_string(),
+            _ => "CXX_LDFLAGS += ".to_string(),
+        };
+
+        formatted_string.push_str(&format!("{}\n\n", &cxx_linker_str));
+
+        let cc_linker = &self.toolchain.cc.linker;
+        let cc_linker_str = match cc_linker {
+            Linker::Gold => "CC_LDFLAGS += -fuse-ld=gold".to_string(),
+            Linker::Ld => "CC_LDFLAGS += -fuse-ld=ld".to_string(),
+            Linker::LLD => "CC_LDFLAGS += -fuse-ld=lld".to_string(),
+            _ => "CC_LDFLAGS += ".to_string(),
+        };
+
+        formatted_string.push_str(&format!("{}", &cc_linker_str));
+
+        formatted_string
     }
 
     fn generate_warnings_mk(&mut self) -> Result<(), GeneratorError> {

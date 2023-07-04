@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::parser::types;
 use crate::targets;
 use crate::YAMBS_MANIFEST_NAME;
-use types::{ParseStandardError, Standard};
+use types::ParseStandardError;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Manifest {
@@ -139,6 +139,16 @@ impl ManifestData {
         targets.append(&mut executables);
         targets.append(&mut libraries);
         let project_config = contents.project_config;
+
+        if let Some(ref pc) = project_config {
+            if let Some(ref std) = pc.std {
+                if let Some(ref language) = pc.language {
+                    std.verify_from_language(language)
+                        .map_err(ParseManifestError::FailedToParseStandard)?;
+                }
+            }
+        }
+
         Ok(Self {
             project_config,
             targets,

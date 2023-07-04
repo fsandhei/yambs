@@ -14,6 +14,7 @@ use parser::types::Language;
 use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
 use yambs::cli::configurations::BuildType;
+use yambs::compiler::Compiler;
 use yambs::generator::{
     makefile::make::BuildProcess, makefile::Make, Generator, GeneratorType, MakefileGenerator,
 };
@@ -78,12 +79,16 @@ fn initialize_preset_variables(opts: &BuildOpts) -> anyhow::Result<()> {
 
 fn evaluate_compiler(
     toolchain: &Rc<RefCell<NormalizedToolchain>>,
-    opts: &BuildOpts,
+    project_config: &ProjectConfig,
 ) -> anyhow::Result<()> {
     let toolchain = toolchain.borrow();
-    let compiler = &toolchain.cxx.compiler;
+    let language = &project_config.language;
+    let compiler: Box<dyn Compiler> = match language {
+        Language::CXX => Box::new(toolchain.cxx.compiler.clone()),
+        Language::C => Box::new(toolchain.cc.compiler.clone()),
+    };
     log::trace!("evaluate_compiler");
-    let test_dir = opts.build_directory.as_path().join("sample");
+    let test_dir = project_config.build_directory.as_path().join("sample");
     log::debug!("Evaluating compiler by doing a sample build...");
     compiler.evaluate(&test_dir)?;
     log::debug!("Evaluating compiler by doing a sample build... done");
@@ -138,28 +143,21 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
 
     // override the command line settings if there are configurations set in the manifest
-    if let Some(standard) = manifest
+    let std = if let Some(standard) = manifest
         .data
         .project_config
         .as_ref()
         .and_then(|pc| pc.std.clone())
     {
         log::info!("Using standard {} found in manifest", standard.to_string());
-        opts.configuration.standard = Some(standard);
-    }
-    // if let Some(standard) = manifest
-    //     .data
-    //     .project_configuration
-    //     .as_ref()
-    //     .and_then(|pc| pc.std.clone())
-    // {
-    // log::info!("Using standard {} found in manifest", standard.to_string());
-    // opts.configuration.standard = Some(standard);
-    // }
+        Some(standard)
+    } else {
+        None
+    };
 
     let language = if let Some(language) = manifest
         .data
-        .project_configuration
+        .project_config
         .as_ref()
         .and_then(|pc| pc.language.clone())
     {
@@ -226,7 +224,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     let toolchain = Rc::new(RefCell::new(toolchain));
 
-    evaluate_compiler(&toolchain, opts)?;
+    evaluate_compiler(&toolchain, &project_config)?;
 
     let mut generator = construct_generator(&project_config, &toolchain)?;
     parse_and_register_dependencies(

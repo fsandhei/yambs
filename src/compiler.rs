@@ -1,5 +1,6 @@
 use std::default::Default;
 use std::io::Write;
+use std::path::Path;
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,10 @@ use textwrap::indent;
 use crate::errors;
 use crate::toolchain::{ToolchainCCData, ToolchainCXXData};
 use crate::utility;
+
+pub trait Compiler {
+    fn evaluate(&self, test_dir: &Path) -> Result<(), CompilerError>;
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum CompilerError {
@@ -127,15 +132,6 @@ impl CCCompiler {
         })
     }
 
-    pub fn evaluate(&self, test_dir: &std::path::Path) -> Result<(), CompilerError> {
-        let main_cc =
-            Self::create_sample_c_main(test_dir).map_err(CompilerError::FailedToCreateCCSample)?;
-        log::debug!("Running sample build with compiler specified in CC");
-        self.sample_compile(&main_cc, test_dir)?;
-        log::debug!("Running sample build worked!");
-        Ok(())
-    }
-
     fn create_sample_compile_args(&self, destination_dir: &std::path::Path) -> Vec<String> {
         match self.compiler_info.compiler_type {
             Type::Gcc | Type::Clang => vec![
@@ -170,6 +166,17 @@ impl CCCompiler {
         writeln!(&mut main_cc, "{}", indent("return 0;", "    "))?;
         writeln!(&mut main_cc, "}}")?;
         Ok(main_cc_path)
+    }
+}
+
+impl Compiler for CCCompiler {
+    fn evaluate(&self, test_dir: &Path) -> Result<(), CompilerError> {
+        let main_cc =
+            Self::create_sample_c_main(test_dir).map_err(CompilerError::FailedToCreateCCSample)?;
+        log::debug!("Running sample build with compiler specified in CC");
+        self.sample_compile(&main_cc, test_dir)?;
+        log::debug!("Running sample build worked!");
+        Ok(())
     }
 }
 
@@ -252,6 +259,17 @@ impl CXXCompiler {
         writeln!(&mut main_cpp, "{}", indent("return 0;", "    "))?;
         writeln!(&mut main_cpp, "}}")?;
         Ok(main_cpp_path)
+    }
+}
+
+impl Compiler for CXXCompiler {
+    fn evaluate(&self, test_dir: &std::path::Path) -> Result<(), CompilerError> {
+        let main_cpp = Self::create_sample_cxx_main(test_dir)
+            .map_err(CompilerError::FailedToCreateCXXSample)?;
+        log::debug!("Running sample build with compiler specified in CXX");
+        self.sample_compile(&main_cpp, test_dir)?;
+        log::debug!("Running sample build with compiler specified in CXX... OK");
+        Ok(())
     }
 }
 

@@ -19,7 +19,7 @@ pub enum ParseStandardError {
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct ProjectConfiguration {
+pub struct ProjectConfig {
     pub std: Option<Standard>,
     pub language: Option<Language>,
 }
@@ -72,6 +72,21 @@ impl Standard {
         match language {
             Language::CXX => Ok(Self::CXX(CXXStandard::parse(standard)?)),
             Language::C => Ok(Self::C(CStandard::parse(standard)?)),
+        }
+    }
+
+    pub fn verify_from_language(&self, language: &Language) -> Result<(), ParseStandardError> {
+        let allowed_language = match self {
+            Self::C(_) => Language::C,
+            Self::CXX(_) => Language::CXX,
+        };
+        if language == &allowed_language {
+            Ok(())
+        } else {
+            match language {
+                Language::CXX => Err(ParseStandardError::InvalidCXXStandard(self.to_string())),
+                Language::C => Err(ParseStandardError::InvalidCStandard(self.to_string())),
+            }
         }
     }
 
@@ -176,13 +191,6 @@ impl std::string::ToString for CXXStandard {
             CXXStandard::CXX23 => "c++23".to_string(),
         }
     }
-}
-
-#[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ProjectConfig {
-    pub cxx_std: Option<CXXStandard>,
-    pub language: Option<Language>,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq)]

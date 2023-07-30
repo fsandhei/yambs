@@ -1,6 +1,6 @@
 [package]
 name = "yambs"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Fredrik Sandhei <fredrik.sandhei@gmail.com>"]
 edition = "2018"
 description = "Yambs (yet another meta build system) is a command-line based build system for C++."

@@ -134,7 +134,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
-                project_configuration: None,
+                project_config: None,
                 targets: vec![Target::Executable(executable)],
             };
             assert_eq!(manifest, expected);
@@ -180,7 +180,7 @@ mod tests {
                 },
             };
             let expected = ManifestData {
-                project_configuration: None,
+                project_config: None,
                 targets: vec![Target::Executable(executable)],
             };
             assert_eq!(manifest, expected);
@@ -231,7 +231,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
-                project_configuration: None,
+                project_config: None,
                 targets: vec![
                     Target::Executable(executable_x),
                     Target::Executable(executable_y),
@@ -271,7 +271,7 @@ mod tests {
             lib_type: LibraryType::default(),
         };
         let expected = ManifestData {
-            project_configuration: None,
+            project_config: None,
             targets: vec![Target::Library(library)],
         };
         assert_eq!(manifest, expected);
@@ -333,7 +333,7 @@ mod tests {
             lib_type: LibraryType::default(),
         };
         let expected = ManifestData {
-            project_configuration: None,
+            project_config: None,
             targets: vec![Target::Library(library)],
         };
         assert_eq!(manifest, expected);
@@ -376,7 +376,7 @@ mod tests {
                 compiler_flags: CompilerFlags::new(),
             };
             let expected = ManifestData {
-                project_configuration: None,
+                project_config: None,
                 targets: vec![Target::Executable(executable)],
             };
             assert_eq!(manifest, expected);
@@ -422,7 +422,7 @@ mod tests {
             lib_type: LibraryType::default(),
         };
         let expected = ManifestData {
-            project_configuration: None,
+            project_config: None,
             targets: vec![Target::Library(library)],
         };
         assert_eq!(manifest, expected);

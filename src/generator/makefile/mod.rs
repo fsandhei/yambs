@@ -142,9 +142,9 @@ fn generate_prerequisites(target: &TargetNode, output_directory: &std::path::Pat
                 formatted_string.push_str(&format!("   {}", s.library));
             }
             build_target::DependencySource::FromPkgConfig(ref pkg) => {
-                formatted_string.push_str("\\\n");
                 match pkg.method {
                     ProvideMethod::Finegrained(ref libs) => {
+                        formatted_string.push_str("\\\n");
                         for (i, lib) in libs.iter().enumerate() {
                             formatted_string.push_str(&format!("   {}", lib.path().display()));
                             if i != libs.len() - 1 {
@@ -629,9 +629,11 @@ impl MakefileGenerator {
                         ProvideMethod::PkgConfigOutput(ref ld_flags) => {
                             let search_flags = ld_flags.link_dirs.join(" ");
                             makefile_writer.data.push_str(&search_flags);
+
                             let libs = ld_flags.link_libs.join(" ");
                             makefile_writer.data.push(' ');
                             makefile_writer.data.push_str(&libs);
+                            makefile_writer.data.push(' ');
                         }
                         _ => {}
                     }

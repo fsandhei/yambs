@@ -19,7 +19,7 @@ pub struct IncludeDirectory {
 impl IncludeDirectory {
     pub fn from_str(s: &str) -> Option<Self> {
         lazy_static::lazy_static! {
-            static ref INCLUDE_PATH_REGEX: Regex = Regex::new("(?P<type>(-I|-isystem))?(?P<path>.*)$").unwrap();
+            static ref INCLUDE_PATH_REGEX: Regex = Regex::new("(?P<type>(-I|-isystem))\\s*?(?P<path>.*)$").unwrap();
         }
         if let Some(captures) = INCLUDE_PATH_REGEX.captures(s) {
             let include_type = if let Some(ty) = captures.name("type") {
@@ -29,6 +29,7 @@ impl IncludeDirectory {
                     _ => IncludeType::Include,
                 }
             } else {
+                log::warn!("Could not determine any include flag, so defaulting to regular -I");
                 IncludeType::Include
             };
             let path = captures.name("path").unwrap().as_str();
@@ -55,7 +56,9 @@ impl IncludeDirectories {
     }
 
     pub fn add(&mut self, include_directory: IncludeDirectory) {
-        self.0.push(include_directory)
+        if !self.0.contains(&include_directory) {
+            self.0.push(include_directory)
+        }
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, IncludeDirectory> {
@@ -85,4 +88,37 @@ impl<'a> std::iter::IntoIterator for &'a IncludeDirectories {
 pub enum IncludeType {
     Include,
     System,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    #[test]
+    fn from_str_parses_i_include() {
+        let input = "-I/some/include/path";
+
+        assert_eq!(
+            IncludeDirectory::from_str(input),
+            Some(IncludeDirectory {
+                include_type: IncludeType::Include,
+                path: PathBuf::from("/some/include/path"),
+            })
+        );
+    }
+
+    #[test]
+    fn from_str_parses_isystem_include() {
+        let input = "-isystem/some/include/path";
+
+        assert_eq!(
+            IncludeDirectory::from_str(input),
+            Some(IncludeDirectory {
+                include_type: IncludeType::System,
+                path: PathBuf::from("/some/include/path"),
+            })
+        );
+    }
 }

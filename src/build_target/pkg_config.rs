@@ -4,7 +4,7 @@ use std::process::Command;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::build_target::include_directories::{IncludeDirectories, IncludeDirectory};
+use crate::build_target::include_directories::{IncludeDirectories, IncludeDirectory, IncludeType};
 use crate::build_target::{
     LibraryType, PrintableLibrary, SHARED_LIBRARY_FILE_EXTENSION, STATIC_LIBRARY_FILE_EXTENSION,
 };
@@ -73,7 +73,11 @@ impl PkgConfig {
             let mut include_directories = IncludeDirectories::new();
             for dir_str in include_directories_str {
                 let include_directory = IncludeDirectory::from_str(dir_str);
-                if let Some(include_directory) = include_directory {
+                if let Some(mut include_directory) = include_directory {
+                    // Although pkg-config tells what kind of include type is "offered", we
+                    // override it to be System include instead. We don't want warnings that
+                    // exist in third party code to propagate to ours.
+                    include_directory.include_type = IncludeType::System;
                     include_directories.add(include_directory);
                 }
             }
@@ -120,6 +124,11 @@ impl PkgConfig {
                         lib_name,
                         search_path.display()
                     );
+                    log::info!(
+                        "Library {} will be registered through the values of pkg-config flags",
+                        target
+                    );
+
                     return Ok(ProvideMethod::PkgConfigOutput(PkgConfigLDFlags {
                         link_libs: link_libs
                             .iter()
@@ -133,6 +142,10 @@ impl PkgConfig {
                 }
             }
         }
+        log::info!(
+            "Library {} is registered through concrete paths found using pkg-config.",
+            target
+        );
         Ok(ProvideMethod::Finegrained(library_paths))
     }
 
@@ -197,6 +210,8 @@ impl PkgConfigLibrary {
                     let ty = match found_lib.extension().and_then(|e| e.to_str()) {
                         Some(STATIC_LIBRARY_FILE_EXTENSION) => LibraryType::Static,
                         Some(SHARED_LIBRARY_FILE_EXTENSION) => LibraryType::Dynamic,
+                        // We just assume that the library is static if there is no clear
+                        // indication on what the extension is, for now.
                         _ => LibraryType::Static,
                     };
                     return Some(Self {

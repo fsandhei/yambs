@@ -25,6 +25,7 @@ use crate::generator::{
     GeneratorError, UtilityGenerator,
 };
 use crate::parser::types;
+use crate::parser::types::Language;
 use crate::progress;
 use crate::toolchain::NormalizedToolchain;
 use crate::utility;
@@ -59,7 +60,7 @@ impl ExecutableTargetFactory {
                 format!("\
                     {target_name} : \\\n\
                         {prerequisites}\n\
-                        \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CC_LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
+                        \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CC_LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
                         target_name = target_name,
                         target_name_capitalized = target_name.to_uppercase(),
                         prerequisites = generate_prerequisites(target, output_directory),
@@ -107,7 +108,7 @@ impl LibraryTargetFactory {
                             "\
                             {target_name} : \\\n\
                                 {prerequisites}\n\
-                                \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CC_LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
+                                \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CC_LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
                                 target_name = library_name,
                                 target_name_capitalized = target.borrow().name().to_uppercase(),
                                 prerequisites = generate_prerequisites(target, output_directory),
@@ -623,16 +624,25 @@ impl MakefileGenerator {
         let target_name_capitalized = target_name.to_uppercase();
         let cxx_flags = &borrowed_target.compiler_flags.cxx_flags;
 
-        makefile_writer.data.push_str(&indoc::formatdoc!(
-            "# CXXFLAGS for target \"{target_name}\"
-    {target_name_capitalized}_CXXFLAGS +="
-        ));
-
-        if let Some(cxx) = cxx_flags {
-            makefile_writer.data.push_str(&indoc::formatdoc!(
-                "{cxx_flags}",
-                cxx_flags = cxx.flags().join(" ")
-            ));
+        match self.project_config.language {
+            Language::CXX => {
+                makefile_writer.data.push_str(&indoc::formatdoc!(
+                    "# CXXFLAGS for target \"{target_name}\"
+                    {target_name_capitalized}_CXXFLAGS +="
+                ));
+                if let Some(cxx) = cxx_flags {
+                    makefile_writer.data.push_str(&indoc::formatdoc!(
+                        "{cxx_flags}",
+                        cxx_flags = cxx.flags().join(" ")
+                    ));
+                }
+            }
+            Language::C => {
+                makefile_writer.data.push_str(&indoc::formatdoc!(
+                    "# CFLAGS for target \"{target_name}\"
+                    {target_name_capitalized}_CFLAGS +="
+                ));
+            }
         }
 
         for include_dir in &borrowed_target.compiler_flags.include_directories {

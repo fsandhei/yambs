@@ -273,7 +273,7 @@ fn generate_object_target(object_target: &ObjectTarget, language: &types::Langua
         }
         types::Language::C => {
             formatted_string.push_str(&format!(
-                "\t$(strip $(CC) $(CPPFLAGS) $({target}_CPPFLAGS) \
+                "\t$(strip $(CC) $(CFLAGS) $(CPPFLAGS) $({target}_CFLAGS) $({target}_CPPFLAGS) \
                  $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
                 dependencies = generate_include_directories(&object_target.include_directories),
                 target = object_target.target.to_uppercase(),
@@ -623,6 +623,7 @@ impl MakefileGenerator {
         let target_name = borrowed_target.name();
         let target_name_capitalized = target_name.to_uppercase();
         let cxx_flags = &borrowed_target.compiler_flags.cxx_flags;
+        let c_flags = &borrowed_target.compiler_flags.c_flags;
 
         match self.project_config.language {
             Language::CXX => {
@@ -642,6 +643,12 @@ impl MakefileGenerator {
                     "# CFLAGS for target \"{target_name}\"
                     {target_name_capitalized}_CFLAGS +="
                 ));
+                if let Some(c) = c_flags {
+                    makefile_writer.data.push_str(&indoc::formatdoc!(
+                        "{c_flags}",
+                        c_flags = c.flags().join(" ")
+                    ));
+                }
             }
         }
 

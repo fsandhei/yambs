@@ -169,6 +169,7 @@ mod tests {
                 dependencies: Vec::new(),
                 defines: Vec::new(),
                 compiler_flags: crate::flags::CompilerFlags {
+                    c_flags: None,
                     cxx_flags: Some(crate::flags::CXXFlags::from_slice(&[
                         "-g".to_string(),
                         "-O2".to_string(),

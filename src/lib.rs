@@ -32,7 +32,7 @@ pub static YAMBS_BUILD_TYPE: OnceCell<BuildType> = OnceCell::new();
 
 #[derive(Clone, Debug)]
 pub struct ProjectConfig {
-    pub std: Option<Standard>,
+    pub std: Standard,
     pub language: Language,
     pub build_directory: BuildDirectory,
     pub build_type: BuildType,

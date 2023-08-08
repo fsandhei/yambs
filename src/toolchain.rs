@@ -149,11 +149,13 @@ impl Toolchain {
             if file_name != TOOLCHAIN_FILE_NAME {
                 return Err(ToolchainError::IncorrectFilename);
             }
-            let toolchain_file_content =
-                String::from_utf8(fs::read(path).map_err(ToolchainError::FailedToParseTomlFile)?)
-                    .map_err(ToolchainError::FailedToConvertUtf8)?;
+            let toolchain_file_content = String::from_utf8(
+                fs::read(path)
+                    .map_err(|e| ToolchainError::FailedToParseTomlFile(e, path.to_path_buf()))?,
+            )
+            .map_err(ToolchainError::FailedToConvertUtf8)?;
             toml::from_str(&toolchain_file_content)
-                .map_err(ToolchainError::FailedToParseToolchainFile)
+                .map_err(|e| ToolchainError::FailedToParseToolchainFile(e, path.to_path_buf()))
         } else {
             Err(ToolchainError::CouldNotGetFilename)
         }
@@ -214,9 +216,13 @@ impl NormalizedToolchain {
     }
 
     pub fn from_file(path: &Path) -> Result<Self, ToolchainError> {
-        log::debug!("Parsing toolchain at {}", path.display());
-        let raw_toolchain = Toolchain::new(path)?;
-        raw_toolchain.to_toolchain()
+        if path.exists() {
+            log::debug!("Parsing toolchain at {}", path.display());
+            let raw_toolchain = Toolchain::new(path)?;
+            raw_toolchain.to_toolchain()
+        } else {
+            Err(ToolchainError::ToolchainNotFound(path.to_path_buf()))
+        }
     }
 }
 
@@ -235,10 +241,12 @@ pub enum ToolchainError {
     CouldNotGetCompiler(#[source] CompilerError),
     #[error("Failed to retrieve file name from toolchain file")]
     CouldNotGetFilename,
-    #[error("Failed to parse TOML toolchain file")]
-    FailedToParseTomlFile(#[source] std::io::Error),
-    #[error("Failed to parse toolchain file")]
-    FailedToParseToolchainFile(#[source] toml::de::Error),
+    #[error("Failed to parse TOML toolchain file {1}")]
+    FailedToParseTomlFile(#[source] std::io::Error, PathBuf),
+    #[error("Failed to parse toolchain file {1}")]
+    FailedToParseToolchainFile(#[source] toml::de::Error, PathBuf),
     #[error("Failed to convert UTF-8 bytes to string")]
     FailedToConvertUtf8(#[source] std::string::FromUtf8Error),
+    #[error("Toolchain not found at {0}")]
+    ToolchainNotFound(PathBuf),
 }

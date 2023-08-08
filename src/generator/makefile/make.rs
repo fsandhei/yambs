@@ -50,8 +50,8 @@ impl BuildProcess {
                 .map(|line| filter::filter_string(&line))
                 .filter(|line| !line.is_empty())
                 .for_each(|line| {
-                    filter::println_colored(&line, &output_clone);
-                    log::debug!("{}", line);
+                    filter::print_error_colored(&line, &output_clone);
+                    log::error!("{}", line);
                 });
         });
 

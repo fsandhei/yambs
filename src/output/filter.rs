@@ -18,24 +18,8 @@ pub fn filter_string(input: &str) -> String {
         .collect::<String>()
 }
 
-fn is_warning_message(input: &str) -> bool {
-    let warning_pattern_gcc = Regex::new(r".*\[-W.*\]$").unwrap();
-    warning_pattern_gcc.is_match(input)
-}
-
-fn is_error_message(input: &str) -> bool {
-    let error_pattern_gcc = Regex::new(r".* error:.*").unwrap();
-    error_pattern_gcc.is_match(input)
-}
-
-pub fn println_colored(input: &str, output: &output::Output) {
-    if is_warning_message(input) {
-        output.warning_without_prefix(input);
-    } else if is_error_message(input) {
-        output.error_without_prefix(input);
-    } else {
-        output.status_without_prefix(input);
-    }
+pub fn print_error_colored(input: &str, output: &output::Output) {
+    output.error_without_prefix(input);
 }
 
 #[cfg(test)]
@@ -73,26 +57,5 @@ mod tests {
         let expected_output = "";
 
         assert_eq!(expected_output, filter_string(&input));
-    }
-
-    #[test]
-    fn is_warning_message_false_test() {
-        let input = "/sadfasdfsaf/fasdfdf sadfasf fsadf this is not a warning!";
-        assert!(!is_warning_message(input));
-    }
-
-    #[test]
-    fn is_error_message_test() {
-        let input = "\
-        /home/user/Documents/Tests/AStarPathFinder/PlanGenerator/test/PlanGeneratorTest.cpp:32:13: error: ‘dfasdf’
-        was not declared in this scope";
-        assert!(is_error_message(input));
-    }
-
-    #[test]
-    fn is_error_message_false_test() {
-        let input = "\
-        This is not an error!";
-        assert!(!is_error_message(input));
     }
 }

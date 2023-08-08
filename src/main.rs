@@ -143,16 +143,23 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
 
     // override the command line settings if there are configurations set in the manifest
-    let std = if let Some(standard) = manifest
-        .data
-        .project_config
-        .as_ref()
-        .and_then(|pc| pc.std.clone())
-    {
-        log::info!("Using standard {} found in manifest", standard.to_string());
-        Some(standard)
+    let std = if let Some(ref std) = opts.configuration.standard {
+        log::info!("Using standard {} given on command line", std.to_string());
+        std.clone()
     } else {
-        None
+        if let Some(std) = manifest
+            .data
+            .project_config
+            .as_ref()
+            .and_then(|pc| pc.std.clone())
+        {
+            log::info!("Using standard {} found in manifest", std.to_string());
+            std
+        } else {
+            anyhow::bail!(
+                "No standard is set! Please set one either through command line or in manifest."
+            );
+        }
     };
 
     let language = if let Some(language) = manifest
@@ -161,8 +168,10 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
         .as_ref()
         .and_then(|pc| pc.language.clone())
     {
+        log::info!("Using language {} found in manifest", language.to_string());
         language
     } else {
+        log::warn!("No language specified. Using C++");
         Language::CXX
     };
 
@@ -175,6 +184,9 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
         defines: opts.configuration.defines.clone(),
     };
 
+    // FIXME: The logic here is quirky. It is easy to mess up and understand the flow.
+    // Can it be simplified?
+    // There should be made an integration test for this to check if it is working as intended.
     let toolchain = {
         match detect_toolchain_file(
             &opts
@@ -184,14 +196,20 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
                 .join(TOOLCHAIN_FILE_NAME),
         ) {
             Ok(tc) => Ok(tc),
-            Err(_) => {
-                log::warn!("Failed to find project-local toolchain.");
-                log::info!(
+            Err(e) => {
+                let tc_err = e.downcast::<ToolchainError>().unwrap();
+                match tc_err {
+                    ToolchainError::ToolchainNotFound(_) => {
+                        log::warn!("Failed to find project-local toolchain.");
+                        log::info!(
                     "Attempt finding toolchain from $HOME directory: $HOME/.yambs/toolchain.toml"
                 );
-                let home_dir =
-                    home::home_dir().context("Failed to locate user's HOME directory")?;
-                detect_toolchain_file(&home_dir.join(".yambs").join(TOOLCHAIN_FILE_NAME))
+                        let home_dir =
+                            home::home_dir().context("Failed to locate user's HOME directory")?;
+                        detect_toolchain_file(&home_dir.join(".yambs").join(TOOLCHAIN_FILE_NAME))
+                    }
+                    _ => return Err(anyhow::anyhow!(tc_err)),
+                }
             }
         }
     };
@@ -201,7 +219,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
         Err(e) => {
             let tc_err = e.downcast_ref::<ToolchainError>().unwrap();
             match tc_err {
-                ToolchainError::FailedToParseToolchainFile(_) => return Err(e),
+                ToolchainError::FailedToParseToolchainFile(_, _) => return Err(e),
                 _ => {
                     println!("Warning: Did not find any toolchain file. Attempt using CXX value");
                     match NormalizedToolchain::new() {
@@ -213,7 +231,7 @@ fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     A toolchain has to be provided to yambs in order to work.
     It is recommended to specify it through a file located in .yambs/toolchain.toml.
 
-    At the very minimum you can set CXX, and yambs will attempt to find minimum other settings required."
+    At the very minimum you can set CXX or CC, and yambs will attempt to find minimum other settings required."
                             )
                         }
                     }

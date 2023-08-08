@@ -4,7 +4,7 @@ use crate::cli;
 use crate::cli::configurations;
 use crate::errors::{CommandLineError, FsError};
 use crate::generator::GeneratorType;
-use crate::parser::types::Define;
+use crate::parser::types::{Define, Standard};
 
 // TODO: Need to add tests for C++ validation
 // TODO: Add default values that correctly correspond for 'configuration' when not all options are
@@ -96,13 +96,13 @@ pub struct ConfigurationOpts {
     /// Build configuration to use
     #[arg(default_value_t, long = "build-type")]
     pub build_type: configurations::BuildType,
-    /// C++ standard to be passed to compiler
-    #[arg(default_value_t,
-          long = "std",
-          value_parser = clap::builder::ValueParser::new(configurations::CXXStandard::parse))]
-    pub cxx_standard: configurations::CXXStandard,
+    /// C/C++ standard to be passed to compiler
+    #[arg(long = "std",
+          value_parser = clap::builder::ValueParser::new(Standard::parse))]
+    pub standard: Option<Standard>,
     #[arg(default_value_t = GeneratorType::GNUMakefiles, short = 'g', value_enum)]
     pub generator_type: GeneratorType,
+    /// Macro definitions to be passed to the compiler upon build
     #[arg(short = 'D', value_parser = Define::from_cli)]
     pub defines: Vec<Define>,
 }

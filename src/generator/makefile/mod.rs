@@ -16,7 +16,6 @@ use crate::build_target::{
     target_registry::TargetRegistry,
     Dependency, DependencySource, LibraryType, TargetNode, TargetState, TargetType,
 };
-use crate::cli::command_line;
 use crate::cli::configurations;
 use crate::cli::BuildDirectory;
 use crate::errors::FsError;
@@ -26,9 +25,11 @@ use crate::generator::{
     GeneratorError, UtilityGenerator,
 };
 use crate::parser::types;
+use crate::parser::types::Language;
 use crate::progress;
 use crate::toolchain::NormalizedToolchain;
 use crate::utility;
+use crate::ProjectConfig;
 
 use include_file_generator::IncludeFileGenerator;
 pub use make::Make;
@@ -36,24 +37,48 @@ pub use make::Make;
 struct ExecutableTargetFactory;
 
 impl ExecutableTargetFactory {
-    pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
+    pub fn create_rule(
+        target: &TargetNode,
+        output_directory: &std::path::Path,
+        language: &types::Language,
+    ) -> String {
         let target_name = target.borrow().name();
-        format!("\
-                {target_name} : \\\n\
-                    {prerequisites}\n\
-                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
-                    target_name = target_name,
-                    target_name_capitalized = target_name.to_uppercase(),
-                    prerequisites = generate_prerequisites(target, output_directory),
-                    dependencies = generate_search_directories(target),
-            )
+
+        match language {
+            types::Language::CXX => {
+                format!("\
+                    {target_name} : \\\n\
+                        {prerequisites}\n\
+                        \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CXX_LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
+                        target_name = target_name,
+                        target_name_capitalized = target_name.to_uppercase(),
+                        prerequisites = generate_prerequisites(target, output_directory),
+                        dependencies = generate_search_directories(target),
+                )
+            }
+            types::Language::C => {
+                format!("\
+                    {target_name} : \\\n\
+                        {prerequisites}\n\
+                        \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CC_LDFLAGS) {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)",
+                        target_name = target_name,
+                        target_name_capitalized = target_name.to_uppercase(),
+                        prerequisites = generate_prerequisites(target, output_directory),
+                        dependencies = generate_search_directories(target),
+                )
+            }
+        }
     }
 }
 
 struct LibraryTargetFactory;
 
 impl LibraryTargetFactory {
-    pub fn create_rule(target: &TargetNode, output_directory: &std::path::Path) -> String {
+    pub fn create_rule(
+        target: &TargetNode,
+        output_directory: &std::path::Path,
+        language: &types::Language,
+    ) -> String {
         let mut formatted_string = String::new();
         let library_name = library_name_from_target_type(&target.borrow().target_type);
         let target_rule = match target.borrow().library_type().unwrap() {
@@ -65,16 +90,32 @@ impl LibraryTargetFactory {
                 target_name = library_name,
                 prerequisites = generate_prerequisites(target, output_directory)
             ),
-            LibraryType::Dynamic => format!(
-                "\
-                {target_name} : \\\n\
-                    {prerequisites}\n\
-                    \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
-                    target_name = library_name,
-                    target_name_capitalized = target.borrow().name().to_uppercase(),
-                    prerequisites = generate_prerequisites(target, output_directory),
-                    dependencies = generate_search_directories(target),
-            ),
+            LibraryType::Dynamic => match language {
+                types::Language::CXX => {
+                    format!(
+                            "\
+                            {target_name} : \\\n\
+                                {prerequisites}\n\
+                                \t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target_name_capitalized}_CXXFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CXX_LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
+                                target_name = library_name,
+                                target_name_capitalized = target.borrow().name().to_uppercase(),
+                                prerequisites = generate_prerequisites(target, output_directory),
+                                dependencies = generate_search_directories(target),
+                        )
+                }
+                types::Language::C => {
+                    format!(
+                            "\
+                            {target_name} : \\\n\
+                                {prerequisites}\n\
+                                \t$(strip $(CC) $(CPPFLAGS) $({target_name_capitalized}_CFLAGS) $({target_name_capitalized}_CPPFLAGS) $(WARNINGS) $(CC_LDFLAGS) -rdynamic -shared {dependencies} $^ $({target_name_capitalized}_LDFLAGS) -o $@)\n\n",
+                                target_name = library_name,
+                                target_name_capitalized = target.borrow().name().to_uppercase(),
+                                prerequisites = generate_prerequisites(target, output_directory),
+                                dependencies = generate_search_directories(target),
+                        )
+                }
+            },
         };
         formatted_string.push_str(&target_rule);
 
@@ -93,11 +134,15 @@ impl LibraryTargetFactory {
 struct TargetRuleFactory;
 
 impl TargetRuleFactory {
-    pub fn create_rule(target: &TargetNode, output_dir: &std::path::Path) -> String {
+    pub fn create_rule(
+        target: &TargetNode,
+        output_dir: &std::path::Path,
+        language: &types::Language,
+    ) -> String {
         if target.borrow().is_executable() {
-            ExecutableTargetFactory::create_rule(target, output_dir)
+            ExecutableTargetFactory::create_rule(target, output_dir, language)
         } else {
-            LibraryTargetFactory::create_rule(target, output_dir)
+            LibraryTargetFactory::create_rule(target, output_dir, language)
         }
     }
 }
@@ -206,7 +251,7 @@ fn generate_include_directories(
     formatted_string.trim_end().to_string()
 }
 
-fn generate_object_target(object_target: &ObjectTarget) -> String {
+fn generate_object_target(object_target: &ObjectTarget, language: &types::Language) -> String {
     let mut formatted_string = String::new();
     formatted_string.push_str(&format!(
         "# Build rule for {}\n",
@@ -217,18 +262,30 @@ fn generate_object_target(object_target: &ObjectTarget) -> String {
     formatted_string.push('\t');
     formatted_string.push_str(&object_target.source.display().to_string());
     formatted_string.push('\n');
-    formatted_string.push_str(&format!(
-        "\t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target}_CXXFLAGS) $({target}_CPPFLAGS) \
-         $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
-        dependencies = generate_include_directories(&object_target.include_directories),
-        target = object_target.target.to_uppercase(),
-    ));
+    match language {
+        types::Language::CXX => {
+            formatted_string.push_str(&format!(
+                "\t$(strip $(CXX) $(CXXFLAGS) $(CPPFLAGS) $({target}_CXXFLAGS) $({target}_CPPFLAGS) \
+                 $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
+                dependencies = generate_include_directories(&object_target.include_directories),
+                target = object_target.target.to_uppercase(),
+            ));
+        }
+        types::Language::C => {
+            formatted_string.push_str(&format!(
+                "\t$(strip $(CC) $(CFLAGS) $(CPPFLAGS) $({target}_CFLAGS) $({target}_CPPFLAGS) \
+                 $(WARNINGS) {dependencies} $< -c -o $@)\n\n",
+                dependencies = generate_include_directories(&object_target.include_directories),
+                target = object_target.target.to_uppercase(),
+            ));
+        }
+    }
     formatted_string
 }
 
 pub struct MakefileGenerator {
     pub toolchain: Rc<RefCell<NormalizedToolchain>>,
-    pub configurations: command_line::ConfigurationOpts,
+    pub project_config: ProjectConfig,
     pub build_directory: BuildDirectory,
     pub output_directory: std::path::PathBuf,
     pub progress_document: ProgressDocument,
@@ -236,13 +293,13 @@ pub struct MakefileGenerator {
 
 impl MakefileGenerator {
     pub fn new(
-        configurations: &command_line::ConfigurationOpts,
-        build_directory: &BuildDirectory,
+        project_config: &ProjectConfig,
         toolchain: Rc<RefCell<NormalizedToolchain>>,
     ) -> Result<Self, GeneratorError> {
+        let build_directory = project_config.build_directory.clone();
         utility::create_dir(build_directory.as_path())?;
         Ok(Self {
-            configurations: configurations.to_owned(),
+            project_config: project_config.clone(),
             build_directory: build_directory.clone(),
             output_directory: build_directory.as_path().to_path_buf(),
             progress_document: ProgressDocument::new(),
@@ -366,8 +423,11 @@ impl MakefileGenerator {
                 &mut writers.makefile_writer,
             );
             writers.makefile_writer.data.push('\n');
-            let rule =
-                LibraryTargetFactory::create_rule(&dependency_target, &self.output_directory);
+            let rule = LibraryTargetFactory::create_rule(
+                &dependency_target,
+                &self.output_directory,
+                &self.project_config.language,
+            );
             ObjectTarget::create_object_targets(&dependency_target, &self.output_directory)
                 .iter()
                 .for_each(|object_target| {
@@ -392,7 +452,7 @@ impl MakefileGenerator {
     }
 
     fn build_configurations_file(&self) -> &str {
-        if self.configurations.build_type == configurations::BuildType::Debug {
+        if self.project_config.build_type == configurations::BuildType::Debug {
             "debug.mk"
         } else {
             "release.mk"
@@ -482,8 +542,11 @@ impl MakefileGenerator {
         let mut include_file_generator =
             IncludeFileGenerator::new(&include_output_directory, &toolchain);
 
-        let cxx_standard = &self.configurations.cxx_standard.to_string();
-        include_file_generator.add_cpp_version(cxx_standard);
+        let standard = match &self.project_config.std {
+            Some(std) => std.to_string(),
+            None => return Err(GeneratorError::StandardNotFound),
+        };
+        include_file_generator.add_cpp_version(&standard);
         include_file_generator.generate_build_files()
     }
 
@@ -500,7 +563,10 @@ impl MakefileGenerator {
             writers
                 .makefile_writer
                 .data
-                .push_str(&generate_object_target(object_target))
+                .push_str(&generate_object_target(
+                    object_target,
+                    &self.project_config.language,
+                ))
         }
         Ok(())
     }
@@ -530,8 +596,11 @@ impl MakefileGenerator {
     fn generate_rule_declaration_for_target(&self, writers: &mut Writers, target: &TargetNode) {
         self.generate_phony(&mut writers.makefile_writer, target);
         self.generate_compiler_flags_for_target(target, &mut writers.makefile_writer);
-        let target_rule_declaration =
-            TargetRuleFactory::create_rule(target, &self.output_directory);
+        let target_rule_declaration = TargetRuleFactory::create_rule(
+            target,
+            &self.output_directory,
+            &self.project_config.language,
+        );
         writers.makefile_writer.data.push('\n');
         writers.makefile_writer.data.push_str(&format!(
             "# Rule for target \"{}\"\n",
@@ -554,17 +623,33 @@ impl MakefileGenerator {
         let target_name = borrowed_target.name();
         let target_name_capitalized = target_name.to_uppercase();
         let cxx_flags = &borrowed_target.compiler_flags.cxx_flags;
+        let c_flags = &borrowed_target.compiler_flags.c_flags;
 
-        makefile_writer.data.push_str(&indoc::formatdoc!(
-            "# CXXFLAGS for target \"{target_name}\"
-    {target_name_capitalized}_CXXFLAGS +="
-        ));
-
-        if let Some(cxx) = cxx_flags {
-            makefile_writer.data.push_str(&indoc::formatdoc!(
-                "{cxx_flags}",
-                cxx_flags = cxx.flags().join(" ")
-            ));
+        match self.project_config.language {
+            Language::CXX => {
+                makefile_writer.data.push_str(&indoc::formatdoc!(
+                    "# CXXFLAGS for target \"{target_name}\"
+                    {target_name_capitalized}_CXXFLAGS +="
+                ));
+                if let Some(cxx) = cxx_flags {
+                    makefile_writer.data.push_str(&indoc::formatdoc!(
+                        "{cxx_flags}",
+                        cxx_flags = cxx.flags().join(" ")
+                    ));
+                }
+            }
+            Language::C => {
+                makefile_writer.data.push_str(&indoc::formatdoc!(
+                    "# CFLAGS for target \"{target_name}\"
+                    {target_name_capitalized}_CFLAGS +="
+                ));
+                if let Some(c) = c_flags {
+                    makefile_writer.data.push_str(&indoc::formatdoc!(
+                        "{c_flags}",
+                        c_flags = c.flags().join(" ")
+                    ));
+                }
+            }
         }
 
         for include_dir in &borrowed_target.compiler_flags.include_directories {
@@ -605,8 +690,8 @@ impl MakefileGenerator {
             ));
         }
 
-        let defines = if !self.configurations.defines.is_empty() {
-            let defines = &self.configurations.defines;
+        let defines = if !self.project_config.defines.is_empty() {
+            let defines = &self.project_config.defines;
             generate_defines(defines)
         } else {
             generate_defines(&borrowed_target.defines)
@@ -653,7 +738,7 @@ impl Generator for MakefileGenerator {
     ) -> Result<std::path::PathBuf, GeneratorError> {
         self.generate_include_files()?;
         self.push_and_create_directory(&std::path::PathBuf::from(
-            &self.configurations.build_type.to_string(),
+            &self.project_config.build_type.to_string(),
         ))?;
         let mut writers = Writers {
             makefile_writer: Writer::new(&self.output_directory.join("Makefile"))?,

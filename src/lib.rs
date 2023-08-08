@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
+use std::path::{Path, PathBuf};
 
 pub mod build_target;
 pub mod cli;
@@ -16,18 +17,28 @@ pub mod targets;
 pub mod toolchain;
 pub mod utility;
 
-use std::path::{Path, PathBuf};
-
 use once_cell::sync::OnceCell;
 
 use crate::cli::command_line::ManifestDirectory;
 use crate::cli::configurations::BuildType;
 use crate::cli::BuildDirectory;
+use crate::generator::GeneratorType;
+use crate::parser::types::{Define, Language, Standard};
 
 pub const YAMBS_MANIFEST_NAME: &str = "yambs.toml";
 pub static YAMBS_BUILD_DIR_VAR: OnceCell<BuildDirectory> = OnceCell::new();
 pub static YAMBS_MANIFEST_DIR: OnceCell<ManifestDirectory> = OnceCell::new();
 pub static YAMBS_BUILD_TYPE: OnceCell<BuildType> = OnceCell::new();
+
+#[derive(Clone, Debug)]
+pub struct ProjectConfig {
+    pub std: Option<Standard>,
+    pub language: Language,
+    pub build_directory: BuildDirectory,
+    pub build_type: BuildType,
+    pub generator_type: GeneratorType,
+    pub defines: Vec<Define>,
+}
 
 pub enum ModifyMode {
     Set,

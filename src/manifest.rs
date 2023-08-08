@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use crate::parser::types;
 use crate::targets;
 use crate::YAMBS_MANIFEST_NAME;
+use types::ParseStandardError;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Manifest {
@@ -42,6 +43,8 @@ pub enum ParseManifestError {
     FailedToParseDependency(#[source] targets::DependencyError),
     #[error("Failed to canonicalize {1:?}")]
     FailedToCanonicalizePath(#[source] std::io::Error, PathBuf),
+    #[error("Failed to parse standard in manifest")]
+    FailedToParseStandard(#[source] ParseStandardError),
 }
 
 impl ManifestData {
@@ -136,6 +139,16 @@ impl ManifestData {
         targets.append(&mut executables);
         targets.append(&mut libraries);
         let project_config = contents.project_config;
+
+        if let Some(ref pc) = project_config {
+            if let Some(ref std) = pc.std {
+                if let Some(ref language) = pc.language {
+                    std.verify_from_language(language)
+                        .map_err(ParseManifestError::FailedToParseStandard)?;
+                }
+            }
+        }
+
         Ok(Self {
             project_config,
             targets,

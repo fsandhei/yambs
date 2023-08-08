@@ -10,9 +10,11 @@ use std::io::BufRead;
 use std::path::Path;
 use yambs::toolchain::ToolchainError;
 
+use parser::types::Language;
 use yambs::build_target::{target_registry::TargetRegistry, BuildTarget};
 use yambs::cli::command_line::{BuildOpts, CommandLine, ManifestDirectory, RemakeOpts, Subcommand};
 use yambs::cli::configurations::BuildType;
+use yambs::compiler::Compiler;
 use yambs::generator::{
     makefile::make::BuildProcess, makefile::Make, Generator, GeneratorType, MakefileGenerator,
 };
@@ -23,6 +25,7 @@ use yambs::output::Output;
 use yambs::parser;
 use yambs::progress;
 use yambs::toolchain::{NormalizedToolchain, TOOLCHAIN_FILE_NAME};
+use yambs::ProjectConfig;
 use yambs::YAMBS_MANIFEST_NAME;
 use yambs::{YAMBS_BUILD_DIR_VAR, YAMBS_BUILD_TYPE, YAMBS_MANIFEST_DIR};
 
@@ -76,12 +79,16 @@ fn initialize_preset_variables(opts: &BuildOpts) -> anyhow::Result<()> {
 
 fn evaluate_compiler(
     toolchain: &Rc<RefCell<NormalizedToolchain>>,
-    opts: &BuildOpts,
+    project_config: &ProjectConfig,
 ) -> anyhow::Result<()> {
     let toolchain = toolchain.borrow();
-    let compiler = &toolchain.cxx.compiler;
+    let language = &project_config.language;
+    let compiler: Box<dyn Compiler> = match language {
+        Language::CXX => Box::new(toolchain.cxx.compiler.clone()),
+        Language::C => Box::new(toolchain.cc.compiler.clone()),
+    };
     log::trace!("evaluate_compiler");
-    let test_dir = opts.build_directory.as_path().join("sample");
+    let test_dir = project_config.build_directory.as_path().join("sample");
     log::debug!("Evaluating compiler by doing a sample build...");
     compiler.evaluate(&test_dir)?;
     log::debug!("Evaluating compiler by doing a sample build... done");
@@ -110,22 +117,21 @@ fn locate_manifest(manifest_dir: &ManifestDirectory) -> anyhow::Result<std::path
     Ok(manifest_file)
 }
 
-pub fn generator_from_build_opts(
-    opts: &BuildOpts,
+pub fn construct_generator(
+    project_config: &ProjectConfig,
     toolchain: &Rc<RefCell<NormalizedToolchain>>,
 ) -> anyhow::Result<Box<dyn Generator>> {
-    let generator_type = &opts.configuration.generator_type;
+    let generator_type = &project_config.generator_type;
     log::info!("Using {:?} as generator.", generator_type);
     match generator_type {
         GeneratorType::GNUMakefiles => Ok(Box::new(MakefileGenerator::new(
-            &opts.configuration,
-            &opts.build_directory,
+            &project_config,
             toolchain.clone(),
         )?) as Box<dyn Generator>),
     }
 }
 
-fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
+fn do_build(opts: &BuildOpts, output: &Output) -> anyhow::Result<()> {
     let logger = logger::Logger::init(opts.build_directory.as_path(), log::LevelFilter::Trace)?;
     log_invoked_command();
 
@@ -137,18 +143,37 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
     let manifest = parser::parse(&manifest_path).with_context(|| "Failed to parse manifest")?;
 
     // override the command line settings if there are configurations set in the manifest
-    if let Some(cxx_standard) = manifest
+    let std = if let Some(standard) = manifest
         .data
         .project_config
         .as_ref()
-        .and_then(|pc| pc.cxx_std.clone())
+        .and_then(|pc| pc.std.clone())
     {
-        log::info!(
-            "Using C++ standard defined in manifest: {}",
-            cxx_standard.to_string()
-        );
-        opts.configuration.cxx_standard = cxx_standard;
-    }
+        log::info!("Using standard {} found in manifest", standard.to_string());
+        Some(standard)
+    } else {
+        None
+    };
+
+    let language = if let Some(language) = manifest
+        .data
+        .project_config
+        .as_ref()
+        .and_then(|pc| pc.language.clone())
+    {
+        language
+    } else {
+        Language::CXX
+    };
+
+    let project_config = ProjectConfig {
+        std,
+        language,
+        build_directory: opts.build_directory.clone(),
+        build_type: opts.configuration.build_type.clone(),
+        generator_type: opts.configuration.generator_type.clone(),
+        defines: opts.configuration.defines.clone(),
+    };
 
     let toolchain = {
         match detect_toolchain_file(
@@ -199,9 +224,9 @@ fn do_build(opts: &mut BuildOpts, output: &Output) -> anyhow::Result<()> {
 
     let toolchain = Rc::new(RefCell::new(toolchain));
 
-    evaluate_compiler(&toolchain, opts)?;
+    evaluate_compiler(&toolchain, &project_config)?;
 
-    let mut generator = generator_from_build_opts(opts, &toolchain)?;
+    let mut generator = construct_generator(&project_config, &toolchain)?;
     parse_and_register_dependencies(
         &manifest,
         output,

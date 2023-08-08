@@ -16,6 +16,8 @@ pub enum GeneratorError {
     Dependency(#[from] TargetError),
     #[error("Error occured creating rule")]
     CreateRule,
+    #[error("Could not find any standards to use when generating build files")]
+    StandardNotFound,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone, Eq, PartialEq, serde::Deserialize, serde::Serialize)]

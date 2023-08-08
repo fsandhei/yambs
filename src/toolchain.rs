@@ -1,13 +1,13 @@
-use crate::build_target::pkg_config::PkgConfig;
-use crate::compiler::{CXXCompiler, CompilerError, Linker, StdLibCXX};
-use crate::{find_program, FindProgramOptions};
-
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::build_target::pkg_config::PkgConfig;
+use crate::compiler::{CCCompiler, CXXCompiler, CompilerError, Linker, StdLibCC, StdLibCXX};
+use crate::{find_program, FindProgramOptions};
 
 pub const TOOLCHAIN_FILE_NAME: &str = "toolchain.toml";
 
@@ -93,10 +93,50 @@ impl ToolchainCXX {
     }
 }
 
+#[derive(PartialEq, Eq, Debug)]
+pub struct ToolchainCC {
+    pub compiler: CCCompiler,
+    pub linker: Linker,
+}
+
+impl ToolchainCC {
+    pub fn new() -> Result<Self, ToolchainError> {
+        Ok(Self {
+            compiler: CCCompiler::new().map_err(ToolchainError::CouldNotGetCompiler)?,
+            linker: Linker::new(),
+        })
+    }
+
+    pub fn from_toolchain_cc_data(
+        toolchain_cc_data: &ToolchainCCData,
+    ) -> Result<Self, ToolchainError> {
+        let linker = if let Some(ref linker) = toolchain_cc_data.linker {
+            linker.clone()
+        } else {
+            Linker::default()
+        };
+        Ok(Self {
+            compiler: CCCompiler::from_toolchain_cc_data(toolchain_cc_data)
+                .map_err(ToolchainError::CouldNotGetCompiler)?,
+            linker,
+        })
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Deserialize)]
+pub struct ToolchainCCData {
+    pub compiler: PathBuf,
+    pub linker: Option<Linker>,
+    #[serde(default)]
+    pub stdlib: StdLibCC,
+}
+
 #[derive(PartialEq, Eq, Debug, Deserialize)]
 struct Toolchain {
     #[serde(rename = "CXX")]
     pub cxx: ToolchainCXXData,
+    #[serde(rename = "CC")]
+    pub cc: ToolchainCCData,
     pub common: CommonToolchainData,
 }
 
@@ -141,6 +181,7 @@ impl Toolchain {
 
         Ok(NormalizedToolchain {
             cxx: ToolchainCXX::from_toolchain_cxx_data(&self.cxx)?,
+            cc: ToolchainCC::from_toolchain_cc_data(&self.cc)?,
             archiver,
             pkg_config,
         })
@@ -157,6 +198,7 @@ struct CommonToolchainData {
 #[derive(PartialEq, Eq, Debug)]
 pub struct NormalizedToolchain {
     pub cxx: ToolchainCXX,
+    pub cc: ToolchainCC,
     pub archiver: Archiver,
     pub pkg_config: Option<PkgConfig>,
 }
@@ -165,6 +207,7 @@ impl NormalizedToolchain {
     pub fn new() -> Result<Self, ToolchainError> {
         Ok(Self {
             cxx: ToolchainCXX::new()?,
+            cc: ToolchainCC::new()?,
             archiver: Archiver::new().map_err(ToolchainError::Archiver)?,
             pkg_config: PkgConfig::new().ok(),
         })
@@ -188,7 +231,7 @@ pub enum ToolchainError {
         TOOLCHAIN_FILE_NAME
     )]
     IncorrectFilename,
-    #[error("Failed to get information about compiler specified in environment variable CXX")]
+    #[error("Failed to get information about compiler")]
     CouldNotGetCompiler(#[source] CompilerError),
     #[error("Failed to retrieve file name from toolchain file")]
     CouldNotGetFilename,
